@@ -50,6 +50,12 @@ object PlaygroundPayload {
             candArray.put(JSONObject().apply { put("word", c.word); put("score", c.score) })
         }
         put("candidates", candArray)
+
+        val decoderCandArray = JSONArray()
+        data?.getDecoderCandidates()?.forEach { c ->
+            decoderCandArray.put(JSONObject().apply { put("word", c.word); put("score", c.score) })
+        }
+        put("decoder_candidates", decoderCandArray)
     }
 
     /**

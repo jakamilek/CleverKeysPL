@@ -776,6 +776,11 @@ class SuggestionHandler(
             return
         }
 
+        // Evaluation instrumentation: preserve the exact decoder slate before casing,
+        // context reranking, and downstream augmentation. This is capture-only and does
+        // not affect the production suggestion list.
+        swipeData?.setDecoderCandidates(predictions, scores)
+
         // Apply user word case preservation BEFORE shift transformation (proper nouns like "Boston"),
         // then the shift/caps-lock-at-swipe-start transform — IDENTICAL to the legacy IC path so
         // shift/caps casing (oracle 2/3) is unchanged.

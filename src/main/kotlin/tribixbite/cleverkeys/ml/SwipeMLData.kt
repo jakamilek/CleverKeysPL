@@ -87,6 +87,8 @@ class SwipeMLData {
     // are absent on legacy rows and older exports; readers must treat null as "not recorded".
     private var keyGeometry: List<KeyGeom>? = null
     private var candidates: List<RankedCandidate>? = null
+    // Exact decoder slate captured before casing/reranking/augmentation. Optional for legacy rows.
+    private var decoderCandidates: List<RankedCandidate>? = null
     private var decodeLatencyMs: Long? = null
 
     // Constructor for new swipe data
@@ -307,6 +309,13 @@ class SwipeMLData {
             }
             json.put("candidates", candArray)
         }
+        decoderCandidates?.let { cands ->
+            val candArray = JSONArray()
+            for (c in cands) {
+                candArray.put(JSONObject().apply { put("word", c.word); put("score", c.score) })
+            }
+            json.put("decoder_candidates", candArray)
+        }
         decodeLatencyMs?.let { json.put("decode_latency_ms", it) }
 
         return json
@@ -392,6 +401,14 @@ class SwipeMLData {
 
     fun getCandidates(): List<RankedCandidate>? = candidates?.toList()
 
+    /** Attach the exact decoder slate before casing/reranking/augmentation. */
+    fun setDecoderCandidates(words: List<String>?, scores: List<Int>?) {
+        if (words == null || scores == null || words.size != scores.size) return
+        decoderCandidates = words.indices.map { RankedCandidate(words[it], scores[it]) }
+    }
+
+    fun getDecoderCandidates(): List<RankedCandidate>? = decoderCandidates?.toList()
+
     /** Attach the swipe-end → results-displayed latency (decode + routing), ms. */
     fun setDecodeLatencyMs(latencyMs: Long) {
         decodeLatencyMs = latencyMs
@@ -417,6 +434,7 @@ class SwipeMLData {
         copy.keyboardOffsetY = keyboardOffsetY
         copy.keyGeometry = keyGeometry
         copy.candidates = candidates
+        copy.decoderCandidates = decoderCandidates
         copy.decodeLatencyMs = decodeLatencyMs
         return copy
     }
