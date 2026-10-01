@@ -778,7 +778,9 @@ class SuggestionHandler(
 
         // Evaluation instrumentation: preserve the exact decoder slate before casing,
         // context reranking, and downstream augmentation. This is capture-only and does
-        // not affect the production suggestion list.
+        // not affect the production suggestion list. The swipe-data container belongs to
+        // InputCoordinator, so capture it once here and reuse the same object through commit.
+        val swipeData = inputCoordinator.getCurrentSwipeData()
         swipeData?.setDecoderCandidates(predictions, scores)
 
         // Apply user word case preservation BEFORE shift transformation (proper nouns like "Boston"),
@@ -882,7 +884,6 @@ class SuggestionHandler(
 
                 // D5: snapshot swipe state before the commit resets wasLastInputSwipe.
                 val wasSwipeAutoInsert = contextTracker.wasLastInputSwipe()
-                val swipeData = inputCoordinator.getCurrentSwipeData()
 
                 // Swipe Playground (2026-09-03): enrich the capture with the ranking the bar
                 // displays and the swipe-end→results latency BEFORE either store runs, so
