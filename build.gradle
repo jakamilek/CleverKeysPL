@@ -584,6 +584,8 @@ tasks.register('runPureTests', JavaExec) {
 
   def pureTestClasses = [
     'tribixbite.cleverkeys.AccentNormalizerTest',
+    // Evaluation capture: decoder candidate slate round-trip serialization.
+    'tribixbite.cleverkeys.ml.SwipeMLDataDecoderCandidatesTest',
     'tribixbite.cleverkeys.DictionaryWordTest',
     'tribixbite.cleverkeys.BeamSearchModelsTest',
     'tribixbite.cleverkeys.ConfigDefaultsTest',
