@@ -4,57 +4,58 @@ Data migracji: 2026-10-01
 
 ## Model projektu
 
-Od tego punktu eksperyment jest traktowany jako jeden wspólny projekt: aplikacja CleverKeys + polski pakiet językowy. Obie części są zależne od siebie.
+Aplikacja/runtime oraz polski pakiet językowy są od tego punktu traktowane jako jeden wspólny, zależny projekt eksperymentalny.
 
-## Repozytorium aktywne
+## Aktywne repozytorium integracyjne
 
 jakamilek/CleverKeysPL
 
-Bieżąca gałąź integracyjna:
+Gałąź:
 exp/unified-pl-project-2026-10-01
 
-Gałąź została utworzona z runtime HEAD:
+Finalny HEAD stanu migracji:
+d4876a406a7d3b37075d7295e0ec443d49711287
+
+## Podstawa runtime przed migracją
+
 6d101df98e28dbcb762cff39f193ebd3e1d644dc
+
+Migracja ma dwa commity:
+cf7c2bc52db64f4e7cabfadff5f506704d3ecdfd — integracja snapshotu
+d4876a406a7d3b37075d7295e0ec443d49711287 — zachowanie trybu wykonywalnego skryptów
 
 ## Snapshot pakietu PL
 
 Źródło:
 jakamilek/CleverKeys-langpack-pl
 
-Źródłowa gałąź:
+Gałąź źródłowa:
 ops/baseline-sync-2026-09-20
 
-Dokładny źródłowy commit:
+Dokładny source commit:
 8862b31044695f0f28a8667ec851d1ba5b278dd3
 
-Snapshot został umieszczony w tym repozytorium pod:
+Umiejscowienie w monorepo:
 langpack-pl/
 
-Nie zmieniono treści plików pakietu podczas migracji.
+Snapshot zawiera 123 pliki. Drzewo snapshotu zachowuje identyczny SHA drzewa:
+1756a24210cf1a9c3593caa0415557986a7c4b40
 
-## Reguła ważności
+Treść plików pakietu nie została zmieniona podczas migracji.
 
-Ten snapshot jest kopią stanu z dokładnego SHA powyżej. Dalszy rozwój tego wspólnego eksperymentu powinien odbywać się w aktywnym repozytorium jakamilek/CleverKeysPL.
+## Zasada aktywnego rozwoju
 
-Oryginalne repozytorium pakietu PL pozostaje zachowane jako historyczne źródło pochodzenia snapshotu. Nie należy tworzyć dwóch aktywnych, rozchodzących się wersji tych samych zmian.
+Dalszy rozwój wspólnego eksperymentu powinien odbywać się w jakamilek/CleverKeysPL na odpowiednich gałęziach eksperymentalnych. Oryginalne repozytorium pakietu PL pozostaje zachowane jako historyczne źródło pochodzenia.
 
-## Ważne
+Nie należy utrzymywać dwóch rozchodzących się aktywnych kopii projektu.
 
-Pakietowe workflowy GitHub zachowano wewnątrz langpack-pl/.github/workflows/ jako część snapshotu. GitHub Actions nie uruchamia automatycznie workflowów znajdujących się w zagnieżdżonym katalogu. Ich integracja z głównym .github/workflows/ jest osobnym krokiem i nie została tutaj założona jako wykonana.
+## GitHub Actions
+
+Workflowy pakietu zostały zachowane w langpack-pl/.github/workflows/ jako część snapshotu. Zagnieżdżone workflowy nie są automatycznie wykonywane przez GitHub Actions. Ich przeniesienie/adaptacja do głównego .github/workflows/ jest osobnym zadaniem.
 
 ## Zero domysłów
 
-Obowiązuje:
+Obowiązuje dokument:
 langpack-pl/docs/PROJECT_RULE_NO_GUESSING_2026-10-01.md
 
-Nie wolno traktować pamięci rozmowy jako źródła faktów tam, gdzie można zweryfikować aktualny Git.
-
-## Provenance
-
-Migracja zachowuje:
-- pełny bieżący snapshot plików pakietu PL
-- źródłowe ścieżki i zawartość
-- dokładny source commit SHA
-- możliwość porównania z oryginalnym repozytorium
-
-Nie próbowano tworzyć sztucznej historii Git z parentem pochodzącym z innego repozytorium.
+Nie wolno zastępować weryfikacji aktualnego GitHubu pamięcią rozmowy ani przypuszczeniem.
