@@ -1,4 +1,5 @@
 name: Experimental runtime build
+# Experimental branch verification: build + pure JVM tests only.
 
 on:
   push:
