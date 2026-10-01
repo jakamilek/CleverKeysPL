@@ -183,6 +183,14 @@ class SwipeMLData {
             }
             candidates = cands
         }
+        json.optJSONArray("decoder_candidates")?.let { candArray ->
+            val cands = ArrayList<RankedCandidate>(candArray.length())
+            for (i in 0 until candArray.length()) {
+                val c = candArray.getJSONObject(i)
+                cands.add(RankedCandidate(c.getString("word"), c.getInt("score")))
+            }
+            decoderCandidates = cands
+        }
         if (json.has("decode_latency_ms")) {
             decodeLatencyMs = json.getLong("decode_latency_ms")
         }
