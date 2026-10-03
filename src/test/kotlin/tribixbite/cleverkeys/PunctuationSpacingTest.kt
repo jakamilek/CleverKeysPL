@@ -4,6 +4,23 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PunctuationSpacingTest {
+    @Test fun numericSentencePeriodWithExplicitSeparator() {
+        for (before in listOf("3. ", "Mam 3. ", "3,5. ", "(3. ", "-3. ")) {
+            assertTrue(before, SmartAutoSpace.numericPeriodStartsSentence(before, ""))
+        }
+    }
+    @Test fun numericSentencePeriodBeforeWordSuggestion() {
+        assertTrue(SmartAutoSpace.numericPeriodStartsSentence("Mam 3.", "", allowAdjacent = true))
+        assertFalse(SmartAutoSpace.numericPeriodStartsSentence("Mam 3.", ""))
+    }
+    @Test fun decimalAndTechnicalContextsAreNotNumericSentenceBoundaries() {
+        for (before in listOf("3.4", "3,4", "3:", "v3. ", "www.3. ", "1.2.3. ")) {
+            assertFalse(before, SmartAutoSpace.numericPeriodStartsSentence(before, "", allowAdjacent = true))
+        }
+        assertFalse(SmartAutoSpace.numericPeriodStartsSentence("3.", "4", allowAdjacent = true))
+        assertFalse(SmartAutoSpace.numericPeriodStartsSentence(null, ""))
+        assertFalse(SmartAutoSpace.numericPeriodStartsSentence("3. ", null))
+    }
     private fun insert(before: String, char: Char, after: String = ""): String {
         val edit = SmartAutoSpace.punctuationEdit(char, before, after)
         return if (edit == null) before + char + after

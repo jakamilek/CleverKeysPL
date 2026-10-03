@@ -105,7 +105,7 @@
             android:paddingEnd="12dp"
             android:paddingTop="12dp"
             android:paddingBottom="12dp"
-            android:inputType="text"
+            android:inputType="text|textCapSentences"
             android:importantForAutofill="no"
             android:textSize="16sp"
             android:maxLines="1"

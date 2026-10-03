@@ -317,6 +317,44 @@ class SwipeAutocapCommitTest {
         verify(exactly = 0) { ic.commitText(" ", 1) }
     }
 
+    @Test
+    fun numberEndingPeriodAndNextSwipeWordStartASentence() {
+        config.auto_space_before_suggestion = true
+        val text = editorBuffer("Mam 3.")
+        every { ic.getCursorCapsMode(any()) } returns 0
+
+        swipe(capSentencesField())
+
+        assertWithMessage("the separator is decided after casing, so a next-word swipe needs the boundary fallback")
+            .that(text.toString()).isEqualTo("Mam 3. Bowie ")
+    }
+
+    @Test
+    fun decimalNumberBeforeSwipeDoesNotCapitalizeTheWord() {
+        config.auto_space_before_suggestion = true
+        val text = editorBuffer("Mam 3.4")
+        every { ic.getCursorCapsMode(any()) } returns 0
+
+        swipe(capSentencesField())
+
+        assertWithMessage("the decimal's internal period is not sentence punctuation")
+            .that(text.toString()).isEqualTo("Mam 3.4 bowie ")
+    }
+
+    @Test
+    fun numericBoundaryRespectsAutocapAndSearchExclusions() {
+        config.auto_space_before_suggestion = true
+        config.autocapitalisation = false
+        val text = editorBuffer("3.")
+        swipe(capSentencesField())
+        assertWithMessage("disabled autocap stays disabled").that(text.toString()).isEqualTo("3. bowie ")
+
+        config.autocapitalisation = true
+        val searchText = editorBuffer("3.")
+        swipe(capSentencesField().apply { imeOptions = EditorInfo.IME_ACTION_SEARCH })
+        assertWithMessage("the fallback must not format search input").that(searchText.toString()).isEqualTo("3.bowie")
+    }
+
     // ------------------------------------------------------------------ reflection
 
     private fun Any.setField(name: String, value: Any?) {

@@ -86,13 +86,13 @@ class ShiftWordCapitalizationTest {
         handler.selection_updated(old + 1, cursor)
     }
 
-    @Test fun changesAtWordEndAndRestoresCaret() {
+    @Test fun wordEndKeepsOrdinaryShift() {
         park(12)
-        assertTrue(handler.tryWordCapitalization())
-        assertEquals("To jest Łódź.", text)
+        assertFalse(handler.tryWordCapitalization())
+        assertEquals("To jest łódź.", text)
         assertEquals(12, start); assertEquals(start, end)
-        verify(exactly = 1) { conn.commitText("Ł", 1) }
-        verify(exactly = 1) { recv.onWordCapitalizationChanged(12) }
+        verify(exactly = 0) { conn.commitText("Ł", 1) }
+        verify(exactly = 0) { recv.onWordCapitalizationChanged(any()) }
         verify(exactly = 0) { conn.deleteSurroundingText(any(), any()) }
     }
     @Test fun middleOfWordDoesNotLoseSuffixOrMoveCaret() {
@@ -110,13 +110,13 @@ class ShiftWordCapitalizationTest {
         assertEquals(10, start)
     }
     @Test fun suffixCapitalizationAndWhitespaceRemainExact() {
-        text = "A iPhone  B"; park(8)
+        text = "A iPhone  B"; park(5)
         assertTrue(handler.tryWordCapitalization())
         assertEquals("A IPhone  B", text)
     }
     @Test fun extractedStartOffsetIsAdded() {
         extracted.startOffset = 8
-        park(12)
+        park(10)
         assertTrue(handler.tryWordCapitalization())
         assertEquals("To jest Łódź.", text)
         verify { conn.setSelection(8, 9) }
@@ -228,5 +228,30 @@ class ShiftWordCapitalizationTest {
         every { recv.isGifPaneOpen() } returns true
         assertFalse(handler.tryWordCapitalization())
         verify(exactly = 0) { conn.commitText(any(), any()) }
+    }
+    @Test fun movingAcrossEveryInteriorPositionWorksWithoutFinalBatchCallbacks() {
+        for (word in listOf("łódź", "malina", "warszawska", "znowu")) {
+            handler.invalidateWordCaseEdit()
+            text = "A $word."
+            start = text.length; end = start
+            var expected = word
+            for (offset in 0 until word.length) {
+                val old = start
+                start = 2 + offset; end = start
+                handler.selection_updated(old, start)
+                assertTrue("$word at $offset", handler.tryWordCapitalization())
+                expected = if (expected.first().isUpperCase()) expected.replaceFirstChar { it.lowercase() }
+                    else expected.replaceFirstChar { it.uppercase() }
+                assertEquals("A $expected.", text)
+                assertEquals(2 + offset, start)
+                assertEquals(start, end)
+                // No callback is sent for the unchanged restored caret.
+            }
+            val old = start
+            start = 2 + word.length; end = start
+            handler.selection_updated(old, start)
+            assertFalse(handler.tryWordCapitalization())
+            assertEquals("A $expected.", text)
+        }
     }
 }

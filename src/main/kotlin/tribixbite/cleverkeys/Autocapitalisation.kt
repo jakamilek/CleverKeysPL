@@ -18,6 +18,7 @@ class Autocapitalisation(
     private var shouldUpdateCapsMode = false
 
     private var ic: InputConnection? = null
+    private var editorInfo: EditorInfo? = null
     private var capsMode = 0
 
     /** Keep track of the cursor to recognize cursor movements from typing. */
@@ -33,6 +34,7 @@ class Autocapitalisation(
      */
     fun started(info: EditorInfo, ic: InputConnection) {
         this.ic = ic
+        editorInfo = info
         // Check inputType for CAP_MODE flags
         capsMode = info.inputType and SUPPORTED_CAPS_MODES
         val autocapEnabled = Config.globalConfig().autocapitalisation
@@ -125,7 +127,8 @@ class Autocapitalisation(
     private val delayed_callback = Runnable {
         if (shouldUpdateCapsMode && ic != null) {
             val cursorCapsMode = ic?.getCursorCapsMode(capsMode) ?: 0
-            shouldEnableShift = enabled && (cursorCapsMode != 0)
+            shouldEnableShift = enabled && (cursorCapsMode != 0 ||
+                numericSentenceBoundary(ic, editorInfo, allowAdjacent = false))
             vlog { "AUTOCAP callback: enabled=$enabled, cursorCapsMode=$cursorCapsMode, shouldEnableShift=$shouldEnableShift" }
             shouldUpdateCapsMode = false
         }
@@ -223,16 +226,29 @@ class Autocapitalisation(
         fun shouldCapitalizeAtCursor(
             ic: InputConnection?,
             info: EditorInfo?,
-            autocapEnabled: Boolean
+            autocapEnabled: Boolean,
+            allowAdjacentNumericPeriod: Boolean = false
         ): Boolean {
             if (!autocapEnabled || ic == null || info == null) return false
             val capsMode = info.inputType and SUPPORTED_CAPS_MODES
             if (capsMode == 0) return false
             return try {
-                ic.getCursorCapsMode(capsMode) != 0
+                ic.getCursorCapsMode(capsMode) != 0 ||
+                    numericSentenceBoundary(ic, info, allowAdjacentNumericPeriod)
             } catch (e: Exception) {
                 false
             }
+        }
+
+        private fun numericSentenceBoundary(ic: InputConnection?, info: EditorInfo?, allowAdjacent: Boolean): Boolean {
+            if (ic == null || info == null ||
+                (info.inputType and InputType.TYPE_TEXT_FLAG_CAP_SENTENCES) == 0 ||
+                !EditorSpacingPolicy.allowsAutomaticSpacing(info)) return false
+            return try {
+                SmartAutoSpace.numericPeriodStartsSentence(
+                    ic.getTextBeforeCursor(64, 0)?.toString(),
+                    ic.getTextAfterCursor(1, 0)?.toString(), allowAdjacent)
+            } catch (_: Exception) { false }
         }
     }
 }

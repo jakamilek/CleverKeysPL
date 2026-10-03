@@ -77,6 +77,23 @@ Gates remain enabled; this is not an all-green workflow.
 
 ## Device report and diagnostics
 
+Follow-up phone log (`swipe-spacing-v2`, app=tribixbite.cleverkeys.debug) confirms
+language=pl/provider=true and the łodzi/Łodzi pair (exactForms=2). The maintainer
+reports much better behavior. Keep this qualitative; the earlier report is not
+proof of every path passing. Remaining reports: capitalization after numeric period
+and selective Shift movement handling.
+
+Numeric punctuation remains literal while typing (3.4, 3,4). A number-ending
+period followed by a separator is a sentence boundary; a swipe requesting a whole
+word can detect it just before its configured leading separator is committed.
+This fallback requires autocap enabled, the live CAP_SENTENCES flag and ordinary
+formatting eligibility. No fallback for search/password/URI, absent CAP flags,
+disabled leading separation at an adjacent period, decimal-internal periods,
+technical tokens or unavailable context. Tap autocap uses the same fallback after
+an explicit space; it does not latch while a decimal remains unfinished.
+The playground now advertises textCapSentences, matching a prose text field.
+Marker `cursor-caps-v3` identifies this follow-up; EDIT and provider diagnostics remain.
+
 The reported log contains joined tracker prefixes (łódźłodzi, łódźłodzijuror) and
 omits the expected source casing pairs. It does not identify the active build,
 pack/provider, preferences or intervening user actions. Debounced cursor logs can

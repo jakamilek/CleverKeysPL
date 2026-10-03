@@ -11,7 +11,8 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 - Maintainer reports that the on-device source casing pairs work quite well; this is qualitative feedback, not a complete acceptance checklist.
 - [x] Implement Shift toggling the first letter after returning the caret to an existing word; preserve ordinary typing, pointer modifiers and cursor position.
 - [x] Shift commit d64439ac: debug build, pure and focused mock checks pass (run 37114260076).
-- [ ] Real-device validation before promotion; whole CI still has pre-existing lint/security failures.
+- [ ] Latest phone report: edits work selectively. Fix/test missing final batch callback before the next cursor move; every interior position must work. Maintainer now excludes the position after the last letter.
+- [ ] Validate cursor-caps-v3 before promotion; whole CI still has pre-existing lint/security failures.
 - Spec: [cursor-word-capitalization.md](../docs/specs/cursor-word-capitalization.md).
 
 ## Polish trial — field-aware spacing (2026-10-03)
@@ -19,10 +20,10 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 - [x] Agreed shared swipe/tap preferences, search/password/technical field exclusions and punctuation rules.
 - [x] Implement actual-suffix alternate replacement, manual-space punctuation and field guards.
 - [x] b373391c88de57edacd7ad2d0ad4ea8b62e23985: debug build, 2773 pure + 129 focused mock checks PASS (run 37123257770).
-- [ ] Phone report unresolved: joined tracker prefixes and missing casing pairs; supplied log cannot establish exact edits, active build/provider or root cause.
+- [x] New phone log identifies debug v2, PL provider and łodzi/Łodzi pair; maintainer reports much better behavior. Previous missing-pair/spacing report not fully reproducible from old logs.
 - [x] Remove unconditional independent pre-swipe space; route whole swipe through shared field/preferences policy. Add five complete-path buffer regressions and trial/EDIT diagnostics.
 - [x] c272f9ec1787310c69b681b8ef7dd0a7fdbfa813: debug build, 2773 pure + 134 focused mock PASS (2907 total), run 37133110865; APK artifact 11277678542.
-- [ ] Verify swipe-spacing-v2 on phone; baseline lint/security failures still keep the workflow red. Mock success does not close the phone report.
+- [ ] Numeric sentence follow-up: after 3. + next word, use shared gated autocap boundary; preserve 3.4 and search/password exclusions. Playground should advertise sentence caps. Build/test cursor-caps-v3 and verify on phone.
 - Typed-prefix completions are working per maintainer; explicitly withdrawn from scope.
 - Spec: [editor-spacing.md](../docs/specs/editor-spacing.md).
 
@@ -113,4 +114,3 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 ## Release authority
 
 Do not commit, tag, push, publish, or open external issues without explicit user authorization.
-

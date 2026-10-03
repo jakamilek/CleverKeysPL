@@ -120,6 +120,21 @@ object SmartAutoSpace {
         else -> null
     }
 
+    /** A number-ending period is a sentence boundary once a separator/next word is requested.
+     * Keep an unfinished decimal literal; this never inserts or removes numeric punctuation.
+     */
+    fun numericPeriodStartsSentence(before: String?, after: String?, allowAdjacent: Boolean = false): Boolean {
+        if (before == null || after == null) return false
+        val trimmed = before.trimEnd()
+        if (!allowAdjacent && trimmed.length == before.length) return false
+        if (!trimmed.endsWith('.') || after.firstOrNull()?.isDigit() == true) return false
+        val token = trimmed.dropLast(1).takeLastWhile { !it.isWhitespace() }
+            .trimStart('(', '[', '{', '„', '“', '"', '«')
+        return NUMERIC_SENTENCE_TOKEN.matches(token)
+    }
+
+    private val NUMERIC_SENTENCE_TOKEN = Regex("[+-]?[\\p{Nd}]+(?:[.,][\\p{Nd}]+)?")
+
     fun hasSeparatorAfter(after: Char?): Boolean =
         after != null && (after.isWhitespace() || isClosingPunctuation(after) || after == '"' || after == '»')
 
@@ -189,4 +204,3 @@ object SmartAutoSpace {
         decideTrailingSpace(autoSpaceAfterEnabled, isSwipeAutoInsert, hasSpaceAfter) ==
             TrailingSpaceMode.TRAILING_SPACE
 }
-

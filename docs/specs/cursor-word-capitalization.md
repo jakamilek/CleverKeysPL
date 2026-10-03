@@ -2,15 +2,17 @@
 
 ## Feature Overview
 
-Status: debug build and pure/focused mock checks passed at d64439ac (CI run 37114260076); real-device validation pending (2026-10-03).
+Status: phone feedback confirms repeated edits but reports selective cursor-position behavior (2026-10-03). Follow-up fixes missing batch acknowledgement handling; validation pending.
 The workflow still fails on pre-existing SubkeyAssignActivity lint and site devalue security findings.
 Motivation: after selecting łódź from a swipe pair, a user can return to the word
 and change it to Łódź without retyping or locating the original suggestion slate.
 
 ## Requirements
 
-- A plain unused Shift tap after an explicit cursor move into, to the start of,
-  or immediately after a word toggles its FIRST letter's case.
+- A plain unused Shift tap after an explicit cursor move into or to the start of
+  a word toggles its FIRST letter's case, at every interior position.
+- Maintainer correction: immediately AFTER the last letter, Shift keeps ordinary
+  behavior. This supersedes the previous end-of-word editing requirement.
 - Further taps toggle that letter back; suffix spelling, spaces, punctuation,
   and the cursor's absolute UTF-16 offset remain unchanged.
 - This works for manually typed and swiped words independently of langpack metadata.
@@ -28,6 +30,9 @@ Pointers intercepts only an unused released Shift tap before its latch/lock bran
 The view delegates through Config.IKeyEventHandler to KeyEventHandler.
 CursorWordCapitalization retains session-only eligibility from full selection
 callbacks; position acknowledgements of IME text mutations do not arm editing.
+After a case edit, a missing final callback for the unchanged restored caret must
+not suppress the next real user movement. The stale pre-commit-read guard applies
+to ordinary text mutations only, not to a retained case edit at a known caret.
 Unknown mutation positions suppress one callback. Initial input/finished input
 clear the state, and further non-modifier typing disarms it.
 
@@ -66,12 +71,12 @@ bridge and slider tests remain CI checks.
 
 Device checklist:
 
-1. Swipe/select łódź, type more text, return the cursor to łó|dź or łódź|.
+1. Swipe/select łódź, type more text, return the cursor to ł|ódź, łó|dź or łód|ź.
 2. Tap Shift: Łódź appears, the caret remains in the same place, no spaces change.
 3. Tap Shift again: łódź appears; repeat for malina/Malina and warszawska/Warszawska.
 4. Type a new word normally and press Shift before its next character; existing
    word spelling must not change as an acknowledgement of IME typing.
-5. Cursor after a space: Shift capitalizes the next typed letter normally.
+5. Cursor at łódź| or after a space: Shift capitalizes the next typed letter normally.
 6. Verify Caps Lock, Shift+letter hold, subkeys, field/app switches and editor undo.
 
 ## Limitations

@@ -5,19 +5,18 @@ import org.junit.Test
 
 class CursorWordCapitalizationTest {
     @Test fun polishWordAtEnd() {
-        assertEquals(CursorWordCapitalization.Edit(8, "ł", "Ł", 12),
-            CursorWordCapitalization.plan("To jest łódź", "", 12))
+        assertNull(CursorWordCapitalization.plan("To jest łódź", "", 12))
     }
     @Test fun polishWordInMiddle() {
         assertEquals(CursorWordCapitalization.Edit(8, "ł", "Ł", 10),
             CursorWordCapitalization.plan("To jest łó", "dź.", 10))
     }
     @Test fun capitalizedWordReturnsToLowercase() {
-        assertEquals("ł", CursorWordCapitalization.plan("Łódź", "", 4)?.replacement)
+        assertEquals("ł", CursorWordCapitalization.plan("Łó", "dź", 2)?.replacement)
     }
     @Test fun onlyFirstLetterChanges() {
-        assertEquals(CursorWordCapitalization.Edit(0, "i", "I", 6),
-            CursorWordCapitalization.plan("iPhone", "", 6))
+        assertEquals(CursorWordCapitalization.Edit(0, "i", "I", 3),
+            CursorWordCapitalization.plan("iPh", "one", 3))
     }
     @Test fun wordStartAlsoWorks() {
         assertEquals(CursorWordCapitalization.Edit(0, "m", "M", 0),
@@ -38,11 +37,11 @@ class CursorWordCapitalizationTest {
         val lower = String(Character.toChars(0x10428))
         val upper = String(Character.toChars(0x10400))
         assertEquals(CursorWordCapitalization.Edit(0, lower, upper, 3),
-            CursorWordCapitalization.plan(lower + "a", "", 3))
+            CursorWordCapitalization.plan(lower + "a", "b", 3))
     }
     @Test fun technicalTokensAreSkipped() {
-        for ((before, after) in listOf("lodz" to ".pl", "name@lodz" to "",
-            "/lodz" to "", "abc_łódź" to "", "łódź" to "123", "123łódź" to "")) {
+        for ((before, after) in listOf("lod" to "z.pl", "name@lo" to "dz",
+            "/lo" to "dz", "abc_łó" to "dź", "łó" to "dź123", "123łó" to "dź")) {
             assertNull("$before|$after", CursorWordCapitalization.plan(before, after, before.length))
         }
     }
@@ -51,12 +50,12 @@ class CursorWordCapitalizationTest {
         assertNull(CursorWordCapitalization.plan("", "a".repeat(128), 0))
     }
     @Test fun uncasedLettersAndEmptyInputAreSkipped() {
-        assertNull(CursorWordCapitalization.plan("東京", "", 2))
+        assertNull(CursorWordCapitalization.plan("東", "京", 1))
         assertNull(CursorWordCapitalization.plan("", "", 0))
     }
     @Test fun hyphenatedAndApostropheWordsChangeOnlyInitial() {
-        assertEquals("D", CursorWordCapitalization.plan("don’t", "", 5)?.replacement)
-        assertEquals("Ł", CursorWordCapitalization.plan("łódź-warszawa", "", 13)?.replacement)
+        assertEquals("D", CursorWordCapitalization.plan("don", "’t", 3)?.replacement)
+        assertEquals("Ł", CursorWordCapitalization.plan("łódź-war", "szawa", 8)?.replacement)
     }
     @Test fun initialShiftCannotEditText() {
         assertNull(CursorWordCapitalization().eligiblePosition)
@@ -109,5 +108,29 @@ class CursorWordCapitalizationTest {
         assertEquals(6, state.eligiblePosition)
         state.reset()
         assertNull(state.eligiblePosition)
+    }
+    @Test fun caseEditWithoutFinalCallbackDoesNotSwallowTheNextUserMove() {
+        val state = CursorWordCapitalization()
+        state.mutation(96, retainEdit = true)
+        // Batch edit ended at the same caret: Android need not send a final callback.
+        state.selection(96, 96, 87, 87)
+        assertEquals(87, state.eligiblePosition)
+    }
+    @Test fun everyInteriorPositionWorksAndTheWordEndDoesNot() {
+        for (word in listOf("łódź", "malina", "warszawska", "znowu")) {
+            for (offset in 0 until word.length) {
+                val before = "A " + word.take(offset)
+                val after = word.drop(offset) + "."
+                assertNotNull("$word at $offset", CursorWordCapitalization.plan(before, after, before.length))
+            }
+            assertNull(CursorWordCapitalization.plan("A $word", ".", word.length + 2))
+        }
+    }
+    @Test fun cursorKeyDisarmingTheRepeatDoesNotTurnACaseEditIntoATypingMutation() {
+        val state = CursorWordCapitalization()
+        state.mutation(96, retainEdit = true)
+        state.disarm()
+        state.selection(96, 96, 87, 87)
+        assertEquals(87, state.eligiblePosition)
     }
 }

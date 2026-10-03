@@ -905,7 +905,8 @@ class SuggestionHandler(
         val casedPredictions = predictionCoordinator.getWordPredictor()
             ?.applyUserWordCaseToList(predictions) ?: predictions
         val autocapAtCursor = !shiftActive && !shiftLocked &&
-            Autocapitalisation.shouldCapitalizeAtCursor(ic, editorInfo, config.autocapitalisation)
+            Autocapitalisation.shouldCapitalizeAtCursor(ic, editorInfo, config.autocapitalisation,
+                allowAdjacentNumericPeriod = config.auto_space_before_suggestion)
         val transformedPredictions = casedPredictions.map {
             applyShiftTransformation(it, shiftActive || autocapAtCursor, shiftLocked)
         }
@@ -958,7 +959,8 @@ class SuggestionHandler(
         val barLanguages = surfaceSlate.languages
         // Metadata only: do not add editor text to logs from arbitrary app fields.
         sendDebugLog(
-            "TRIAL swipe-spacing-v2 app=${BuildConfig.APPLICATION_ID} " +
+            "TRIAL cursor-caps-v3 app=${BuildConfig.APPLICATION_ID} " +
+                "autocap=${config.autocapitalisation} capAtCursor=$autocapAtCursor " +
                 "before=${config.auto_space_before_suggestion} after=${config.auto_space_after_suggestion} " +
                 "format=${!passwordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo)} " +
                 "language=$topLanguage provider=${provider != null} " +
@@ -3372,4 +3374,3 @@ class SuggestionHandler(
         }
     }
 }
-

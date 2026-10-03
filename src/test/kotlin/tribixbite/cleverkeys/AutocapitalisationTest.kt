@@ -282,6 +282,28 @@ class AutocapitalisationTest {
         verify { mockCallback.update_shift_state(false, any()) }
     }
 
+    @Test
+    fun `numeric sentence boundary also enables tap shift after a typed space`() {
+        enableAutocap()
+        every { mockIc.getTextBeforeCursor(any(), any()) } returns "Mam 3. "
+        every { mockIc.getTextAfterCursor(any(), any()) } returns ""
+        clearMocks(mockCallback, answers = false)
+        autocap.typed(" ")
+        runCapturedCallback()
+        verify { mockCallback.update_shift_state(true, any()) }
+    }
+
+    @Test
+    fun `unfinished decimal does not prematurely enable tap shift`() {
+        enableAutocap()
+        every { mockIc.getTextBeforeCursor(any(), any()) } returns "3."
+        every { mockIc.getTextAfterCursor(any(), any()) } returns ""
+        clearMocks(mockCallback, answers = false)
+        autocap.typed(".")
+        runCapturedCallback()
+        verify { mockCallback.update_shift_state(false, any()) }
+    }
+
     // =========================================================================
     // Helpers
     // =========================================================================

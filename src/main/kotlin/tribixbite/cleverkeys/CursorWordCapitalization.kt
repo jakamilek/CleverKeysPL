@@ -8,6 +8,7 @@ internal class CursorWordCapitalization {
     private var awaitingUnknownMutation = false
     private var awaitingMutationAcknowledgement = false
     private var repeatEdit = false
+    private var knownCaseMutation = false
 
     fun disarm() {
         eligiblePosition = null
@@ -20,6 +21,7 @@ internal class CursorWordCapitalization {
         awaitingUnknownMutation = false
         awaitingMutationAcknowledgement = false
         repeatEdit = false
+        knownCaseMutation = false
     }
 
     fun mutation(position: Int, retainEdit: Boolean = false) {
@@ -28,6 +30,7 @@ internal class CursorWordCapitalization {
         awaitingUnknownMutation = position < 0
         awaitingMutationAcknowledgement = true
         repeatEdit = retainEdit
+        knownCaseMutation = retainEdit && position >= 0
     }
 
     fun selection(oldStart: Int, oldEnd: Int, newStart: Int, newEnd: Int) {
@@ -48,7 +51,10 @@ internal class CursorWordCapitalization {
         }
         // Some editors expose the pre-commit cursor during the immediate read.
         // Its first movement acknowledgement must still leave ordinary Shift alone.
-        if (awaitingMutationAcknowledgement && oldStart == expectedPosition && oldStart == oldEnd) {
+        // A case edit restores a known caret in a batch. Editors can omit its unchanged
+        // final-selection callback; the next USER move must not be swallowed as an ack.
+        if (awaitingMutationAcknowledgement && !knownCaseMutation &&
+            oldStart == expectedPosition && oldStart == oldEnd) {
             awaitingMutationAcknowledgement = false
             expectedPosition = null
             eligiblePosition = null
@@ -58,6 +64,7 @@ internal class CursorWordCapitalization {
             expectedPosition = null
             awaitingMutationAcknowledgement = false
             repeatEdit = false
+            knownCaseMutation = false
             eligiblePosition = newStart
         }
     }
@@ -82,6 +89,8 @@ internal class CursorWordCapitalization {
             while (end < text.length && wordPart(Character.codePointAt(text, end))) {
                 end += Character.charCount(Character.codePointAt(text, end))
             }
+            // A caret immediately after the last letter keeps ordinary Shift behavior.
+            if (caret == end) return null
             if (start == end || (start == 0 && before.length >= CONTEXT_LIMIT) ||
                 (end == text.length && after.length >= CONTEXT_LIMIT)) return null
             val word = text.substring(start, end)
