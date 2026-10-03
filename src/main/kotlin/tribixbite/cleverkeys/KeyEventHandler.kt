@@ -490,11 +490,16 @@ class KeyEventHandler(
             val char = text[0]
 
             if (automaticSpacing && config.smart_punctuation && SmartAutoSpace.isFormattingPunctuation(char)) {
+                val before = conn.getTextBeforeCursor(500, 0)?.toString()
                 val edit = SmartAutoSpace.punctuationEdit(
-                    char,
-                    conn.getTextBeforeCursor(500, 0)?.toString(),
-                    conn.getTextAfterCursor(1, 0)?.toString()
-                )
+                    char, before, conn.getTextAfterCursor(1, 0)?.toString()
+                ) ?: if (char == '\'' && SmartAutoSpace.isSwallowEligible(
+                        recv.wasLastSpaceAutoInserted(), recv.getAutoSpaceStampedPosition(),
+                        before?.lastOrNull(), PredictionContextTracker.currentCursorPosition(conn))) {
+                    // Retain lexical apostrophe attachment after an automatic swipe space,
+                    // without introducing a space inside kids'/O'Connor.
+                    SmartAutoSpace.PunctuationEdit(1, char.toString(), false)
+                } else null
                 // If deletion is refused, commit the literal key instead of claiming success.
                 if (edit != null && (edit.deleteBefore == 0 ||
                         conn.deleteSurroundingText(edit.deleteBefore, 0))) {

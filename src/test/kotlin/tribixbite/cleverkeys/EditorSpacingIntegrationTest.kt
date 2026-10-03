@@ -129,6 +129,12 @@ class EditorSpacingIntegrationTest {
         verify { recv.appendToClipboardSearch(",") }
         verify(exactly = 0) { conn.commitText(any(), any()) }
     }
+    @Test fun swipeApostropheKeepsTheLexicalJoinerBehavior() {
+        every { recv.wasLastSpaceAutoInserted() } returns true
+        every { recv.getAutoSpaceStampedPosition() } returns -1
+        before = "kids "; type('\'')
+        assertEquals("kids'", before)
+    }
     @Test fun ordinaryLettersDoNotFetchPunctuationContext() {
         before = "hel"; type('i')
         assertEquals("heli", before)

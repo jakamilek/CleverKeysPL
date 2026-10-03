@@ -84,7 +84,7 @@ object SmartAutoSpace {
     }
 
     private val FORMATTING_CLOSERS = setOf('.', ',', ';', ':', '!', '?', '…', ')', ']', '}', '”', '»')
-    fun isFormattingPunctuation(char: Char): Boolean = char in FORMATTING_CLOSERS || char == '"'
+    fun isFormattingPunctuation(char: Char): Boolean = char in FORMATTING_CLOSERS || char == '"' || char == '\''
 
     /** A bounded edit around the caret; never removes tabs, newlines or indentation. */
     data class PunctuationEdit(val deleteBefore: Int, val text: String, val addedSpace: Boolean)
