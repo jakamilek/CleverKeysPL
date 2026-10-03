@@ -89,8 +89,6 @@ internal class CursorWordCapitalization {
             while (end < text.length && wordPart(Character.codePointAt(text, end))) {
                 end += Character.charCount(Character.codePointAt(text, end))
             }
-            // A caret immediately after the last letter keeps ordinary Shift behavior.
-            if (caret == end) return null
             if (start == end || (start == 0 && before.length >= CONTEXT_LIMIT) ||
                 (end == text.length && after.length >= CONTEXT_LIMIT)) return null
             val word = text.substring(start, end)

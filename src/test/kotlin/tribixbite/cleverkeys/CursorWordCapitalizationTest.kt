@@ -5,7 +5,7 @@ import org.junit.Test
 
 class CursorWordCapitalizationTest {
     @Test fun polishWordAtEnd() {
-        assertNull(CursorWordCapitalization.plan("To jest łódź", "", 12))
+        assertEquals("Ł", CursorWordCapitalization.plan("To jest łódź", "", 12)?.replacement)
     }
     @Test fun polishWordInMiddle() {
         assertEquals(CursorWordCapitalization.Edit(8, "ł", "Ł", 10),
@@ -116,14 +116,14 @@ class CursorWordCapitalizationTest {
         state.selection(96, 96, 87, 87)
         assertEquals(87, state.eligiblePosition)
     }
-    @Test fun everyInteriorPositionWorksAndTheWordEndDoesNot() {
+    @Test fun everyInteriorPositionAndWordEndWorks() {
         for (word in listOf("łódź", "malina", "warszawska", "znowu")) {
-            for (offset in 0 until word.length) {
+            for (offset in 0..word.length) {
                 val before = "A " + word.take(offset)
                 val after = word.drop(offset) + "."
                 assertNotNull("$word at $offset", CursorWordCapitalization.plan(before, after, before.length))
             }
-            assertNull(CursorWordCapitalization.plan("A $word", ".", word.length + 2))
+            assertNotNull(CursorWordCapitalization.plan("A $word", ".", word.length + 2))
         }
     }
     @Test fun cursorKeyDisarmingTheRepeatDoesNotTurnACaseEditIntoATypingMutation() {

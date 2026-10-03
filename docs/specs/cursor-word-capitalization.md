@@ -9,10 +9,10 @@ and change it to Łódź without retyping or locating the original suggestion sl
 
 ## Requirements
 
-- A plain unused Shift tap after an explicit cursor move into or to the start of
-  a word toggles its FIRST letter's case, at every interior position.
-- Maintainer correction: immediately AFTER the last letter, Shift keeps ordinary
-  behavior. This supersedes the previous end-of-word editing requirement.
+- A plain unused Shift tap after an explicit cursor move to a word toggles its
+  FIRST letter's case at the start, every interior position and immediately after
+  the last letter. The latest maintainer request re-enables word-end editing.
+- Ordinary typing and IME mutation acknowledgements do not arm word editing.
 - Further taps toggle that letter back; suffix spelling, spaces, punctuation,
   and the cursor's absolute UTF-16 offset remain unchanged.
 - This works for manually typed and swiped words independently of langpack metadata.
@@ -76,7 +76,8 @@ Device checklist:
 3. Tap Shift again: łódź appears; repeat for malina/Malina and warszawska/Warszawska.
 4. Type a new word normally and press Shift before its next character; existing
    word spelling must not change as an acknowledgement of IME typing.
-5. Cursor at łódź| or after a space: Shift capitalizes the next typed letter normally.
+5. Return explicitly to łódź|: Shift toggles its first letter. After a space,
+   Shift capitalizes the next typed letter normally.
 6. Verify Caps Lock, Shift+letter hold, subkeys, field/app switches and editor undo.
 
 ## Limitations
@@ -97,3 +98,6 @@ no final case-edit callback and cursor-key disarming. ShiftWordCapitalizationTes
 has 21 passing checks including a live-buffer walk across all positions with no
 final batch acknowledgements. This reproduces a code gap; it does not prove that
 it was the only cause of the phone symptoms. Baseline lint/security gates remain red.
+
+
+Trial v5: word-end editing restored; updated tests and device checks are pending.

@@ -1389,6 +1389,9 @@ class Config private constructor(
         fun mods_changed(mods: Pointers.Modifiers)
         /** A plain Shift tap may edit the word the user returned to. */
         fun tryWordCapitalization(): Boolean = false
+        fun beginBackspaceHold(): Boolean = false
+        fun stepBackspaceHold(direction: Int): Boolean = false
+        fun finishBackspaceHold(commit: Boolean) {}
     }
 
     companion object {

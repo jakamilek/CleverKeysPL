@@ -86,13 +86,13 @@ class ShiftWordCapitalizationTest {
         handler.selection_updated(old + 1, cursor)
     }
 
-    @Test fun wordEndKeepsOrdinaryShift() {
+    @Test fun wordEndTogglesFirstLetter() {
         park(12)
-        assertFalse(handler.tryWordCapitalization())
-        assertEquals("To jest łódź.", text)
+        assertTrue(handler.tryWordCapitalization())
+        assertEquals("To jest Łódź.", text)
         assertEquals(12, start); assertEquals(start, end)
-        verify(exactly = 0) { conn.commitText("Ł", 1) }
-        verify(exactly = 0) { recv.onWordCapitalizationChanged(any()) }
+        verify(exactly = 1) { conn.commitText("Ł", 1) }
+        verify(exactly = 1) { recv.onWordCapitalizationChanged(any()) }
         verify(exactly = 0) { conn.deleteSurroundingText(any(), any()) }
     }
     @Test fun middleOfWordDoesNotLoseSuffixOrMoveCaret() {
@@ -235,7 +235,7 @@ class ShiftWordCapitalizationTest {
             text = "A $word."
             start = text.length; end = start
             var expected = word
-            for (offset in 0 until word.length) {
+            for (offset in 0..word.length) {
                 val old = start
                 start = 2 + offset; end = start
                 handler.selection_updated(old, start)
@@ -247,11 +247,7 @@ class ShiftWordCapitalizationTest {
                 assertEquals(start, end)
                 // No callback is sent for the unchanged restored caret.
             }
-            val old = start
-            start = 2 + word.length; end = start
-            handler.selection_updated(old, start)
-            assertFalse(handler.tryWordCapitalization())
-            assertEquals("A $expected.", text)
+
         }
     }
 }

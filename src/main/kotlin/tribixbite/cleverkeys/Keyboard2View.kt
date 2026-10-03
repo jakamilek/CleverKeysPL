@@ -577,6 +577,16 @@ class Keyboard2View @JvmOverloads constructor(
     override fun tryWordCapitalization(): Boolean =
         _config.handler?.tryWordCapitalization() ?: false
 
+    override fun beginBackspaceHold(): Boolean = _config.handler?.beginBackspaceHold() ?: false
+    override fun stepBackspaceHold(direction: Int): Boolean =
+        _config.handler?.stepBackspaceHold(direction) ?: false
+    override fun finishBackspaceHold(commit: Boolean) {
+        _config.handler?.finishBackspaceHold(commit)
+        updateFlags()
+        invalidate()
+    }
+    override fun backspaceKeyboardWidth(): Float = width.toFloat()
+
     override fun onPointerHold(k: KeyValue, mods: Pointers.Modifiers) {
         _config.handler?.key_up(k, mods, isKeyRepeat = true)
         updateFlags()

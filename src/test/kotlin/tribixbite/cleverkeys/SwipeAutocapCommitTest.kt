@@ -2,6 +2,7 @@ package tribixbite.cleverkeys
 
 import android.content.res.Resources
 import android.text.InputType
+import android.text.TextUtils
 import android.util.Log
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
@@ -150,6 +151,17 @@ class SwipeAutocapCommitTest {
     }
 
     // ------------------------------------------------------------------ the gap
+
+    @Test fun staleEditorCapsAfterAnOrdinaryPeriodStillCapitalizesSwipeCommit() {
+        mockkStatic(TextUtils::class)
+        every { TextUtils.getCapsMode("To łódź. ", 9, InputType.TYPE_TEXT_FLAG_CAP_SENTENCES) } returns
+            InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        every { ic.getCursorCapsMode(any()) } returns 0
+        every { ic.getTextBeforeCursor(any(), any()) } returns "To łódź. "
+        swipe(capSentencesField())
+        verify { ic.commitText("Bowie ", 1) }
+        assertWithMessage("commit and slate agree").that(barWords.first()).isEqualTo("Bowie")
+    }
 
     @Test
     fun aSentenceStartSwipeCommitIsCapitalized() {

@@ -1,5 +1,17 @@
 # Current work queue
 
+## Polish trial v5 (2026-10-03)
+
+- [x] Implement character-only Backspace taps and non-destructive word hold preview.
+- [x] Implement keyboard-wide reversible selection with edge-dependent speed.
+- [x] Restore explicit Shift word-end editing and reset suggestion scroll after deletion.
+- [x] Add live Android sentence-rule fallback after punctuation; preserve search/private exclusions.
+- [x] Register focused regression tests through scripts/gradle-guard.sh.
+- [ ] Confirm v5 compilation, pure and focused mock results in Actions (no polling beyond 60 s).
+- [ ] Test hold/reversal/cancel/field switch and occasional missing capitals on the phone.
+- Prior editor-sync-v4: 2951 CI checks passed; maintainer says editor behavior works OK.
+
+
 Updated: 2026-09-30. Full execution state and test evidence: [HANDOFF.md](HANDOFF.md).
 Campaign plan: [`docs/plans/2026-08-30-full-backlog-campaign.md`](../docs/plans/2026-08-30-full-backlog-campaign.md).
 

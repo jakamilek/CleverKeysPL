@@ -8,6 +8,30 @@ version: v1.4.0
 
 # Selection Delete Technical Specification
 
+## Polish trial v5 — pending validation
+
+The modern path precedes navigation subkeys in Pointers.handleLongPress. A deferred
+Backspace asks the view/Config.IKeyEventHandler for a word preview. The pointer owns
+all subsequent motion until release or cancellation, independent of key repeat.
+Its timer uses the full keyboard width, bounded 30–200 ms intervals, leftward
+extension and rightward shrinking determined by movement direction. Selection is
+bounded by the initial caret. Releasing after shrinking to zero sends no DEL.
+
+KeyEventHandler captures the current connection, editor info, absolute caret and at
+most 4096 UTF-16 units before it. It checks both live selection and selected text
+before movement or deletion, and commits an empty replacement only for a verified
+nonempty selection. Cancellation collapses the verified selection without deletion.
+Truncated whole-word previews are skipped. Unicode steps preserve surrogate pairs.
+A held word is deleted only on release, preserving its preceding separator.
+
+Components: KeyEventHandler.kt:87 (beginBackspaceHold), BackspaceGesture.kt:7
+(previousWord) and Pointers.kt (handleLongPress/handleSelectionDeleteRepeat).
+BackspaceHoldTest and PointersBackspaceHoldTest drive the real handlers with mocked
+editors/pointers; BackspaceGestureTest covers pure word boundaries and speed policy.
+They are registered in guarded CI; execution and real-device acceptance are pending.
+
+The historical implementation below remains the unsupported-editor fallback.
+
 ## Overview
 
 Selection-Delete Mode is a gesture that enables text selection by swiping and holding on the backspace key. When activated, horizontal finger movement selects characters (left/right), vertical movement selects lines (up/down), and releasing the finger deletes all selected text. This provides a single fluid gesture for rapid text correction.

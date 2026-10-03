@@ -8,6 +8,36 @@ related_spec: ../specs/gestures/selection-delete-spec.md
 
 # Selection Delete
 
+## Polish trial v5 (2026-10-03)
+
+This behavior applies to ordinary text editors that support selection APIs. Build
+and device verification for this trial are pending; it is not a released change.
+
+| Action | Result |
+|--------|--------|
+| Tap Backspace | Delete one character or space, including after swipe/autocorrection |
+| Hold, then release | Preview and delete the preceding word; keep the space before it |
+| Hold, then move left | Extend the preview selection towards preceding text |
+| Move right without lifting | Shrink the selection, even while the finger is in the left half |
+| Release with an empty selection | Delete nothing |
+
+The finger can move across all keyboard keys without activating them. Moving closer
+to the left edge speeds up extension; moving closer to the right edge speeds up
+shrinking. Selection cannot cross the original caret to the right. The word preview
+includes trailing spaces, so deleting “mleko ” from “olej mleko ” leaves “olej ”.
+Deletion happens on release; holding alone does not repeatedly delete more words.
+A cancelled touch restores the original caret when the editor session is still valid.
+
+Passwords, terminal editors, inline search/edit panes and editors without usable
+selection APIs retain their existing fallback. Legacy backspace-undo preferences
+do not intercept ordinary taps in this trial. After deletion the suggestion strip
+returns to its beginning.
+
+## Legacy fallback
+
+The description below documents the older joystick fallback; its vertical controls
+and key-relative speeds do not apply to the ordinary-text trial path above.
+
 Selection Delete mode lets you select text by holding backspace and moving your finger like a joystick. When you release, the selected text is deleted.
 
 ## Quick Summary

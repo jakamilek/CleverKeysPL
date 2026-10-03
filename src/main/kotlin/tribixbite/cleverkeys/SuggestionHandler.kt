@@ -978,7 +978,7 @@ class SuggestionHandler(
         val barLanguages = surfaceSlate.languages
         // Metadata only: do not add editor text to logs from arbitrary app fields.
         sendDebugLog(
-            "TRIAL editor-sync-v4 app=${BuildConfig.APPLICATION_ID} " +
+            "TRIAL backspace-gesture-v5 app=${BuildConfig.APPLICATION_ID} " +
                 "autocap=${config.autocapitalisation} capAtCursor=$autocapAtCursor " +
                 "before=${config.auto_space_before_suggestion} after=${config.auto_space_after_suggestion} " +
                 "format=${!passwordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo)} " +

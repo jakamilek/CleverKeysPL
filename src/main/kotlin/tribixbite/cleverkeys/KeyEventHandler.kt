@@ -35,6 +35,11 @@ class KeyEventHandler(
      * events are sent for the modifier keys. */
     private var metaState = 0
     private val cursorWordCapitalization = CursorWordCapitalization()
+    private data class BackspaceHold(
+        val connection: InputConnection, val info: EditorInfo,
+        val before: String, val anchor: Int, val base: Int, var cursor: Int
+    )
+    private var backspaceHold: BackspaceHold? = null
 
     /** Whether to force sending arrow keys to move the cursor when
      * [setSelection] could be used instead. */
@@ -56,6 +61,7 @@ class KeyEventHandler(
 
     /** Editing just started. */
     fun started(info: EditorInfo) {
+        backspaceHold = null
         cursorWordCapitalization.reset()
         val conn = recv.getCurrentInputConnection()
         if (conn != null) {
@@ -73,7 +79,80 @@ class KeyEventHandler(
         autocap.selection_updated(oldSelStart, newSelStart)
     }
 
-    fun invalidateWordCaseEdit() = cursorWordCapitalization.reset()
+    fun invalidateWordCaseEdit() {
+        cursorWordCapitalization.reset()
+        backspaceHold = null
+    }
+
+    override fun beginBackspaceHold(): Boolean {
+        if (recv.isClipboardTagMode() || recv.isClipboardEditMode() || recv.isClipboardSearchMode() ||
+            recv.isEmojiPaneOpen() || recv.isGifPaneOpen()) return false
+        val info = recv.getCurrentEditorInfo() ?: return false
+        if ((info.inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT ||
+            SuggestionBar.isPasswordField(info) || TerminalUtils.isTerminalApp(info)) return false
+        val conn = recv.getCurrentInputConnection() ?: return false
+        try {
+            if (!conn.finishComposingText()) return false
+            val et = getCursorPos(conn) ?: return false
+            if (et.selectionStart < 0 || et.selectionStart != et.selectionEnd) return false
+            val anchor = et.startOffset + et.selectionStart
+            val before = conn.getTextBeforeCursor(4096, 0)?.toString() ?: return false
+            val base = anchor - before.length
+            if (base < 0) return false
+            val start = BackspaceGesture.previousWord(before, base > 0)?.start ?: before.length
+            if (!conn.setSelection(anchor, base + start)) return false
+            backspaceHold = BackspaceHold(conn, info, before, anchor, base, start)
+            cursorWordCapitalization.disarm()
+            lastTypedChar = '\u0000'
+            try { autocap.stop() } catch (_: Exception) { /* Keep the preview owned. */ }
+            return true
+        } catch (_: Exception) { return false }
+    }
+
+    private fun backspaceHoldStillCurrent(s: BackspaceHold): Boolean {
+        if (recv.getCurrentInputConnection() !== s.connection || recv.getCurrentEditorInfo() !== s.info) return false
+        val et = getCursorPos(s.connection) ?: return false
+        val a = et.startOffset + et.selectionStart
+        val b = et.startOffset + et.selectionEnd
+        return minOf(a, b) == s.base + s.cursor && maxOf(a, b) == s.anchor &&
+            s.connection.getSelectedText(0)?.toString().orEmpty() == s.before.substring(s.cursor)
+    }
+
+    override fun stepBackspaceHold(direction: Int): Boolean {
+        val s = backspaceHold ?: return false
+        return try {
+            if (!backspaceHoldStillCurrent(s)) { backspaceHold = null; return false }
+            val next = BackspaceGesture.step(s.before, s.cursor, direction)
+            if (next == s.cursor) return false
+            if (!s.connection.setSelection(s.anchor, s.base + next)) return false
+            s.cursor = next
+            true
+        } catch (_: Exception) { backspaceHold = null; false }
+    }
+
+    override fun finishBackspaceHold(commit: Boolean) {
+        val s = backspaceHold ?: return
+        backspaceHold = null
+        try {
+            if (!backspaceHoldStillCurrent(s)) return
+            if (!commit || s.cursor == s.before.length) {
+                s.connection.setSelection(s.anchor, s.anchor)
+                return
+            }
+            val rejected = recv.getLastAutoInsertedWord()
+            val deleted = s.before.substring(s.cursor)
+            if (!s.connection.commitText("", 1)) return
+            noteEditorTextMutation(s.connection)
+            recv.setLastSpaceAutoInserted(false)
+            recv.clearSwipeUndoState()
+            recv.clearAutocorrectUndoState()
+            if (!rejected.isNullOrEmpty() && deleted.trimEnd() == rejected) {
+                learningHooks?.onSwipeWordUndone(rejected, s.connection)
+            }
+            recv.handle_backspace()
+            autocap.event_sent(KeyEvent.KEYCODE_DEL, 0)
+        } catch (_: Exception) { /* Uncooperative editors must not trigger a fallback deletion. */ }
+    }
 
     /** A commit's cursor callback is not a user returning to an existing word. */
     fun noteEditorTextMutation(conn: InputConnection?) {
@@ -208,10 +287,6 @@ class KeyEventHandler(
                 // Arrow keys and Enter in clipboard edit mode — dispatch to inline EditText
                 } else if (recv.isClipboardEditMode() && key.getKeyevent() in EDIT_MODE_DISPATCH_KEYS) {
                     recv.dispatchKeyToClipboardEdit(key.getKeyevent())
-                } else if (key.getKeyevent() == KeyEvent.KEYCODE_DEL && handleBackspaceUndoSwipe()) {
-                    // #110: Backspace after swipe deletes entire swiped word
-                } else if (key.getKeyevent() == KeyEvent.KEYCODE_DEL && handleBackspaceUndoAutocorrect()) {
-                    // #110: Backspace after autocorrect reverts to original word
                 } else {
                     // W5: Enter is a key event, not typed text, so the word it ends never reached
                     // the learn funnel. Report the boundary BEFORE the newline/send goes out, while
@@ -222,6 +297,8 @@ class KeyEventHandler(
                     send_key_down_up(key.getKeyevent())
                     // Handle backspace for word prediction
                     if (key.getKeyevent() == KeyEvent.KEYCODE_DEL) {
+                        recv.clearSwipeUndoState()
+                        recv.clearAutocorrectUndoState()
                         // SAS-1: backspace invalidates the pending auto-space swallow
                         recv.setLastSpaceAutoInserted(false)
                         recv.handle_backspace()
@@ -1182,4 +1259,3 @@ class KeyEventHandler(
         )
     }
 }
-
