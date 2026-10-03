@@ -1,7 +1,7 @@
-# Android integration proposal — source casing variants v1
+# Android integration — source casing variants v1
 
-Status: stage 1 runtime implementation in draft PR; validation tracked below.
-Baseline: CleverKeysPL `0da41d8951f96b9dab4e9fb219da5e4924aa66b6`.
+Status: stage 1 implemented in draft PR; debug build, 2742 pure tests and 57 targeted mock tests passed on 2026-10-03. Real IME validation pending.
+Implementation baseline: CleverKeysPL `d6d70fc778745e55bb2fa39f2bc300c73a4a0f41`. Tested code: `a21d9fef3b643ad7a09520f232d9d39f42be1071`.
 Contract: LANGUAGE_INTELLIGENCE_API_V1_FINAL_2026-10-02.md.
 
 ## Fork-specific consultation decision
@@ -10,7 +10,7 @@ On 2026-10-03 the maintainer explicitly waived the inherited Gemini 3 Pro / PAL
 requirement. The fork override is recorded in memory/REPO_INSTRUCTIONS.md.
 Implementation proceeds with code review and pure/mock tests.
 
-## Concrete integration scope
+## Integration scope
 
 1. `langpack/LanguagePackManager.kt`: parse the API/capability/member declaration,
    bound extraction of the intelligence member, check filename/schema/SHA,
@@ -33,22 +33,21 @@ Implementation proceeds with code review and pure/mock tests.
    lexical score; no artificial second decoder membership or score boost. The next
    distinct decoder key follows the pair. Preserve aligned language/score/meta lists,
    possessive gating, swipe provenance, correction tracking and next-word append.
-5. `SuggestionMeta` : mark explicit surface choices
+5. `SuggestionMeta`: mark explicit surface choices
    so the commit path can preserve the exact selected spelling. The alternate is a
    replacement of the swipe token, never a NEXT_WORD append. Do not change all manual
    selections globally; constrain exact-case handling to these marked suggestions.
    Auto-insert and bar must agree on the selected primary surface.
 
-## Proposed case behavior for review
+## Implemented case behavior
 
 Without Shift/autocap, prefer the pack's default, retain its alternate.
 Existing user case preference may change ordering only if it matches a confirmed
 variant. At sentence start or with Shift, put the capitalized form first and keep
 the lowercase choice available. A manual variant tap preserves exactly that form.
-Caps Lock remains explicit uppercase input; define and test its interaction with
-the pair before coding rather than applying an unconditional uppercase map to both
-forms and accidentally creating two identical suggestions. These case details are
-proposed, not yet accepted or tested on Android.
+Caps Lock keeps the existing uppercase slate without expansion. This avoids two
+identical surfaces. These behaviors are covered by pure projection and mock
+swipe-commit tests; real device behavior remains to be verified.
 
 ## Acceptance scenarios
 
@@ -101,3 +100,25 @@ Tests use the exact 24,683-byte producer sidecar, SHA-256
 CI runs pure tests and targeted mock import, swipe commit and partial replacement
 tests via the Gradle guard. Real IME/device verification remains required before
 promotion. No language-model ranking quality is claimed by deterministic pairs.
+
+## Validation result
+
+Runtime CI run 37108165202 on `a21d9fef3b643ad7a09520f232d9d39f42be1071`:
+- debug compilation: passed;
+- runPureTests: 2742 passed, including the real-sidecar parser/projection tests;
+- LanguagePackImportTest: 45 passed;
+- SwipeAutocapCommitTest: 7 passed;
+- SuggestionTapPartialReplaceTest: 5 passed.
+
+The full CI result is failure: the unchanged baseline lint error is
+ProduceStateDoesNotAssignValue at SubkeyAssignActivity.kt:148 (1 error, 210
+warnings), and the security job still reports four fixed HIGH findings in
+site/bun.lock / devalue 5.8.1. Release lint is skipped after the debug lint failure.
+These gates have not been disabled. No merge/release has been made.
+
+Tested debug APK artifact (96,857,664 bytes):
+https://github.com/jakamilek/CleverKeysPL/actions/runs/37108165202/artifacts/11268244117 .
+GitHub-reported archive digest:
+`sha256:36b41351c6e92ea4abefab78fd7af36abad88222f33f1532a42c58f5d67a1763`.
+The APK archive was not downloaded/re-hashed in this session. Import the producer
+trial pack from langpack run 37106034633 to exercise the 9 source-backed entries.
