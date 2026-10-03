@@ -2,7 +2,7 @@
 
 ## Feature Overview
 
-Status: phone feedback confirms repeated edits but reports selective cursor-position behavior (2026-10-03). Follow-up fixes missing batch acknowledgement handling; validation pending.
+Status: phone feedback confirms repeated edits but reports selective cursor-position behavior (2026-10-03). Follow-up 6122bf9b66ef16cc966872883ae5b25c5c108a04 fixes missing batch acknowledgement handling; debug build, 2779 pure and 152 focused mock checks PASS (2931 total, CI 37140569285). Phone verification remains pending.
 The workflow still fails on pre-existing SubkeyAssignActivity lint and site devalue security findings.
 Motivation: after selecting łódź from a swipe pair, a user can return to the word
 and change it to Łódź without retyping or locating the original suggestion slate.
@@ -91,3 +91,9 @@ Created: 2026-10-03. No merge, release or version bump authorized by this stage.
 
 
 Spacing integration at b373391c88de57edacd7ad2d0ad4ea8b62e23985: debug build, 2773 pure and all focused mock suites PASS (run 37123257770); device check still pending.
+
+Follow-up test evidence: CursorWordCapitalizationTest covers every interior position,
+no final case-edit callback and cursor-key disarming. ShiftWordCapitalizationTest
+has 21 passing checks including a live-buffer walk across all positions with no
+final batch acknowledgements. This reproduces a code gap; it does not prove that
+it was the only cause of the phone symptoms. Baseline lint/security gates remain red.

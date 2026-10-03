@@ -94,6 +94,12 @@ an explicit space; it does not latch while a decimal remains unfinished.
 The playground now advertises textCapSentences, matching a prose text field.
 Marker `cursor-caps-v3` identifies this follow-up; EDIT and provider diagnostics remain.
 
+Validation of 6122bf9b66ef16cc966872883ae5b25c5c108a04, CI 37140569285:
+debug assemble PASS, 2779 pure + 152 focused mock PASS (2931 total). Swipe suite
+15 and tap AutocapitalisationTest 14 PASS. Phone validation remains pending.
+The whole workflow retains the same SubkeyAssignActivity.kt:148 lint error and
+four HIGH site/bun.lock devalue findings; gates are enabled and release lint skipped.
+
 The reported log contains joined tracker prefixes (łódźłodzi, łódźłodzijuror) and
 omits the expected source casing pairs. It does not identify the active build,
 pack/provider, preferences or intervening user actions. Debounced cursor logs can

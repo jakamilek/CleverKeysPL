@@ -11,7 +11,7 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 - Maintainer reports that the on-device source casing pairs work quite well; this is qualitative feedback, not a complete acceptance checklist.
 - [x] Implement Shift toggling the first letter after returning the caret to an existing word; preserve ordinary typing, pointer modifiers and cursor position.
 - [x] Shift commit d64439ac: debug build, pure and focused mock checks pass (run 37114260076).
-- [ ] Latest phone report: edits work selectively. Fix/test missing final batch callback before the next cursor move; every interior position must work. Maintainer now excludes the position after the last letter.
+- [x] Latest phone report: edits work selectively. Fixed/tested missing final batch callback before the next cursor move; every interior position must work. Maintainer now excludes the position after the last letter.
 - [ ] Validate cursor-caps-v3 before promotion; whole CI still has pre-existing lint/security failures.
 - Spec: [cursor-word-capitalization.md](../docs/specs/cursor-word-capitalization.md).
 
@@ -23,7 +23,8 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 - [x] New phone log identifies debug v2, PL provider and łodzi/Łodzi pair; maintainer reports much better behavior. Previous missing-pair/spacing report not fully reproducible from old logs.
 - [x] Remove unconditional independent pre-swipe space; route whole swipe through shared field/preferences policy. Add five complete-path buffer regressions and trial/EDIT diagnostics.
 - [x] c272f9ec1787310c69b681b8ef7dd0a7fdbfa813: debug build, 2773 pure + 134 focused mock PASS (2907 total), run 37133110865; APK artifact 11277678542.
-- [ ] Numeric sentence follow-up: after 3. + next word, use shared gated autocap boundary; preserve 3.4 and search/password exclusions. Playground should advertise sentence caps. Build/test cursor-caps-v3 and verify on phone.
+- [x] Numeric sentence follow-up: after 3. + next word use shared gated autocap boundary; preserve 3.4 and search/password exclusions. Playground advertises sentence caps. 6122bf9b: debug build, 2779 pure + 152 focused mock PASS (2931 total), run 37140569285, APK 11280003851.
+- [ ] Verify cursor-caps-v3 on phone; no claim that all selective-Shift causes are established or resolved.
 - Typed-prefix completions are working per maintainer; explicitly withdrawn from scope.
 - Spec: [editor-spacing.md](../docs/specs/editor-spacing.md).
 
