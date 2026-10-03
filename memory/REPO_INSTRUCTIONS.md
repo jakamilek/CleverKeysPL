@@ -4,6 +4,10 @@ Quick reference for AI assistants and developers working in this codebase.
 
 ---
 
+## Fork-specific consultation rule (2026-10-03)
+
+The maintainer explicitly waived the inherited mandatory Gemini 3 Pro / PAL MCP consultation requirement for work in this fork. Proceed with code review and appropriate tests; unavailable external consultation must not block implementation. This override supersedes the Gemini/PAL requirements below and other inherited references to that requirement. Other workflow, security, testing and release rules remain in force.
+
 ## Critical Workflow Rules
 
 ### NEVER
