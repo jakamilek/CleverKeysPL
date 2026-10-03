@@ -487,6 +487,7 @@ class Keyboard2View @JvmOverloads constructor(
     }
 
     fun reset() {
+        traceBackspace("view reset")
         _mods = Pointers.Modifiers.EMPTY
         _pointers.clear()
         requestLayout()
@@ -497,6 +498,7 @@ class Keyboard2View @JvmOverloads constructor(
      * Clear swipe typing state after suggestion selection
      */
     fun clearSwipeState() {
+        traceBackspace("view clear swipe state")
         // Clear any ongoing swipe gestures
         _pointers.clear()
         invalidate()
@@ -586,6 +588,9 @@ class Keyboard2View @JvmOverloads constructor(
         invalidate()
     }
     override fun backspaceKeyboardWidth(): Float = width.toFloat()
+    override fun traceBackspace(message: String) {
+        _keyboard2?.traceBackspaceGesture("POINTER $message")
+    }
 
     override fun onPointerHold(k: KeyValue, mods: Pointers.Modifiers) {
         _config.handler?.key_up(k, mods, isKeyRepeat = true)
@@ -1297,6 +1302,7 @@ class Keyboard2View @JvmOverloads constructor(
                     _pointers.onTouchMove(event.getX(p), event.getY(p), event.getPointerId(p))
             }
             MotionEvent.ACTION_CANCEL -> {
+                traceBackspace("touch CANCEL")
                 _pointers.onTouchCancel()
             }
             else -> return false

@@ -66,6 +66,53 @@ class BackspaceHoldTest {
         handler.selection_updated(11, a, 11, b)
     }
 
+    @Test fun diagnosticsExplainReleaseBlockedByChangedConnectionWithoutEditorText() {
+        val trace = mutableListOf<String>()
+        handler.backspaceTrace = { trace.add(it) }
+        assertTrue(handler.beginBackspaceHold())
+        every { recv.getCurrentInputConnection() } returns mockk(relaxed = true)
+        handler.finishBackspaceHold(true)
+        assertTrue(trace.any { it.contains("begin accepted") })
+        assertTrue(trace.any { it.contains("validation blocked: connection changed") })
+        assertTrue(trace.any { it.contains("release blocked: validation") })
+        assertFalse(trace.any { it.contains("olej") || it.contains("mleko") })
+        verify(exactly = 0) { conn.commitText(any(),any()) }
+    }
+
+    @Test fun diagnosticsSeparateSelectionMismatchFromSelectedTextMismatch() {
+        val trace = mutableListOf<String>()
+        handler.backspaceTrace = { trace.add(it) }
+        assertTrue(handler.beginBackspaceHold())
+        reportedSelection = 2 to 2
+        assertFalse(handler.stepBackspaceHold(-1))
+        assertTrue(trace.any { it.contains("validation blocked: extracted=") })
+        reportedSelection = null
+        text = "olej sokxx "
+        handler.finishBackspaceHold(true)
+        assertTrue(trace.any { it.contains("validation blocked: selected length=") })
+        assertFalse(trace.any { it.contains("sokxx") || it.contains("mleko") })
+        verify(exactly = 0) { conn.commitText(any(),any()) }
+    }
+
+    @Test fun diagnosticSinkFailureDoesNotPreventReleaseDeletion() {
+        handler.backspaceTrace = { throw IllegalStateException("sink failure") }
+        assertTrue(handler.beginBackspaceHold())
+        handler.finishBackspaceHold(true)
+        assertEquals("olej ",text)
+        verify(exactly = 1) { conn.commitText("",1) }
+    }
+
+    @Test fun diagnosticBudgetBoundsRepeatedStepsAndRetainsReleaseResult() {
+        val trace = mutableListOf<String>()
+        handler.backspaceTrace = { trace.add(it) }
+        assertTrue(handler.beginBackspaceHold())
+        repeat(100) { handler.stepBackspaceHold(if (it % 2 == 0) -1 else 1) }
+        handler.finishBackspaceHold(true)
+        assertTrue(trace.size <= 28)
+        assertTrue(trace.last().contains("release commitText accepted=true"))
+        assertEquals("olej ",text)
+    }
+
     @Test fun laggingExtractionDoesNotDiscardGestureBeforeEditorCatchesUp() {
         assertTrue(handler.beginBackspaceHold())
         reportedSelection = 11 to 11

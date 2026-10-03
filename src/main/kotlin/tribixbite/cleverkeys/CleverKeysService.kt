@@ -458,6 +458,14 @@ class CleverKeysService : InputMethodService(),
         // Initialize debug logging manager (v1.32.384)
         _debugLoggingManager = DebugLoggingManager(this, packageName)
         _debugLoggingManager.initializeLogWriter()
+        _debugLoggingManager.registerDebugModeListener(object : DebugLoggingManager.DebugModeListener {
+            override fun onDebugModeChanged(enabled: Boolean) {
+                _keyeventhandler.backspaceTrace = if (enabled) {
+                    { message: String -> traceBackspaceGesture("EDITOR $message") }
+                } else null
+                if (enabled) traceBackspaceGesture("RUNTIME backspace-diagnostic-v7 app=${BuildConfig.APPLICATION_ID}")
+            }
+        })
 
         // Connect debug logger to input coordinator for prediction handling logging
         // This enables prediction selection/insertion logs to appear in SwipeDebugActivity
@@ -516,10 +524,13 @@ class CleverKeysService : InputMethodService(),
         DirectBootManager.getInstance(this).cleanup()
     }
 
-    /**
-     * Send debug log message to SwipeDebugActivity if debug mode is enabled.
-     * (v1.32.384: Delegated to DebugLoggingManager)
-     */
+    /** Bounded state diagnostics are broadcast only while the playground enables debug mode. */
+    fun traceBackspaceGesture(message: String) {
+        if (::_debugLoggingManager.isInitialized && _debugLoggingManager.isDebugMode())
+            _debugLoggingManager.sendDebugLog("BACKSPACE $message\n")
+    }
+
+    /** Send playground debug messages through DebugLoggingManager. */
     private fun sendDebugLog(message: String) {
         _debugLoggingManager.sendDebugLog(message)
     }
@@ -632,6 +643,7 @@ class CleverKeysService : InputMethodService(),
     }
 
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
+        traceBackspaceGesture("LIFECYCLE start restarting=$restarting")
         // NOTE: Config refresh is handled by SharedPreferences listener (onSharedPreferenceChanged)
         // We only do initial config load here if config is completely null (shouldn't happen normally)
         if (_config == null) {
@@ -848,6 +860,7 @@ class CleverKeysService : InputMethodService(),
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
+        traceBackspaceGesture("LIFECYCLE finish finishing=$finishingInput")
         super.onFinishInputView(finishingInput)
         _keyeventhandler.invalidateWordCaseEdit()
         // gh #175: a minimized keyboard comes back full size the next time it is shown.

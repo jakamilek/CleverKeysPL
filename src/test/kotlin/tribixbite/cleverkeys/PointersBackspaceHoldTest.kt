@@ -40,6 +40,32 @@ class PointersBackspaceHoldTest {
         Pointers::class.java.getDeclaredMethod("handleLongPress", Pointers.Pointer::class.java)
             .apply { isAccessible = true }.invoke(pointers,ptr)
     }
+    @Test fun diagnosticsDistinguishHoldMoveReversalAndRelease() {
+        val trace = mutableListOf<String>()
+        every { handler.traceBackspace(any()) } answers { trace.add(firstArg()); Unit }
+        hold(); pointers.onTouchMove(100f,200f,1); pointers.onTouchMove(130f,200f,1)
+        pointers.onTouchUp(1)
+        assertTrue(trace.any { it.contains("hold started=true") })
+        assertEquals(1,trace.count { it.contains("move observed") })
+        assertTrue(trace.any { it.contains("move direction=-1") })
+        assertTrue(trace.any { it.contains("move direction=1") })
+        assertTrue(trace.last().contains("up pointer=1 owned=true"))
+        verify(exactly = 1) { handler.finishBackspaceHold(true) }
+    }
+    @Test fun diagnosticsExposeCancellationInsteadOfCommit() {
+        val trace = mutableListOf<String>()
+        every { handler.traceBackspace(any()) } answers { trace.add(firstArg()); Unit }
+        hold(); pointers.clear()
+        assertTrue(trace.last().contains("clear pointer=1 owned=true"))
+        verify(exactly = 1) { handler.finishBackspaceHold(false) }
+        verify(exactly = 0) { handler.finishBackspaceHold(true) }
+    }
+    @Test fun diagnosticFailureDoesNotLoseHoldMoveOrRelease() {
+        every { handler.traceBackspace(any()) } throws IllegalStateException("sink failure")
+        hold(); pointers.onTouchMove(100f,200f,1); pointers.onTouchUp(1)
+        verify(exactly = 1) { handler.stepBackspaceHold(-1) }
+        verify(exactly = 1) { handler.finishBackspaceHold(true) }
+    }
     @Test fun holdWithoutMovingPreviewsWordEvenWithRepeatDisabled() {
         hold(); assertTrue(ptr.backspaceWordHold)
         verify(exactly = 1) { handler.beginBackspaceHold() }

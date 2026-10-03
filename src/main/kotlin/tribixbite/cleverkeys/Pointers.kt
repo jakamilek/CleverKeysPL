@@ -142,6 +142,8 @@ class Pointers(
         for (p in _ptrs.toList()) {
             stopLongPress(p)
             stopSelectionDeleteRepeat(p)
+            if (p.backspaceWordHold || isBackspaceKey(p.value))
+                traceBackspace(p, "clear pointer=${p.pointerId} owned=${p.backspaceWordHold}", terminal = true)
             if (p.backspaceWordHold) _handler.finishBackspaceHold(false)
             p.popover?.let { _longpress_handler.removeMessages(it.dwellWhat); hadPopover = true }
         }
@@ -223,8 +225,20 @@ class Pointers(
 
     // Receiving events
 
+    private fun traceBackspace(ptr: Pointer?, message: String, terminal: Boolean = false) {
+        if (ptr != null && !terminal) {
+            if (ptr.backspaceTraceBudget <= 0) return
+            ptr.backspaceTraceBudget--
+        }
+        try { _handler.traceBackspace(message) } catch (_: Exception) {}
+    }
+
     fun onTouchUp(pointerId: Int) {
-        val ptr = getPtr(pointerId) ?: return
+        val ptr = getPtr(pointerId) ?: run {
+            traceBackspace(null, "up missing pointer=$pointerId", terminal = true); return
+        }
+        if (ptr.backspaceWordHold || isBackspaceKey(ptr.value))
+            traceBackspace(ptr, "up pointer=$pointerId owned=${ptr.backspaceWordHold} flags=${ptr.flags}", terminal = true)
 
         if (BuildConfig.ENABLE_VERBOSE_LOGGING) Log.d("Pointers", "=== onTouchUp START: ptr_value=${ptr.value}, flags=0x${ptr.flags.toString(16)}, pointerId=$pointerId ===")
 
@@ -931,7 +945,12 @@ class Pointers(
         val snap = ptr.snap
 
         if (ptr.backspaceWordHold) {
+            if (!ptr.backspaceMoveObserved) {
+                ptr.backspaceMoveObserved = true
+                traceBackspace(ptr, "move observed pointer=$pointerId")
+            }
             if (ptr.backspaceDrag?.move(x) == true) {
+                traceBackspace(ptr, "move direction=${ptr.backspaceDrag?.direction} pointer=$pointerId")
                 stopSelectionDeleteRepeat(ptr)
                 handleSelectionDeleteRepeat(ptr)
             }
@@ -1233,7 +1252,10 @@ class Pointers(
     private fun handleSelectionDeleteRepeat(ptr: Pointer) {
         if (ptr.backspaceWordHold) {
             val direction = ptr.backspaceDrag?.direction ?: 0
-            if (direction != 0) _handler.stepBackspaceHold(direction)
+            if (direction != 0) {
+                val accepted = _handler.stepBackspaceHold(direction)
+                traceBackspace(ptr, "repeat direction=$direction accepted=$accepted")
+            }
             val what = uniqueTimeoutWhat++
             ptr.selectionDeleteWhat = what
             _longpress_handler.sendEmptyMessageDelayed(what, BackspaceGesture.repeatDelay(
@@ -1440,8 +1462,12 @@ class Pointers(
         // flight, so they read the configuration captured when that press began.
         val snap = ptr.snap
 
+        if (isBackspaceKey(ptr.key.keys[0]) || isBackspaceKey(ptr.value))
+            traceBackspace(ptr, "hold pointer=${ptr.pointerId} deferred=${ptr.hasFlagsAny(FLAG_P_DEFERRED_DOWN)} kind=${ptr.value?.getKind()} keyevent=${ptr.value?.takeIf { it.getKind() == KeyValue.Kind.Keyevent }?.getKeyevent()}")
         if (ptr.hasFlagsAny(FLAG_P_DEFERRED_DOWN)) {
-            if (isBackspaceKey(ptr.value) && _handler.beginBackspaceHold()) {
+            val started = isBackspaceKey(ptr.value) && _handler.beginBackspaceHold()
+            if (isBackspaceKey(ptr.value)) traceBackspace(ptr, "hold started=$started")
+            if (started) {
                 stopLongPress(ptr)
                 ptr.flags = ptr.flags and FLAG_P_DEFERRED_DOWN.inv()
                 ptr.backspaceWordHold = true
@@ -1915,6 +1941,8 @@ class Pointers(
         /** Timeout identifier for selection-delete repeat messages. */
         var selectionDeleteWhat: Int = -1
         var backspaceWordHold: Boolean = false
+        var backspaceMoveObserved: Boolean = false
+        var backspaceTraceBudget: Int = 24
         var backspaceDrag: BackspaceGesture.Drag? = null
 
         /** [null] when not in sliding mode. */
@@ -2160,6 +2188,7 @@ class Pointers(
         fun stepBackspaceHold(direction: Int): Boolean = false
         fun finishBackspaceHold(commit: Boolean) {}
         fun backspaceKeyboardWidth(): Float = 0f
+        fun traceBackspace(message: String) {}
 
         /** Track swipe movement for swipe typing. */
         fun onSwipeMove(x: Float, y: Float, recognizer: ImprovedSwipeGestureRecognizer)

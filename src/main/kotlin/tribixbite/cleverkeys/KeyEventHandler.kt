@@ -38,6 +38,8 @@ class KeyEventHandler(
     private data class BackspaceHold(
         val connection: InputConnection, val info: EditorInfo,
         val before: String, val anchor: Int, val base: Int, var cursor: Int,
+        var traceBudget: Int = 24,
+        var lastTrace: String? = null,
         var acknowledgedSelection: Pair<Int, Int>? = null,
         val requestedSelections: LinkedHashSet<Pair<Int, Int>> = linkedSetOf()
     ) {
@@ -48,6 +50,19 @@ class KeyEventHandler(
         }
     }
     private var backspaceHold: BackspaceHold? = null
+
+    /** Playground-only sink. Its messages contain state/offsets, never editor text. */
+    var backspaceTrace: ((String) -> Unit)? = null
+    private fun traceBackspace(message: String) {
+        try { backspaceTrace?.invoke("handler=${System.identityHashCode(this)} $message") }
+        catch (_: Exception) { /* Diagnostics must never alter editing. */ }
+    }
+    private fun traceHold(s: BackspaceHold, message: String) {
+        if (backspaceTrace == null || s.traceBudget <= 0 || s.lastTrace == message) return
+        s.traceBudget--
+        s.lastTrace = message
+        traceBackspace(message)
+    }
 
     /** Whether to force sending arrow keys to move the cursor when
      * [setSelection] could be used instead. */
@@ -69,6 +84,7 @@ class KeyEventHandler(
 
     /** Editing just started. */
     fun started(info: EditorInfo) {
+        if (backspaceHold != null) traceBackspace("session reset: input started")
         backspaceHold = null
         cursorWordCapitalization.reset()
         val conn = recv.getCurrentInputConnection()
@@ -88,44 +104,64 @@ class KeyEventHandler(
         backspaceHold?.acknowledgedSelection = if (newSelStart >= 0 && newSelEnd >= 0)
             minOf(newSelStart, newSelEnd) to maxOf(newSelStart, newSelEnd) else null
         cursorWordCapitalization.selection(oldSelStart, oldSelEnd, newSelStart, newSelEnd)
+        backspaceHold?.let { traceHold(it, "ack=$newSelStart,$newSelEnd expected=${it.expectedSelection()}") }
         autocap.selection_updated(oldSelStart, newSelStart)
     }
 
     fun invalidateWordCaseEdit() {
         cursorWordCapitalization.reset()
+        if (backspaceHold != null) traceBackspace("session reset: input finished")
         backspaceHold = null
     }
 
     override fun beginBackspaceHold(): Boolean {
+        traceBackspace("begin requested")
         if (recv.isClipboardTagMode() || recv.isClipboardEditMode() || recv.isClipboardSearchMode() ||
-            recv.isEmojiPaneOpen() || recv.isGifPaneOpen()) return false
-        val info = recv.getCurrentEditorInfo() ?: return false
+            recv.isEmojiPaneOpen() || recv.isGifPaneOpen()) {
+            traceBackspace("begin blocked: inline mode"); return false
+        }
+        val info = recv.getCurrentEditorInfo() ?: run { traceBackspace("begin blocked: no editor info"); return false }
         if ((info.inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT ||
-            SuggestionBar.isPasswordField(info) || TerminalUtils.isTerminalApp(info)) return false
-        val conn = recv.getCurrentInputConnection() ?: return false
+            SuggestionBar.isPasswordField(info) || TerminalUtils.isTerminalApp(info)) {
+            traceBackspace("begin blocked: unsupported field"); return false
+        }
+        val conn = recv.getCurrentInputConnection() ?: run { traceBackspace("begin blocked: no connection"); return false }
         try {
-            if (!conn.finishComposingText()) return false
-            val et = getCursorPos(conn) ?: return false
-            if (et.selectionStart < 0 || et.selectionStart != et.selectionEnd) return false
+            if (!conn.finishComposingText()) { traceBackspace("begin blocked: composing"); return false }
+            val et = getCursorPos(conn) ?: run { traceBackspace("begin blocked: no extraction"); return false }
+            if (et.selectionStart < 0 || et.selectionStart != et.selectionEnd) {
+                traceBackspace("begin blocked: selection=${et.selectionStart},${et.selectionEnd}"); return false
+            }
             val anchor = et.startOffset + et.selectionStart
-            val before = conn.getTextBeforeCursor(4096, 0)?.toString() ?: return false
+            val before = conn.getTextBeforeCursor(4096, 0)?.toString() ?: run { traceBackspace("begin blocked: no preceding text"); return false }
             val base = anchor - before.length
-            if (base < 0) return false
+            if (base < 0) { traceBackspace("begin blocked: invalid base=$base"); return false }
             val start = BackspaceGesture.previousWord(before, base > 0)?.start ?: before.length
             val session = BackspaceHold(conn, info, before, anchor, base, start)
             session.rememberSelection()
             // Install before issuing the request: a synchronous callback must not be lost.
             backspaceHold = session
-            if (!conn.setSelection(anchor, base + start)) { backspaceHold = null; return false }
+            if (!conn.setSelection(anchor, base + start)) {
+                traceBackspace("begin blocked: setSelection refused"); backspaceHold = null; return false
+            }
+            traceBackspace("begin accepted: anchor=$anchor start=${base + start} length=${before.length - start}")
             cursorWordCapitalization.disarm()
             lastTypedChar = '\u0000'
             try { autocap.stop() } catch (_: Exception) { /* Keep the preview owned. */ }
             return true
-        } catch (_: Exception) { backspaceHold = null; return false }
+        } catch (e: Exception) {
+            traceBackspace("begin exception=${e.javaClass.simpleName}")
+            backspaceHold = null; return false
+        }
     }
 
     private fun backspaceHoldStillCurrent(s: BackspaceHold): Boolean {
-        if (recv.getCurrentInputConnection() !== s.connection || recv.getCurrentEditorInfo() !== s.info) return false
+        if (recv.getCurrentInputConnection() !== s.connection) {
+            traceHold(s, "validation blocked: connection changed"); return false
+        }
+        if (recv.getCurrentEditorInfo() !== s.info) {
+            traceHold(s, "validation blocked: editor info changed"); return false
+        }
         val expected = s.expectedSelection()
         val et = getCursorPos(s.connection)
         val extracted = if (et != null && et.selectionStart >= 0 && et.selectionEnd >= 0) {
@@ -137,8 +173,14 @@ class KeyEventHandler(
             (s.acknowledgedSelection == expected && (extracted == null ||
                 extracted == (s.anchor to s.anchor) || extracted in s.requestedSelections))
         // A callback supplements a lagging extraction; it never replaces the live text check.
-        return confirmed &&
-            s.connection.getSelectedText(0)?.toString().orEmpty() == s.before.substring(s.cursor)
+        if (!confirmed) {
+            traceHold(s, "validation blocked: extracted=$extracted ack=${s.acknowledgedSelection} expected=$expected")
+            return false
+        }
+        val selected = s.connection.getSelectedText(0)?.toString()
+        val matches = selected.orEmpty() == s.before.substring(s.cursor)
+        if (!matches) traceHold(s, "validation blocked: selected length=${selected?.length} expected length=${s.before.length - s.cursor}")
+        return matches
     }
 
     override fun stepBackspaceHold(direction: Int): Boolean {
@@ -149,29 +191,37 @@ class KeyEventHandler(
             if (!backspaceHoldStillCurrent(s)) return false
             val previous = s.cursor
             val next = BackspaceGesture.step(s.before, previous, direction)
-            if (next == previous) return false
+            if (next == previous) { traceHold(s, "step boundary: direction=$direction"); return false }
             s.cursor = next
             if (!s.connection.setSelection(s.anchor, s.base + next)) {
                 s.cursor = previous
+                traceHold(s, "step blocked: setSelection refused")
                 return false
             }
             s.rememberSelection()
+            traceHold(s, "step accepted: direction=$direction expected=${s.expectedSelection()}")
             true
-        } catch (_: Exception) { false }
+        } catch (e: Exception) {
+            traceHold(s, "step exception=${e.javaClass.simpleName}"); false
+        }
     }
 
     override fun finishBackspaceHold(commit: Boolean) {
-        val s = backspaceHold ?: return
+        val s = backspaceHold ?: run { traceBackspace("release blocked: no session commit=$commit"); return }
+        traceBackspace("release requested: commit=$commit expected=${s.expectedSelection()}")
         backspaceHold = null
         try {
-            if (!backspaceHoldStillCurrent(s)) return
+            if (!backspaceHoldStillCurrent(s)) { traceBackspace("release blocked: validation"); return }
             if (!commit || s.cursor == s.before.length) {
-                s.connection.setSelection(s.anchor, s.anchor)
+                val restored = s.connection.setSelection(s.anchor, s.anchor)
+                traceBackspace("release collapsed: cancel=${!commit} accepted=$restored")
                 return
             }
             val rejected = recv.getLastAutoInsertedWord()
             val deleted = s.before.substring(s.cursor)
-            if (!s.connection.commitText("", 1)) return
+            val accepted = s.connection.commitText("", 1)
+            traceBackspace("release commitText accepted=$accepted length=${deleted.length}")
+            if (!accepted) return
             noteEditorTextMutation(s.connection)
             recv.setLastSpaceAutoInserted(false)
             recv.clearSwipeUndoState()
@@ -181,7 +231,10 @@ class KeyEventHandler(
             }
             recv.handle_backspace()
             autocap.event_sent(KeyEvent.KEYCODE_DEL, 0)
-        } catch (_: Exception) { /* Uncooperative editors must not trigger a fallback deletion. */ }
+        } catch (e: Exception) {
+            traceBackspace("release exception=${e.javaClass.simpleName}")
+            /* Uncooperative editors must not trigger a fallback deletion. */
+        }
     }
 
     /** A commit's cursor callback is not a user returning to an existing word. */

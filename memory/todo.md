@@ -1,5 +1,15 @@
 # Current work queue
 
+## Backspace phone diagnostics v7 (2026-10-03)
+
+- Phone rejects v6 too: word preview works, horizontal extension/reversal and release deletion do not.
+- [x] Add bounded playground-only pointer/editor/lifecycle traces, actual runtime package marker and failure reasons; log offsets/counts only, no editor text.
+- [x] Add seven diagnostic regressions for failure reasons, text exclusion, bounded output, cancellation and sink failures.
+- [ ] Guarded CI build/test results for backspace-diagnostic-v7; local Android toolchain unavailable.
+- [ ] Obtain the complete phone log for hold/release and hold/left/right/release before selecting another behavior patch.
+- Cause remains unconfirmed; v7 changes diagnostics, not the editing policy. Preserve accepted tap/casing behavior.
+- Monitoring: maximum 60 seconds TOTAL per build, then maintainer reports completion.
+
 ## Backspace acknowledgement follow-up v6 (2026-10-03)
 
 - Phone confirms v5 tap deletion, sentence capitals and Shift at word end.
@@ -7,7 +17,7 @@
 - [x] Retain gesture through temporarily stale reads; use full selection callbacks to confirm own requests while extraction lags; keep exact live-text and editor guards.
 - [x] Add seven editor/pointer regressions for lag, reversal, synchronous callbacks and unrelated changes.
 - [x] V6 debug build, 2790 pure + 202 focused mock checks PASS (2992), run 37150909557; artifact 11284341482.
-- [ ] Retest hold/drag/release on phone with backspace-gesture-v6.
+- [x] Retest hold/drag/release on phone with backspace-gesture-v6: FAILED, same drag/release symptoms.
 - Existing 2985 passing v5 checks did not establish real editor timing.
 
 ## Polish trial v5 (2026-10-03)

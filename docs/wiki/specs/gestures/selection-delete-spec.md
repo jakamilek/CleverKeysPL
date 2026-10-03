@@ -8,6 +8,27 @@ version: v1.4.0
 
 # Selection Delete Technical Specification
 
+## Polish trial v7 — phone diagnostics, issue unresolved
+
+The maintainer tested v6 and reports the same failure: hold previews a word, but
+motion does not change the selection and lifting the finger does not delete it.
+V6's 2992 passing host checks therefore do not establish a phone fix. The cause is
+not confirmed; neither editor lag nor missing pointer events is assumed.
+
+V7 adds playground-only `BACKSPACE` traces for the actual runtime/package marker,
+input lifecycle, view reset/cancel, pointer hold ownership, first move, direction
+changes, release/cancel, editor acknowledgements, rejected validation and the
+boolean result of empty-text replacement. Offsets, counts, enum/integer key kind
+and exception class are logged, never editor text or exception messages. Repeated
+pointer and editor progress is capped at 24 entries per session; terminal outcomes
+remain visible. Sink exceptions cannot alter editing. No deletion/casing/spacing
+policy changes are introduced. Build and seven new focused checks are pending CI.
+
+Device procedure: use `backspace-diagnostic-v7`, enable playground debug, clear
+the log, type `olej mleko`, hold Backspace and release; then repeat with left motion,
+right reversal and release. Copy the complete log including the `BACKSPACE RUNTIME`
+line. Distinguish this evidence from a successful mock execution.
+
 ## Polish trial v6 — editor acknowledgement follow-up
 
 Phone feedback accepts v5 tap deletion, sentence capitalization and Shift at word
@@ -26,7 +47,7 @@ Seven BackspaceHoldTest regressions cover lag/recovery, release with an acknowle
 preview, extension/reversal, unexpected positions or changed text, synchronous
 callbacks and real Pointers routing into the editor handler. V6 debug assembly and
 2790 pure + 202 focused mock checks passed (2992) in run 37150909557; all 19
-BackspaceHoldTest checks passed. Phone confirmation remains pending. The release contract and speed policy are unchanged.
+BackspaceHoldTest checks passed. Phone retest failed: drag and release deletion still do not work. The release contract and speed policy are unchanged.
 
 ## Polish trial v5 — CI checks passed; device validation pending
 
