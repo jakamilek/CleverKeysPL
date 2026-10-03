@@ -30,7 +30,7 @@ internal object SwipeSurfaceVariants {
         val surfaces = if (forms.size == 1) listOf(preferred) else (listOf(preferred) + forms).distinct()
         val outWords = surfaces.toMutableList()
         val outScores = MutableList(surfaces.size) { scores.firstOrNull() ?: 0 }
-        val outLanguages = languages?.let { MutableList(surfaces.size) { it.first() } }
+        val outLanguages = languages?.let { source -> MutableList(surfaces.size) { source.first() } }
         val exact = MutableList(surfaces.size) { true }
         for (i in 1 until words.size) {
             // Do not suppress a same-spelled candidate from a different language.

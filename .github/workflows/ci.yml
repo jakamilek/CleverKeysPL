@@ -57,6 +57,14 @@ jobs:
           build/test-results/
         retention-days: 7
 
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      if: success()
+      with:
+        name: apk-debug
+        path: build/outputs/apk/debug/*.apk
+        retention-days: 7
+
     - name: Run lint checks
       # Lint gate phase 1: abortOnError=true in build.gradle + baseline suppresses
       # pre-existing issues, so this fails only on NEW lint regressions.
@@ -77,14 +85,6 @@ jobs:
       # That same flag makes `assembleRelease` self-gate, so this step is what covers PRs,
       # which build debug only.
       run: bash scripts/gradle-guard.sh lintVitalRelease --stacktrace
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-      if: success()
-      with:
-        name: apk-debug
-        path: build/outputs/apk/debug/*.apk
-        retention-days: 7
 
     - name: Upload lint results
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
