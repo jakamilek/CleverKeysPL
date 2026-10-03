@@ -1,5 +1,14 @@
 # Current work queue
 
+## Backspace acknowledgement follow-up v6 (2026-10-03)
+
+- Phone confirms v5 tap deletion, sentence capitals and Shift at word end.
+- Phone rejects v5 hold drag/release: preview appears, extension and release deletion fail.
+- [x] Retain gesture through temporarily stale reads; use full selection callbacks to confirm own requests while extraction lags; keep exact live-text and editor guards.
+- [x] Add seven editor/pointer regressions for lag, reversal, synchronous callbacks and unrelated changes.
+- [ ] Confirm v6 build and focused tests; then retest hold/drag/release on phone.
+- Existing 2985 passing v5 checks did not establish real editor timing.
+
 ## Polish trial v5 (2026-10-03)
 
 - [x] Implement character-only Backspace taps and non-destructive word hold preview.

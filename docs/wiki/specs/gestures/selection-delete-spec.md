@@ -8,6 +8,25 @@ version: v1.4.0
 
 # Selection Delete Technical Specification
 
+## Polish trial v6 — editor acknowledgement follow-up
+
+Phone feedback accepts v5 tap deletion, sentence capitalization and Shift at word
+end. Hold produces the word preview but dragging and release deletion fail; those
+checks are not accepted. V5's 2985 passing CI checks did not model editor read lag.
+
+KeyEventHandler.kt:99 installs its hold session before setSelection so a synchronous
+acknowledgement is captured. Full selection_updated callbacks confirm absolute
+ranges. A temporarily stale extraction no longer discards the physical hold. The
+pointer timer can retry when the editor catches up. A callback supplements only a
+missing extraction, the original caret or one of the last eight requested ranges;
+unrelated live positions still block editing. The live selected text and editor
+identity must still match before deletion. No release sends an unchecked DEL.
+
+Seven BackspaceHoldTest regressions cover lag/recovery, release with an acknowledged
+preview, extension/reversal, unexpected positions or changed text, synchronous
+callbacks and real Pointers routing into the editor handler. V6 execution and phone
+confirmation are pending. The release contract and speed policy are unchanged.
+
 ## Polish trial v5 — CI checks passed; device validation pending
 
 The modern path precedes navigation subkeys in Pointers.handleLongPress. A deferred
@@ -24,7 +43,7 @@ nonempty selection. Cancellation collapses the verified selection without deleti
 Truncated whole-word previews are skipped. Unicode steps preserve surrogate pairs.
 A held word is deleted only on release, preserving its preceding separator.
 
-Components: KeyEventHandler.kt:87 (beginBackspaceHold), BackspaceGesture.kt:7
+Components: KeyEventHandler.kt:99 (beginBackspaceHold), BackspaceGesture.kt:7
 (previousWord) and Pointers.kt (handleLongPress/handleSelectionDeleteRepeat).
 BackspaceHoldTest and PointersBackspaceHoldTest drive the real handlers with mocked
 editors/pointers; BackspaceGestureTest covers pure word boundaries and speed policy.

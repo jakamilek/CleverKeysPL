@@ -20,6 +20,7 @@ class BackspaceHoldTest {
     private var text = "olej mleko "
     private var a = text.length
     private var b = a
+    private var reportedSelection: Pair<Int,Int>? = null
 
     @Before fun setup() {
         mockkStatic(Log::class)
@@ -38,7 +39,10 @@ class BackspaceHoldTest {
         val et = mockk<ExtractedText>(relaxed = true)
         every { conn.finishComposingText() } returns true
         every { conn.getExtractedText(any(), any()) } answers {
-            et.startOffset = 0; et.selectionStart = a; et.selectionEnd = b; et
+            et.startOffset = 0
+            et.selectionStart = reportedSelection?.first ?: a
+            et.selectionEnd = reportedSelection?.second ?: b
+            et
         }
         every { conn.getTextBeforeCursor(any(), any()) } answers {
             text.take(minOf(a, b)).takeLast(firstArg<Int>())
@@ -57,6 +61,101 @@ class BackspaceHoldTest {
     private fun requestField() = KeyEventHandler::class.java.getDeclaredField("moveCursorReq")
         .apply { isAccessible = true }
     private fun caret(at: Int) { a = at; b = at }
+
+    private fun acknowledgeSelection() {
+        handler.selection_updated(11, a, 11, b)
+    }
+
+    @Test fun laggingExtractionDoesNotDiscardGestureBeforeEditorCatchesUp() {
+        assertTrue(handler.beginBackspaceHold())
+        reportedSelection = 11 to 11
+        assertFalse(handler.stepBackspaceHold(-1))
+        reportedSelection = null
+        assertTrue(handler.stepBackspaceHold(-1))
+        handler.finishBackspaceHold(true)
+        assertEquals("olej", text)
+    }
+
+    @Test fun acknowledgedPreviewCanBeReleasedWhileExtractionStillShowsOldCaret() {
+        assertTrue(handler.beginBackspaceHold())
+        reportedSelection = 11 to 11
+        acknowledgeSelection()
+        handler.finishBackspaceHold(true)
+        assertEquals("olej ", text)
+        verify(exactly = 1) { conn.commitText("",1) }
+    }
+
+    @Test fun callbacksPermitExtensionAndReversalWithLaggingExtraction() {
+        assertTrue(handler.beginBackspaceHold())
+        reportedSelection = 11 to 11
+        acknowledgeSelection()
+        assertTrue(handler.stepBackspaceHold(-1))
+        acknowledgeSelection()
+        assertTrue(handler.stepBackspaceHold(1))
+        acknowledgeSelection()
+        handler.finishBackspaceHold(true)
+        assertEquals("olej ", text)
+    }
+
+    @Test fun callbackCannotAuthorizeDeletionAfterAnUnrelatedLiveCaretMove() {
+        assertTrue(handler.beginBackspaceHold())
+        acknowledgeSelection()
+        reportedSelection = 2 to 2
+        handler.finishBackspaceHold(true)
+        assertEquals("olej mleko ", text)
+        verify(exactly = 0) { conn.commitText(any(),any()) }
+    }
+
+    @Test fun callbackCannotAuthorizeDeletionWhenTheSelectedTextChanged() {
+        assertTrue(handler.beginBackspaceHold())
+        acknowledgeSelection()
+        reportedSelection = 11 to 11
+        text = "olej sokxx "
+        handler.finishBackspaceHold(true)
+        assertEquals("olej sokxx ", text)
+        verify(exactly = 0) { conn.commitText(any(),any()) }
+    }
+
+    @Test fun synchronousSelectionAcknowledgementIsNotLostAtActivation() {
+        reportedSelection = 11 to 11
+        every { conn.setSelection(any(),any()) } answers {
+            a = firstArg(); b = secondArg(); acknowledgeSelection(); true
+        }
+        assertTrue(handler.beginBackspaceHold())
+        handler.finishBackspaceHold(true)
+        assertEquals("olej ", text)
+    }
+
+    @Test fun pointerReleaseDeletesAfterDragAndReversalWithLaggingEditorReads() {
+        val host = mockk<Pointers.IPointerEventHandler>(relaxed = true)
+        every { host.beginBackspaceHold() } answers { handler.beginBackspaceHold() }
+        every { host.stepBackspaceHold(any()) } answers { handler.stepBackspaceHold(firstArg()) }
+        every { host.finishBackspaceHold(any()) } answers { handler.finishBackspaceHold(firstArg()) }
+        every { host.backspaceKeyboardWidth() } returns 1000f
+        val pointers = org.objenesis.ObjenesisStd().newInstance(Pointers::class.java)
+        fun field(name: String, value: Any) {
+            Pointers::class.java.getDeclaredField(name).apply { isAccessible = true }.set(pointers,value)
+        }
+        val key = KeyValue.keyeventKey(0xE003,KeyEvent.KEYCODE_DEL,0)
+        val ptr = Pointers.Pointer(1, KeyboardData.Key.EMPTY.withKeyValue(0,key), key,900f,100f,
+            Pointers.Modifiers.EMPTY,Pointers.FLAG_P_DEFERRED_DOWN,
+            testConfigSnapshot(swipe_typing_enabled = false))
+        field("_handler",host); field("_ptrs",arrayListOf(ptr))
+        field("_longpress_handler",mockk<Handler>(relaxed = true))
+        Pointers::class.java.getDeclaredMethod("handleLongPress",Pointers.Pointer::class.java)
+            .apply { isAccessible = true }.invoke(pointers,ptr)
+        reportedSelection = 11 to 11
+        acknowledgeSelection()
+        pointers.onTouchMove(100f,200f,1)
+        assertEquals(" mleko ",conn.getSelectedText(0))
+        acknowledgeSelection()
+        pointers.onTouchMove(130f,200f,1)
+        assertEquals("mleko ",conn.getSelectedText(0))
+        acknowledgeSelection()
+        pointers.onTouchUp(1)
+        assertEquals("olej ",text)
+        verify(exactly = 0) { host.onPointerUp(any(),any()) }
+    }
 
     @Test fun holdPreviewsWordAndDeletesOnlyOnReleasePreservingLeadingSpace() {
         assertTrue(handler.beginBackspaceHold())

@@ -37,8 +37,16 @@ class KeyEventHandler(
     private val cursorWordCapitalization = CursorWordCapitalization()
     private data class BackspaceHold(
         val connection: InputConnection, val info: EditorInfo,
-        val before: String, val anchor: Int, val base: Int, var cursor: Int
-    )
+        val before: String, val anchor: Int, val base: Int, var cursor: Int,
+        var acknowledgedSelection: Pair<Int, Int>? = null,
+        val requestedSelections: LinkedHashSet<Pair<Int, Int>> = linkedSetOf()
+    ) {
+        fun expectedSelection(): Pair<Int, Int> = base + cursor to anchor
+        fun rememberSelection() {
+            requestedSelections.add(expectedSelection())
+            if (requestedSelections.size > 8) requestedSelections.remove(requestedSelections.first())
+        }
+    }
     private var backspaceHold: BackspaceHold? = null
 
     /** Whether to force sending arrow keys to move the cursor when
@@ -75,6 +83,10 @@ class KeyEventHandler(
         oldSelStart: Int, newSelStart: Int,
         oldSelEnd: Int = oldSelStart, newSelEnd: Int = newSelStart
     ) {
+        // Android can acknowledge setSelection before getExtractedText catches up.
+        // The callback carries absolute editor offsets, unlike a bounded extraction.
+        backspaceHold?.acknowledgedSelection = if (newSelStart >= 0 && newSelEnd >= 0)
+            minOf(newSelStart, newSelEnd) to maxOf(newSelStart, newSelEnd) else null
         cursorWordCapitalization.selection(oldSelStart, oldSelEnd, newSelStart, newSelEnd)
         autocap.selection_updated(oldSelStart, newSelStart)
     }
@@ -100,34 +112,52 @@ class KeyEventHandler(
             val base = anchor - before.length
             if (base < 0) return false
             val start = BackspaceGesture.previousWord(before, base > 0)?.start ?: before.length
-            if (!conn.setSelection(anchor, base + start)) return false
-            backspaceHold = BackspaceHold(conn, info, before, anchor, base, start)
+            val session = BackspaceHold(conn, info, before, anchor, base, start)
+            session.rememberSelection()
+            // Install before issuing the request: a synchronous callback must not be lost.
+            backspaceHold = session
+            if (!conn.setSelection(anchor, base + start)) { backspaceHold = null; return false }
             cursorWordCapitalization.disarm()
             lastTypedChar = '\u0000'
             try { autocap.stop() } catch (_: Exception) { /* Keep the preview owned. */ }
             return true
-        } catch (_: Exception) { return false }
+        } catch (_: Exception) { backspaceHold = null; return false }
     }
 
     private fun backspaceHoldStillCurrent(s: BackspaceHold): Boolean {
         if (recv.getCurrentInputConnection() !== s.connection || recv.getCurrentEditorInfo() !== s.info) return false
-        val et = getCursorPos(s.connection) ?: return false
-        val a = et.startOffset + et.selectionStart
-        val b = et.startOffset + et.selectionEnd
-        return minOf(a, b) == s.base + s.cursor && maxOf(a, b) == s.anchor &&
+        val expected = s.expectedSelection()
+        val et = getCursorPos(s.connection)
+        val extracted = if (et != null && et.selectionStart >= 0 && et.selectionEnd >= 0) {
+            val a = et.startOffset + et.selectionStart
+            val b = et.startOffset + et.selectionEnd
+            minOf(a, b) to maxOf(a, b)
+        } else null
+        val confirmed = extracted == expected ||
+            (s.acknowledgedSelection == expected && (extracted == null ||
+                extracted == (s.anchor to s.anchor) || extracted in s.requestedSelections))
+        // A callback supplements a lagging extraction; it never replaces the live text check.
+        return confirmed &&
             s.connection.getSelectedText(0)?.toString().orEmpty() == s.before.substring(s.cursor)
     }
 
     override fun stepBackspaceHold(direction: Int): Boolean {
         val s = backspaceHold ?: return false
         return try {
-            if (!backspaceHoldStillCurrent(s)) { backspaceHold = null; return false }
-            val next = BackspaceGesture.step(s.before, s.cursor, direction)
-            if (next == s.cursor) return false
-            if (!s.connection.setSelection(s.anchor, s.base + next)) return false
+            // A pending/lagging editor read is not a cancelled physical gesture. The
+            // pointer timer will retry; release still requires a verified live selection.
+            if (!backspaceHoldStillCurrent(s)) return false
+            val previous = s.cursor
+            val next = BackspaceGesture.step(s.before, previous, direction)
+            if (next == previous) return false
             s.cursor = next
+            if (!s.connection.setSelection(s.anchor, s.base + next)) {
+                s.cursor = previous
+                return false
+            }
+            s.rememberSelection()
             true
-        } catch (_: Exception) { backspaceHold = null; false }
+        } catch (_: Exception) { false }
     }
 
     override fun finishBackspaceHold(commit: Boolean) {
