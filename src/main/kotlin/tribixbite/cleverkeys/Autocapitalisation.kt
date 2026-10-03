@@ -18,6 +18,7 @@ class Autocapitalisation(
     private var shouldUpdateCapsMode = false
 
     private var ic: InputConnection? = null
+    private var editorInfo: EditorInfo? = null
     private var capsMode = 0
 
     /** Keep track of the cursor to recognize cursor movements from typing. */
@@ -33,6 +34,7 @@ class Autocapitalisation(
      */
     fun started(info: EditorInfo, ic: InputConnection) {
         this.ic = ic
+        editorInfo = info
         // Check inputType for CAP_MODE flags
         capsMode = info.inputType and SUPPORTED_CAPS_MODES
         val autocapEnabled = Config.globalConfig().autocapitalisation
@@ -124,9 +126,8 @@ class Autocapitalisation(
 
     private val delayed_callback = Runnable {
         if (shouldUpdateCapsMode && ic != null) {
-            val cursorCapsMode = ic?.getCursorCapsMode(capsMode) ?: 0
-            shouldEnableShift = enabled && (cursorCapsMode != 0)
-            vlog { "AUTOCAP callback: enabled=$enabled, cursorCapsMode=$cursorCapsMode, shouldEnableShift=$shouldEnableShift" }
+            shouldEnableShift = shouldCapitalizeAtCursor(ic, editorInfo, enabled)
+            vlog { "AUTOCAP callback: enabled=$enabled, shouldEnableShift=$shouldEnableShift" }
             shouldUpdateCapsMode = false
         }
         vlog { "AUTOCAP update_shift_state: enable=$shouldEnableShift, disable=$shouldDisableShift" }
@@ -223,16 +224,33 @@ class Autocapitalisation(
         fun shouldCapitalizeAtCursor(
             ic: InputConnection?,
             info: EditorInfo?,
-            autocapEnabled: Boolean
+            autocapEnabled: Boolean,
+            allowAdjacentNumericPeriod: Boolean = false
         ): Boolean {
             if (!autocapEnabled || ic == null || info == null) return false
             val capsMode = info.inputType and SUPPORTED_CAPS_MODES
             if (capsMode == 0) return false
+            val editorCaps = try { ic.getCursorCapsMode(capsMode) } catch (_: Exception) { 0 }
+            return editorCaps != 0 || sentenceBoundary(ic, info, allowAdjacentNumericPeriod)
+        }
+
+        private fun sentenceBoundary(ic: InputConnection?, info: EditorInfo?, allowAdjacent: Boolean): Boolean {
+            if (ic == null || info == null ||
+                (info.inputType and InputType.TYPE_TEXT_FLAG_CAP_SENTENCES) == 0 ||
+                !EditorSpacingPolicy.allowsAutomaticSpacing(info)) return false
             return try {
-                ic.getCursorCapsMode(capsMode) != 0
-            } catch (e: Exception) {
-                false
-            }
+                val before = ic.getTextBeforeCursor(256, 0)?.toString() ?: return false
+                val after = ic.getTextAfterCursor(1, 0)?.toString() ?: return false
+                if (SmartAutoSpace.numericPeriodStartsSentence(before, after, allowAdjacent)) return true
+                // Some editors report a stale zero mode after punctuation. Use Android's
+                // own sentence rules on live prose, including its abbreviation handling.
+                val trimmed = before.trimEnd()
+                if (trimmed.isEmpty() || trimmed.last() !in ".!?\"'”’»)]" ||
+                    after.firstOrNull()?.isDigit() == true) return false
+                if (!allowAdjacent && trimmed.length == before.length) return false
+                val context = if (trimmed.length == before.length) before + " " else before
+                TextUtils.getCapsMode(context, context.length, InputType.TYPE_TEXT_FLAG_CAP_SENTENCES) != 0
+            } catch (_: Exception) { false }
         }
     }
 }

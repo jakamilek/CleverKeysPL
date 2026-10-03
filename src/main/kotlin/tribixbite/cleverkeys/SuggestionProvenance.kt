@@ -131,7 +131,9 @@ data class ScoreBreakdown(
 data class SuggestionMeta(
     val origin: SuggestionOrigin,
     val breakdown: ScoreBreakdown? = null,
-    val note: ProvenanceNote? = null
+    val note: ProvenanceNote? = null,
+    /** Source-backed surface selected from the bar; commit its exact displayed casing. */
+    val preserveExactCase: Boolean = false,
 )
 
 /** Structured details which must not carry display-language text through the pipeline. */

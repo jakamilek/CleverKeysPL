@@ -252,18 +252,17 @@ class BackspaceUndoTest {
         assertThat(source).contains("private fun handleBackspaceUndoAutocorrect(): Boolean")
     }
 
-    // --- Backspace chain must include both undo handlers ---
-
+    // Latest Polish trial contract: tap is a character deletion; hold owns word deletion.
     @Test
-    fun `backspace chain includes swipe undo then autocorrect undo`() {
+    fun `backspace tap bypasses legacy undo interceptors`() {
         val source = readSource("KeyEventHandler.kt")
-        val swipeUndoPos = source.indexOf("handleBackspaceUndoSwipe()")
-        val autocorrectUndoPos = source.indexOf("handleBackspaceUndoAutocorrect()")
-        // Both must exist in backspace chain
-        assertThat(swipeUndoPos).isGreaterThan(-1)
-        assertThat(autocorrectUndoPos).isGreaterThan(-1)
-        // Swipe undo must come BEFORE autocorrect undo in the chain
-        assertThat(swipeUndoPos).isLessThan(autocorrectUndoPos)
+        val body = source.substring(source.indexOf("override fun key_up("),
+            source.indexOf("private fun handleBackspaceUndoSwipe"))
+        assertThat(body).doesNotContain("handleBackspaceUndoSwipe()")
+        assertThat(body).doesNotContain("handleBackspaceUndoAutocorrect()")
+        assertThat(body).contains("send_key_down_up(key.getKeyevent())")
+        assertThat(body).contains("recv.clearSwipeUndoState()")
+        assertThat(body).contains("recv.clearAutocorrectUndoState()")
     }
 
     // =========================================================================

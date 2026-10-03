@@ -17,6 +17,11 @@ jobs:
   build:
     name: Build and Test
     runs-on: ubuntu-latest
+    env:
+      # The full compiler exceeds the phone wrapper's 1 GiB default on this runner.
+      # Keep guarded single-worker/no-daemon execution with an explicit CI-only cap.
+      GRADLE_GUARD_XMX: 2048m
+      GRADLE_GUARD_METASPACE: 512m
 
     steps:
     - name: Checkout code
@@ -33,12 +38,31 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build with Gradle
-      run: ./gradlew assembleDebug --stacktrace
+      run: bash scripts/gradle-guard.sh assembleDebug --stacktrace
 
     - name: Run pure JVM tests
-      run: ./gradlew runPureTests --stacktrace
+      run: bash scripts/gradle-guard.sh runPureTests --stacktrace
       # MockK tests (runMockTests) require android.jar stubs + specific classpath
       # ordering that can hang on CI runners. Run via ew-cli instrumented tests instead.
+
+    - name: Run language-pack, casing and spacing integration tests
+      timeout-minutes: 15
+      run: |
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=BackspaceHoldTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=PointersBackspaceHoldTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=EditorPredictionRegressionTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=SuggestionTapAddAndIWordTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=langpack.LanguagePackImportTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=SwipeAutocapCommitTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=AutocapitalisationTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=SuggestionTapPartialReplaceTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=ShiftWordCapitalizationTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=PointersWordCapitalizationTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=KeyEventReceiverBridgeDelegationTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=KeyEventHandlerSliderTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=EditorSpacingIntegrationTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=DoubleSpacePeriodTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=SuggestionTrailingSpaceRepairTest --stacktrace
 
     - name: Upload test results
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -50,12 +74,20 @@ jobs:
           build/test-results/
         retention-days: 7
 
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      if: success()
+      with:
+        name: apk-debug
+        path: build/outputs/apk/debug/*.apk
+        retention-days: 7
+
     - name: Run lint checks
       # Lint gate phase 1: abortOnError=true in build.gradle + baseline suppresses
       # pre-existing issues, so this fails only on NEW lint regressions.
       # NOTE: bare `lint` resolves to the DEFAULT variant, i.e. DEBUG. Release is linted
       # by the next step — do not assume this one covers it.
-      run: ./gradlew lint --stacktrace
+      run: bash scripts/gradle-guard.sh lint --stacktrace
 
     - name: Run release lint checks
       # ARC-096: release is the ONLY minified variant and the one users install, and until
@@ -69,15 +101,7 @@ jobs:
       # at all ("Task 'lintVitalRelease' not found"), which is why nothing could lint release.
       # That same flag makes `assembleRelease` self-gate, so this step is what covers PRs,
       # which build debug only.
-      run: ./gradlew lintVitalRelease --stacktrace
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-      if: success()
-      with:
-        name: apk-debug
-        path: build/outputs/apk/debug/*.apk
-        retention-days: 7
+      run: bash scripts/gradle-guard.sh lintVitalRelease --stacktrace
 
     - name: Upload lint results
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -107,7 +131,7 @@ jobs:
 
     # Lint runs (as a hard gate) in the "Build and Test" job; not duplicated here.
     - name: Dependency analysis
-      run: ./gradlew dependencies --stacktrace
+      run: bash scripts/gradle-guard.sh dependencies --stacktrace
 
   security:
     name: Security Scan

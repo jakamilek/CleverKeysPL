@@ -1387,6 +1387,11 @@ class Config private constructor(
         fun key_down(key: KeyValue?, isSwipe: Boolean)
         fun key_up(key: KeyValue?, mods: Pointers.Modifiers, isKeyRepeat: Boolean = false)
         fun mods_changed(mods: Pointers.Modifiers)
+        /** A plain Shift tap may edit the word the user returned to. */
+        fun tryWordCapitalization(): Boolean = false
+        fun beginBackspaceHold(): Boolean = false
+        fun stepBackspaceHold(direction: Int): Boolean = false
+        fun finishBackspaceHold(commit: Boolean) {}
     }
 
     companion object {

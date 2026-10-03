@@ -11,6 +11,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.zip.ZipInputStream
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 import tribixbite.cleverkeys.swipe.ctc.CtcPackModel
 
 /**
@@ -119,12 +121,48 @@ class LanguagePackManager(private val context: Context) {
         File(context.filesDir, LANGPACKS_DIR).apply { mkdirs() }
     }
 
+    private val intelligence = ConcurrentHashMap<String, LanguageIntelligenceProvider>()
+    private val requestedIntelligence = ConcurrentHashMap.newKeySet<String>()
+    private val intelligenceLoader by lazy {
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "langpack-intelligence").apply { isDaemon = true }
+        }
+    }
+
+    /** Schedule at language activation. All file reads happen on this worker. */
+    fun warmLanguageIntelligence(code: String) {
+        if (!VALID_PACK_CODE.matches(code) || !requestedIntelligence.add(code)) return
+        intelligenceLoader.execute {
+            synchronized(this) {
+                try {
+                    val dir = File(langpacksDir, code)
+                    val manifestFile = File(dir, MANIFEST_FILE)
+                    if (!manifestFile.isFile || manifestFile.length() > 256 * 1024) return@synchronized
+                    val manifest = parseManifest(manifestFile.readText()) ?: return@synchronized
+                    val member = manifest.languageIntelligence ?: return@synchronized
+                    val file = File(dir, member.file)
+                    if (!file.isFile || file.length() > IntelligenceJson.MAX_BYTES ||
+                        !sha256OfFile(file).equals(member.sha256, ignoreCase = true)) return@synchronized
+                    intelligence[code] = file.reader(Charsets.UTF_8).use {
+                        IntelligenceJson.parse(it, code, manifest.version, manifest.capabilities)
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Cannot load language intelligence for $code: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /** Memory-only read; a cold snapshot is absent until background warming finishes. */
+    fun getLanguageIntelligenceProvider(code: String): LanguageIntelligenceProvider? = intelligence[code]
+
     /**
      * Import a language pack from a ZIP file URI.
      *
      * @param uri URI to the ZIP file (from file picker)
      * @return ImportResult indicating success or failure with details
      */
+    @Synchronized
     fun importLanguagePack(uri: Uri): ImportResult {
         Log.d(TAG, "Importing language pack from: $uri")
 
@@ -145,17 +183,30 @@ class LanguagePackManager(private val context: Context) {
      * Import from an InputStream (ZIP content).
      */
     private fun importFromStream(inputStream: InputStream): ImportResult {
-        val tempDir = File(context.cacheDir, "langpack_import_${System.currentTimeMillis()}")
-        tempDir.mkdirs()
+        val tempDir = File.createTempFile("langpack_import_", "", context.cacheDir).apply {
+            delete()
+            check(mkdirs())
+        }
 
         try {
             // Extract ZIP contents to temp directory
             val extractedFiles = mutableSetOf<String>()
+            var extractedBytes = 0L
+            var entryCount = 0
             ZipInputStream(inputStream).use { zis ->
                 var entry = zis.nextEntry
                 while (entry != null) {
+                    if (++entryCount > 64) return ImportResult.Error(PackImportFailure.InvalidMember("ZIP"))
+                    // Never flatten paths: two different archive names must not overwrite one file.
+                    if (entry.name.isEmpty() || entry.name.contains('/') || entry.name.contains('\\') ||
+                        entry.name == "." || entry.name == ".." || entry.name.any { it.isISOControl() }) {
+                        return ImportResult.Error(PackImportFailure.InvalidMember("ZIP"))
+                    }
                     if (!entry.isDirectory) {
-                        val fileName = File(entry.name).name // Strip path for security
+                        val fileName = entry.name
+                        if (!extractedFiles.add(fileName)) {
+                            return ImportResult.Error(PackImportFailure.InvalidMember(fileName))
+                        }
                         val outFile = File(tempDir, fileName)
                         if (fileName == MODEL_FILE) {
                             // Bounded, because the cap has to abort the EXTRACTION: a hash check
@@ -174,11 +225,20 @@ class LanguagePackManager(private val context: Context) {
                                 )
                             }
                         } else {
-                            FileOutputStream(outFile).use { fos ->
-                                zis.copyTo(fos)
+                            val limit = when (fileName) {
+                                MANIFEST_FILE -> 256L * 1024
+                                IntelligenceJson.FILE -> IntelligenceJson.MAX_BYTES
+                                else -> 64L * 1024 * 1024
                             }
+                            val withinCap = FileOutputStream(outFile).use { fos ->
+                                copyBounded(zis, fos, minOf(limit, 128L * 1024 * 1024 - extractedBytes))
+                            }
+                            if (!withinCap) return ImportResult.Error(PackImportFailure.InvalidMember(fileName))
                         }
-                        extractedFiles.add(fileName)
+                        extractedBytes += outFile.length()
+                        if (extractedBytes > 128L * 1024 * 1024) {
+                            return ImportResult.Error(PackImportFailure.InvalidMember("ZIP"))
+                        }
                     }
                     entry = zis.nextEntry
                 }
@@ -196,6 +256,28 @@ class LanguagePackManager(private val context: Context) {
             val manifestFile = File(tempDir, MANIFEST_FILE)
             val manifest = parseManifest(manifestFile.readText())
                 ?: return ImportResult.Error(PackImportFailure.InvalidMember(MANIFEST_FILE))
+
+            // A declaration is a promise: never silently discard a corrupt or unsupported sidecar.
+            val intelligenceFile = File(tempDir, IntelligenceJson.FILE)
+            val provider = manifest.languageIntelligence?.let { member ->
+                if (!intelligenceFile.isFile) {
+                    return ImportResult.Error(PackImportFailure.MissingMember(member.file))
+                }
+                if (!sha256OfFile(intelligenceFile).equals(member.sha256, ignoreCase = true)) {
+                    return ImportResult.Error(PackImportFailure.InvalidMember(member.file))
+                }
+                try {
+                    intelligenceFile.reader(Charsets.UTF_8).use {
+                        IntelligenceJson.parse(it, manifest.code, manifest.version, manifest.capabilities)
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Invalid language intelligence: ${e.message}")
+                    return ImportResult.Error(PackImportFailure.InvalidMember(member.file))
+                }
+            }
+            if (intelligenceFile.exists() && manifest.languageIntelligence == null) {
+                return ImportResult.Error(PackImportFailure.InvalidMember(IntelligenceJson.FILE))
+            }
 
             // Validate dictionary binary
             val dictFile = File(tempDir, DICTIONARY_FILE)
@@ -245,10 +327,13 @@ class LanguagePackManager(private val context: Context) {
             // keeps a half-built staging dir invisible to getInstalledPacks(). Within
             // the staging dir the manifest is copied LAST, so even a crash between
             // steps can never produce a manifest-without-dictionary directory.
-            val stagingDir = File(langpacksDir, ".staging-${manifest.code}-${System.currentTimeMillis()}")
-            stagingDir.mkdirs()
+            val stagingDir = File.createTempFile(".staging-${manifest.code}-", "", langpacksDir).apply {
+                delete()
+                check(mkdirs())
+            }
             try {
                 dictFile.copyTo(File(stagingDir, DICTIONARY_FILE), overwrite = true)
+                if (provider != null) intelligenceFile.copyTo(File(stagingDir, IntelligenceJson.FILE))
 
                 // Copy unigrams if present
                 val unigramsFile = File(tempDir, UNIGRAMS_FILE)
@@ -287,14 +372,22 @@ class LanguagePackManager(private val context: Context) {
                 // Manifest last — a staged dir only becomes "complete" at this point.
                 manifestFile.copyTo(File(stagingDir, MANIFEST_FILE), overwrite = true)
 
-                // Swap: the old pack is deleted only once the replacement is fully staged
-                // on the same filesystem, so the unprotected window is a single rename.
-                if (packDir.exists()) {
-                    packDir.deleteRecursively()
-                }
-                if (!stagingDir.renameTo(packDir)) {
+                // Keep the previous installation until the staged directory is in place.
+                val backup = File(langpacksDir, ".backup-${manifest.code}-${System.nanoTime()}")
+                val hadPrevious = packDir.exists()
+                if (hadPrevious && !packDir.renameTo(backup)) {
                     return ImportResult.Error(PackImportFailure.InstallFailed)
                 }
+                if (!stagingDir.renameTo(packDir)) {
+                    if (hadPrevious && !backup.renameTo(packDir)) {
+                        Log.e(TAG, "Rollback rename failed; previous pack retained at ${backup.name}")
+                    }
+                    return ImportResult.Error(PackImportFailure.InstallFailed)
+                }
+                if (hadPrevious) backup.deleteRecursively()
+                intelligence.remove(manifest.code)
+                requestedIntelligence.add(manifest.code)
+                if (provider != null) intelligence[manifest.code] = provider
             } finally {
                 if (stagingDir.exists()) {
                     stagingDir.deleteRecursively()
@@ -315,6 +408,9 @@ class LanguagePackManager(private val context: Context) {
      */
     private fun parseManifest(json: String): LanguagePackManifest? {
         return try {
+            val strict = IntelligenceJson.document(json.reader())
+            val declaration = IntelligenceJson.declaration(strict)
+            val capabilities = IntelligenceJson.capabilities(strict)
             val obj = JSONObject(json)
             // `model` is absent from every pack built before 2026-09-10, and from every pack for
             // a Latin language — optJSONObject keeps those parsing exactly as they did.
@@ -333,6 +429,9 @@ class LanguagePackManager(private val context: Context) {
                 license = attributionField(obj, "license"),
                 attribution = attributionField(obj, "attribution"),
                 source = attributionField(obj, "source"),
+                apiVersion = if (strict.has("apiVersion")) 1 else null,
+                capabilities = capabilities,
+                languageIntelligence = declaration,
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse manifest", e)
@@ -546,13 +645,20 @@ class LanguagePackManager(private val context: Context) {
     /**
      * Delete a language pack.
      */
+    @Synchronized
     fun deletePack(code: String): Boolean {
+        if (!VALID_PACK_CODE.matches(code)) return false
         val packDir = File(langpacksDir, code)
-        return if (packDir.exists()) {
+        val deleted = if (packDir.exists()) {
             packDir.deleteRecursively()
         } else {
             false
         }
+        if (deleted) {
+            intelligence.remove(code)
+            requestedIntelligence.remove(code)
+        }
+        return deleted
     }
 
     /**
@@ -615,6 +721,9 @@ data class LanguagePackManifest(
      * [PackAttributionDisplay].
      */
     val source: String? = null,
+    val apiVersion: Int? = null,
+    val capabilities: Set<String> = emptySet(),
+    val languageIntelligence: IntelligenceMember? = null,
 )
 
 /**

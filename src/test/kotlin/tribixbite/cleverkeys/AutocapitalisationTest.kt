@@ -43,6 +43,8 @@ class AutocapitalisationTest {
         mockkStatic(TextUtils::class)
         every { TextUtils.isEmpty(any()) } answers { (firstArg<CharSequence?>()?.length ?: 0) == 0 }
 
+        every { TextUtils.getCapsMode(any(), any(), any()) } returns 0
+
         // Config.globalConfig() returns _globalConfig!! on the Companion.
         // Config fields are @JvmField var — can't mock with every{}, set directly.
         mockConfig = mockk<Config>(relaxed = true)
@@ -280,6 +282,64 @@ class AutocapitalisationTest {
 
         // Cursor movement clears shouldEnableShift
         verify { mockCallback.update_shift_state(false, any()) }
+    }
+
+    @Test
+    fun `numeric sentence boundary also enables tap shift after a typed space`() {
+        enableAutocap()
+        every { mockIc.getTextBeforeCursor(any(), any()) } returns "Mam 3. "
+        every { mockIc.getTextAfterCursor(any(), any()) } returns ""
+        clearMocks(mockCallback, answers = false)
+        autocap.typed(" ")
+        runCapturedCallback()
+        verify { mockCallback.update_shift_state(true, any()) }
+    }
+
+    @Test
+    fun `unfinished decimal does not prematurely enable tap shift`() {
+        enableAutocap()
+        every { mockIc.getTextBeforeCursor(any(), any()) } returns "3."
+        every { mockIc.getTextAfterCursor(any(), any()) } returns ""
+        clearMocks(mockCallback, answers = false)
+        autocap.typed(".")
+        runCapturedCallback()
+        verify { mockCallback.update_shift_state(false, any()) }
+    }
+
+    @Test fun `ordinary period uses live Android rules when editor caps are stale`() {
+        enableAutocap()
+        every { mockIc.getTextBeforeCursor(any(), any()) } returns "To łódź. "
+        every { mockIc.getTextAfterCursor(any(), any()) } returns ""
+        every { TextUtils.getCapsMode("To łódź. ", 9, InputType.TYPE_TEXT_FLAG_CAP_SENTENCES) } returns
+            InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        clearMocks(mockCallback, answers = false)
+        autocap.typed(" "); runCapturedCallback()
+        verify { mockCallback.update_shift_state(true, any()) }
+    }
+
+    @Test fun `editor caps exception still permits numeric sentence fallback`() {
+        val info = createEditorInfo(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES, 0)
+        every { mockIc.getCursorCapsMode(any()) } throws IllegalStateException("stale editor")
+        every { mockIc.getTextBeforeCursor(any(), any()) } returns "Mam 3. "
+        every { mockIc.getTextAfterCursor(any(), any()) } returns ""
+        assertThat(Autocapitalisation.shouldCapitalizeAtCursor(mockIc, info, true)).isTrue()
+    }
+
+    @Test fun `abbreviation result from Android is respected`() {
+        val info = createEditorInfo(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES, 0)
+        every { mockIc.getTextBeforeCursor(any(), any()) } returns "np. "
+        every { mockIc.getTextAfterCursor(any(), any()) } returns ""
+        assertThat(Autocapitalisation.shouldCapitalizeAtCursor(mockIc, info, true)).isFalse()
+        verify { TextUtils.getCapsMode("np. ", 4, InputType.TYPE_TEXT_FLAG_CAP_SENTENCES) }
+    }
+
+    @Test fun `search fields do not use prose sentence fallback`() {
+        val info = createEditorInfo(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES, 0)
+        info.imeOptions = EditorInfo.IME_ACTION_SEARCH
+        every { mockIc.getTextBeforeCursor(any(), any()) } returns "To łódź. "
+        every { mockIc.getTextAfterCursor(any(), any()) } returns ""
+        assertThat(Autocapitalisation.shouldCapitalizeAtCursor(mockIc, info, true)).isFalse()
+        verify(exactly = 0) { TextUtils.getCapsMode(any(), any(), any()) }
     }
 
     // =========================================================================

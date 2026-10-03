@@ -1,29 +1,14 @@
 package tribixbite.cleverkeys
 
-/**
- * SAS-1 (v1.5.0): smart auto-space around punctuation — shared pure decision logic.
- *
- * Feature A — leading-space suppression after opening punctuation:
- *   Consumed by SuggestionHandler.onSuggestionSelected and
- *   InputCoordinator's suggestion-commit path (`needsSpaceBefore`).
- *   When a swiped word / tapped suggestion is committed right after an
- *   opening bracket or quote, the leading auto-space must be skipped:
- *   `("` + swipe "word" → `(word` / `"word`, never `( word`.
- *
- * Feature B — automatic-trailing-space swallowing before closing punctuation:
- *   Consumed by KeyEventHandler.sendText (smart punctuation, v1.2.7).
- *   After a swipe/suggestion commit auto-added a trailing space, the very
- *   next typed closing punctuation deletes that space (`word.` not `word .`).
- *   Only the AUTOMATIC space may be swallowed — eligibility is verified at
- *   use against the actual editor text AND a cursor-position stamp captured
- *   at commit time (see PredictionContextTracker.markAutoSpacePending).
- *
- * This object is pure Kotlin (no Android deps) so it runs under runPureTests.
+/** Pure spacing decisions shared by suggestion commits and punctuation key handling.
+ * Current field-aware behavior: docs/specs/editor-spacing.md.
+ * isSwallowEligible retains the legacy stamped-space predicate for existing callers/tests;
+ * punctuationEdit verifies actual surrounding text and also normalizes manual plain spaces.
  */
 object SmartAutoSpace {
 
     /** Characters that ALWAYS open a group — never valid as closers. */
-    private val UNAMBIGUOUS_OPENERS = setOf('(', '[', '{', '“', '‘', '¿', '¡')
+    private val UNAMBIGUOUS_OPENERS = setOf('(', '[', '{', '“', '„', '‘', '«', '¿', '¡')
 
     /**
      * Closing punctuation that swallows a pending automatic trailing space.
@@ -97,6 +82,61 @@ object SmartAutoSpace {
         // Position stamp check — only enforced when both sides are known
         return stampedPosition < 0 || actualPosition < 0 || actualPosition == stampedPosition
     }
+
+    private val FORMATTING_CLOSERS = setOf('.', ',', ';', ':', '!', '?', '…', ')', ']', '}', '”', '»')
+    fun isFormattingPunctuation(char: Char): Boolean = char in FORMATTING_CLOSERS || char == '"' || char == '\''
+
+    /** A bounded edit around the caret; never removes tabs, newlines or indentation. */
+    data class PunctuationEdit(val deleteBefore: Int, val text: String, val addedSpace: Boolean)
+
+    fun punctuationEdit(char: Char, before: String?, after: String?): PunctuationEdit? {
+        if (before == null || after == null) return null
+        // Opening quotes/brackets and lexical apostrophes/hyphens remain literal.
+        val closingQuote = char == '"' && before.count { it == '"' } % 2 == 1
+        val closer = char in FORMATTING_CLOSERS || closingQuote
+        if (!closer) return null
+        val trimmed = before.trimEnd(' ')
+        if (trimmed.isEmpty() || trimmed.last().isWhitespace()) return null
+        val spaces = before.length - trimmed.length
+        // A truncated run of spaces, or indentation after a newline, isn't ours to edit.
+        if (spaces > 8) return null
+        val token = trimmed.takeLastWhile { !it.isWhitespace() }
+        if (token.any { it in "@/\\_=\u0060" } || token.contains("://") ||
+            ((char == ':' || char == '.') && token.lowercase() in setOf("http", "https", "ftp", "www"))) return null
+        // Conservative numeric policy: decimal separators/time/version punctuation stay literal.
+        if (char in setOf('.', ',', ':') && trimmed.last().isDigit()) return null
+        if (trimmed.last() in UNAMBIGUOUS_OPENERS) return null
+        val next = after.firstOrNull()
+        val addSpace = next == null || (!next.isWhitespace() &&
+            !isClosingPunctuation(next) && next != '"' && next != '»')
+        return PunctuationEdit(spaces, if (addSpace) "$char " else char.toString(), addSpace)
+    }
+
+    /** Verify a swipe replacement's actual suffix instead of assuming a trailing space. */
+    fun committedWordDeleteCount(before: String?, word: String): Int? = when {
+        word.isEmpty() || before == null -> null
+        before.endsWith("$word ") -> word.length + 1
+        before.endsWith(word) -> word.length
+        else -> null
+    }
+
+    /** A number-ending period is a sentence boundary once a separator/next word is requested.
+     * Keep an unfinished decimal literal; this never inserts or removes numeric punctuation.
+     */
+    fun numericPeriodStartsSentence(before: String?, after: String?, allowAdjacent: Boolean = false): Boolean {
+        if (before == null || after == null) return false
+        val trimmed = before.trimEnd()
+        if (!allowAdjacent && trimmed.length == before.length) return false
+        if (!trimmed.endsWith('.') || after.firstOrNull()?.isDigit() == true) return false
+        val token = trimmed.dropLast(1).takeLastWhile { !it.isWhitespace() }
+            .trimStart('(', '[', '{', '„', '“', '"', '«')
+        return NUMERIC_SENTENCE_TOKEN.matches(token)
+    }
+
+    private val NUMERIC_SENTENCE_TOKEN = Regex("[+-]?[\\p{Nd}]+(?:[.,][\\p{Nd}]+)?")
+
+    fun hasSeparatorAfter(after: Char?): Boolean =
+        after != null && (after.isWhitespace() || isClosingPunctuation(after) || after == '"' || after == '»')
 
     /**
      * Trailing-space decision (#78/#82) — the outcome of committing a chosen

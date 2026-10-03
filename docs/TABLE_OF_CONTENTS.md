@@ -1,5 +1,14 @@
 # CleverKeys Documentation - Table of Contents
 
+Trial v8: [Backspace brake and resume](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v8--brake-and-resume). V7 accepted on phone; v8 adds a small reversal to pause, then deliberate motion to resume. Build/tests and phone checks pending.
+
+Trial v7: [Backspace phone diagnostics](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v7--phone-diagnostics-issue-unresolved). V6 phone retest failed; v7 debug build and 2999 checks PASS (run 37153176431); phone trace pending. No fix claimed.
+
+Trial v6: Backspace editor-acknowledgement follow-up; debug build and 2992 CI checks PASS, phone validation pending. V5 phone accepts tap/caps/Shift but rejects hold drag/release.
+
+Trial v5: [Backspace hold and reversible selection](wiki/gestures/selection-delete.md), [technical changes](wiki/specs/gestures/selection-delete-spec.md). Debug build and 2985 CI checks PASS; device validation pending (2026-10-03).
+
+
 **Last Updated**: 2026-08-15
 **Review Status**: Files 251 of 251 (100% complete) ✅
 
@@ -73,6 +82,8 @@
 | `geometric-swipe-engine.md` | Layout-agnostic geometric swipe decoder (standalone) | ✅ Implemented |
 | `context-learning-and-next-word.md` | **NEW 2026-08-06** Persistent context LM, master learning privacy gate, opt-in next-word prediction, suggestion provenance, learned-data manager | ✅ Implemented |
 | `ctc-swipe-engine.md` | **UPDATED 2026-08-15** CTC trie-beam swipe engine — WIRED opt-in `ctc` mode (2026-08-08): CleverKeys-trained ONNX encoder, router/adapter/settings/provenance As-Built | ✅ Implemented |
+| `editor-spacing.md` | Field-aware swipe/tap spaces and punctuation; build/tests pass, device verification pending | 🚧 In progress |
+| `cursor-word-capitalization.md` | Shift toggles a parked word's first letter; build/tests pass, device verification pending | 🚧 In progress |
 | `cursor-aware-predictions.md` | Cursor sync + cursor-park next-word integration | ✅ Implemented |
 | `architectural-decisions.md` | Architectural Decision Records | ✅ Active |
 
@@ -138,3 +149,5 @@ Only in-force audit records live here; everything superseded is under `docs/hist
 2. Check: `cat memory/todo.md` (current tasks)
 3. Check: `cat docs/TABLE_OF_CONTENTS.md` (navigation)
 4. Check relevant spec: `cat docs/specs/[feature].md`
+
+- [Editor prediction integrity — Polish trial regression](specs/editor-prediction-integrity.md)

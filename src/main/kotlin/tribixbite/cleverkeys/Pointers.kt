@@ -99,6 +99,7 @@ class Pointers(
      * launch is a short one-shot and cancelling a finished job is a no-op.
      */
     fun close() {
+        clear()
         scope.cancel()
     }
 
@@ -138,8 +139,12 @@ class Pointers(
 
     fun clear() {
         var hadPopover = false
-        for (p in _ptrs) {
+        for (p in _ptrs.toList()) {
             stopLongPress(p)
+            stopSelectionDeleteRepeat(p)
+            if (p.backspaceWordHold || isBackspaceKey(p.value))
+                traceBackspace(p, "clear pointer=${p.pointerId} owned=${p.backspaceWordHold}", terminal = true)
+            if (p.backspaceWordHold) _handler.finishBackspaceHold(false)
             p.popover?.let { _longpress_handler.removeMessages(it.dwellWhat); hadPopover = true }
         }
         _ptrs.clear()
@@ -220,8 +225,20 @@ class Pointers(
 
     // Receiving events
 
+    private fun traceBackspace(ptr: Pointer?, message: String, terminal: Boolean = false) {
+        if (ptr != null && !terminal) {
+            if (ptr.backspaceTraceBudget <= 0) return
+            ptr.backspaceTraceBudget--
+        }
+        try { _handler.traceBackspace(message) } catch (_: Exception) {}
+    }
+
     fun onTouchUp(pointerId: Int) {
-        val ptr = getPtr(pointerId) ?: return
+        val ptr = getPtr(pointerId) ?: run {
+            traceBackspace(null, "up missing pointer=$pointerId", terminal = true); return
+        }
+        if (ptr.backspaceWordHold || isBackspaceKey(ptr.value))
+            traceBackspace(ptr, "up pointer=$pointerId owned=${ptr.backspaceWordHold} flags=${ptr.flags}", terminal = true)
 
         if (BuildConfig.ENABLE_VERBOSE_LOGGING) Log.d("Pointers", "=== onTouchUp START: ptr_value=${ptr.value}, flags=0x${ptr.flags.toString(16)}, pointerId=$pointerId ===")
 
@@ -249,6 +266,16 @@ class Pointers(
             stopTrackPointRepeat(ptr)
             removePtr(ptr)
             // Clear visual highlight
+            _handler.onPointerFlagsChanged(null)
+            return
+        }
+
+        // A hold owns its pointer across the whole keyboard; release commits only its selection.
+        if (ptr.backspaceWordHold) {
+            stopSelectionDeleteRepeat(ptr)
+            ptr.backspaceWordHold = false
+            _handler.finishBackspaceHold(true)
+            removePtr(ptr)
             _handler.onPointerFlagsChanged(null)
             return
         }
@@ -620,6 +647,24 @@ class Pointers(
         val latchedPtrs = _ptrs.filter { it.hasFlagsAny(FLAG_P_LATCHED) }
         if (BuildConfig.ENABLE_VERBOSE_LOGGING) Log.d("Pointers", "Current latched pointers: ${latchedPtrs.map { "${it.value}(flags=0x${it.flags.toString(16)})" }}")
         // REMOVED: Legacy gesture.pointer_up() call - curved gestures obsolete
+        // Only a released, unused plain Shift tap can edit a parked word. Holds,
+        // chords, lock state and directional subkeys keep their modifier behavior.
+        if (ptr_value?.getKind() == KeyValue.Kind.Modifier &&
+            ptr_value.getModifier() == KeyValue.Modifier.SHIFT &&
+            ptr.hasFlagsAny(FLAG_P_LATCHABLE) &&
+            !ptr.hasFlagsAny(FLAG_P_LOCKED) && ptr.gesture == null &&
+            !ptr.hasLeftStartingKey && countActivePointers() == 1 &&
+            !_handler.isShiftLocked() &&
+            (0 until ptr.modifiers.size()).all {
+                ptr.modifiers[it]?.getKind() == KeyValue.Kind.Modifier &&
+                    ptr.modifiers[it]?.getModifier() == KeyValue.Modifier.SHIFT
+            } && _handler.tryWordCapitalization()
+        ) {
+            removePtr(ptr)
+            clearLatched()
+            _handler.onPointerFlagsChanged(null)
+            return
+        }
         val latched = getLatched(ptr)
         if (BuildConfig.ENABLE_VERBOSE_LOGGING) Log.d("Pointers", "onTouchUp path: latched=$latched, ptr.flags=0x${ptr.flags.toString(16)}, isLatchable=${(ptr.flags and FLAG_P_LATCHABLE) != 0}")
         if (latched != null) { // Already latched
@@ -729,7 +774,7 @@ class Pointers(
         val hasNavSubkeys = snap.keyrepeat_enabled && hasNavigationSubkeys(ptr)
 
         // Check if this is a backspace key for potential selection-delete mode
-        val isBackspace = snap.keyrepeat_enabled && isBackspaceKey(value)
+        val isBackspace = isBackspaceKey(value)
 
         if (mightBeSwipe || hasNavSubkeys || isBackspace) {
             ptr.flags = ptr.flags or FLAG_P_DEFERRED_DOWN
@@ -898,6 +943,19 @@ class Pointers(
         // ARC-072: every decision below belongs to the gesture this pointer started, so it
         // reads the snapshot captured at that pointer's down event, never the live config.
         val snap = ptr.snap
+
+        if (ptr.backspaceWordHold) {
+            if (!ptr.backspaceMoveObserved) {
+                ptr.backspaceMoveObserved = true
+                traceBackspace(ptr, "move observed pointer=$pointerId")
+            }
+            if (ptr.backspaceDrag?.move(x) == true) {
+                traceBackspace(ptr, "move direction=${ptr.backspaceDrag?.direction} pointer=$pointerId")
+                stopSelectionDeleteRepeat(ptr)
+                handleSelectionDeleteRepeat(ptr)
+            }
+            return
+        }
 
         if (ptr.hasFlagsAny(FLAG_P_SLIDING)) {
             ptr.sliding?.onTouchMove(ptr, x, y)
@@ -1109,7 +1167,7 @@ class Pointers(
 
     internal fun isSliding(): Boolean {
         for (ptr in _ptrs) {
-            if (ptr.hasFlagsAny(FLAG_P_SLIDING)) {
+            if (ptr.backspaceWordHold || ptr.hasFlagsAny(FLAG_P_SLIDING)) {
                 return true
             }
         }
@@ -1192,6 +1250,18 @@ class Pointers(
      *  Vertical movement has larger dead zone and slower speed (configurable).
      */
     private fun handleSelectionDeleteRepeat(ptr: Pointer) {
+        if (ptr.backspaceWordHold) {
+            val direction = ptr.backspaceDrag?.direction ?: 0
+            // A brake has no polling timer. A later deliberate move starts it again.
+            if (direction == 0) return
+            val accepted = _handler.stepBackspaceHold(direction)
+            traceBackspace(ptr, "repeat direction=$direction accepted=$accepted")
+            val what = uniqueTimeoutWhat++
+            ptr.selectionDeleteWhat = what
+            _longpress_handler.sendEmptyMessageDelayed(what, BackspaceGesture.repeatDelay(
+                ptr.lastX, _handler.backspaceKeyboardWidth(), direction))
+            return
+        }
         if (!ptr.hasFlagsAny(FLAG_P_SELECTION_DELETE_MODE)) {
             return
         }
@@ -1392,7 +1462,21 @@ class Pointers(
         // flight, so they read the configuration captured when that press began.
         val snap = ptr.snap
 
+        if (isBackspaceKey(ptr.key.keys[0]) || isBackspaceKey(ptr.value))
+            traceBackspace(ptr, "hold pointer=${ptr.pointerId} deferred=${ptr.hasFlagsAny(FLAG_P_DEFERRED_DOWN)} kind=${ptr.value?.getKind()} keyevent=${ptr.value?.takeIf { it.getKind() == KeyValue.Kind.Keyevent }?.getKeyevent()}")
         if (ptr.hasFlagsAny(FLAG_P_DEFERRED_DOWN)) {
+            val started = isBackspaceKey(ptr.value) && _handler.beginBackspaceHold()
+            if (isBackspaceKey(ptr.value)) traceBackspace(ptr, "hold started=$started")
+            if (started) {
+                stopLongPress(ptr)
+                ptr.flags = ptr.flags and FLAG_P_DEFERRED_DOWN.inv()
+                ptr.backspaceWordHold = true
+                ptr.backspaceDrag = BackspaceGesture.Drag(ptr.downX)
+                ptr.backspaceDrag?.move(ptr.lastX)
+                _handler.onPointerFlagsChanged(HapticEvent.TRACKPOINT_ACTIVATE)
+                startSelectionDeleteRepeat(ptr)
+                return
+            }
             val hasNavSubkeys = hasNavigationSubkeys(ptr)
 
             // TrackPoint mode: If key has nav subkeys and long press fires, ALWAYS enter TrackPoint
@@ -1856,6 +1940,10 @@ class Pointers(
 
         /** Timeout identifier for selection-delete repeat messages. */
         var selectionDeleteWhat: Int = -1
+        var backspaceWordHold: Boolean = false
+        var backspaceMoveObserved: Boolean = false
+        var backspaceTraceBudget: Int = 24
+        var backspaceDrag: BackspaceGesture.Drag? = null
 
         /** [null] when not in sliding mode. */
         var sliding: Sliding? = null
@@ -2072,6 +2160,7 @@ class Pointers(
     }
 
     interface IPointerEventHandler {
+        fun tryWordCapitalization(): Boolean = false
         /** Key can be modified or removed by returning [null]. */
         fun modifyKey(k: KeyValue?, mods: Modifiers): KeyValue?
 
@@ -2094,6 +2183,12 @@ class Pointers(
 
         /** Key is repeating. */
         fun onPointerHold(k: KeyValue, mods: Modifiers)
+
+        fun beginBackspaceHold(): Boolean = false
+        fun stepBackspaceHold(direction: Int): Boolean = false
+        fun finishBackspaceHold(commit: Boolean) {}
+        fun backspaceKeyboardWidth(): Float = 0f
+        fun traceBackspace(message: String) {}
 
         /** Track swipe movement for swipe typing. */
         fun onSwipeMove(x: Float, y: Float, recognizer: ImprovedSwipeGestureRecognizer)

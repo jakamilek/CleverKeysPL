@@ -8,6 +8,98 @@ version: v1.4.0
 
 # Selection Delete Technical Specification
 
+## Polish trial v8 — brake and resume
+
+The maintainer accepts v7 hold preview, keyboard-wide extension/reversal and
+release deletion. The uploaded v7 runtime trace includes an acknowledged six-unit
+word preview followed by successful empty-text replacement, accepted left/right
+steps and zero-length release without deletion. This confirms those tested phone
+paths, but does not establish why earlier v5/v6 phone trials failed.
+
+The new requested contract inserts a pause between opposite directions. During
+active selection, motion of at least 3 physical pixels against the most recent
+directional extreme sets direction to zero. That event stops the timer and cannot
+shrink/extend selection. Further motion of at least 15 physical pixels from the
+pause position resumes left extension or right shrinking. Subthreshold touch
+jitter leaves the pause position fixed. The first activation still requires a
+leftward drag of 15 pixels. Edge speed after resuming is unchanged. Releasing while
+paused commits exactly the current verified selection; cancellation and empty
+selection retain their existing behavior.
+
+BackspaceGesture.kt:38 defines Drag. Pointers.handleSelectionDeleteRepeat returns
+without scheduling another modern timer while direction is zero; onTouchMove
+cancels a pending timer at each pause/resume transition. Editor mutation, safe live
+selection checks, tap deletion, Shift, spacing and unsupported-editor fallback are
+unchanged. Five new pure cases and two pointer/timer cases cover braking, jitter,
+both resume directions, stopped timer delivery and release. Existing lagging-editor
+integration now checks that the brake leaves its selected text unchanged before
+resumption. V8 build/tests and phone acceptance are pending.
+
+## Polish trial v7 — phone diagnostics, issue unresolved
+
+Historical report before v7: the maintainer tested v6 and reported the same failure: hold previews a word, but
+motion does not change the selection and lifting the finger does not delete it.
+V6's 2992 passing host checks therefore do not establish a phone fix. The cause is
+not confirmed; neither editor lag nor missing pointer events is assumed.
+
+V7 adds playground-only `BACKSPACE` traces for the actual runtime/package marker,
+input lifecycle, view reset/cancel, pointer hold ownership, first move, direction
+changes, release/cancel, editor acknowledgements, rejected validation and the
+boolean result of empty-text replacement. Offsets, counts, enum/integer key kind
+and exception class are logged, never editor text or exception messages. Repeated
+pointer and editor progress is capped at 24 entries per session; terminal outcomes
+remain visible. Sink exceptions cannot alter editing. No deletion/casing/spacing
+policy changes are introduced. V7 debug assembly and 2790 pure + 209 focused mocks passed (2999) in run 37153176431; BackspaceHoldTest 23 and PointersBackspaceHoldTest 9 passed. APK artifact 11284274382 is available; phone trace remains pending.
+
+Device procedure: use `backspace-diagnostic-v7`, enable playground debug, clear
+the log, type `olej mleko`, hold Backspace and release; then repeat with left motion,
+right reversal and release. Copy the complete log including the `BACKSPACE RUNTIME`
+line. The subsequent v7 phone log and maintainer report accept the tested hold/drag/release paths; no earlier cause is proven.
+
+## Polish trial v6 — editor acknowledgement follow-up
+
+Phone feedback accepts v5 tap deletion, sentence capitalization and Shift at word
+end. Hold produces the word preview but dragging and release deletion fail; those
+checks are not accepted. V5's 2985 passing CI checks did not model editor read lag.
+
+KeyEventHandler.kt:99 installs its hold session before setSelection so a synchronous
+acknowledgement is captured. Full selection_updated callbacks confirm absolute
+ranges. A temporarily stale extraction no longer discards the physical hold. The
+pointer timer can retry when the editor catches up. A callback supplements only a
+missing extraction, the original caret or one of the last eight requested ranges;
+unrelated live positions still block editing. The live selected text and editor
+identity must still match before deletion. No release sends an unchecked DEL.
+
+Seven BackspaceHoldTest regressions cover lag/recovery, release with an acknowledged
+preview, extension/reversal, unexpected positions or changed text, synchronous
+callbacks and real Pointers routing into the editor handler. V6 debug assembly and
+2790 pure + 202 focused mock checks passed (2992) in run 37150909557; all 19
+BackspaceHoldTest checks passed. Phone retest failed: drag and release deletion still do not work. The release contract and speed policy are unchanged.
+
+## Polish trial v5 — CI checks passed; device validation pending
+
+The modern path precedes navigation subkeys in Pointers.handleLongPress. A deferred
+Backspace asks the view/Config.IKeyEventHandler for a word preview. The pointer owns
+all subsequent motion until release or cancellation, independent of key repeat.
+Its timer uses the full keyboard width, bounded 30–200 ms intervals, leftward
+extension and rightward shrinking determined by movement direction. Selection is
+bounded by the initial caret. Releasing after shrinking to zero sends no DEL.
+
+KeyEventHandler captures the current connection, editor info, absolute caret and at
+most 4096 UTF-16 units before it. It checks both live selection and selected text
+before movement or deletion, and commits an empty replacement only for a verified
+nonempty selection. Cancellation collapses the verified selection without deletion.
+Truncated whole-word previews are skipped. Unicode steps preserve surrogate pairs.
+A held word is deleted only on release, preserving its preceding separator.
+
+Components: KeyEventHandler.kt:99 (beginBackspaceHold), BackspaceGesture.kt:7
+(previousWord) and Pointers.kt (handleLongPress/handleSelectionDeleteRepeat).
+BackspaceHoldTest and PointersBackspaceHoldTest drive the real handlers with mocked
+editors/pointers; BackspaceGestureTest covers pure word boundaries and speed policy.
+Guarded CI run 37148132597 passed debug assembly, 2790 pure and 195 focused mock checks; BackspaceHoldTest passed 12 and PointersBackspaceHoldTest passed 6. Real-device acceptance remains pending.
+
+The historical implementation below remains the unsupported-editor fallback.
+
 ## Overview
 
 Selection-Delete Mode is a gesture that enables text selection by swiping and holding on the backspace key. When activated, horizontal finger movement selects characters (left/right), vertical movement selects lines (up/down), and releasing the finger deletes all selected text. This provides a single fluid gesture for rapid text correction.

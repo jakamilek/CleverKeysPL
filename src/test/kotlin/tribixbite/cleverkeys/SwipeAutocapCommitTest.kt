@@ -2,6 +2,7 @@ package tribixbite.cleverkeys
 
 import android.content.res.Resources
 import android.text.InputType
+import android.text.TextUtils
 import android.util.Log
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
@@ -52,6 +53,7 @@ class SwipeAutocapCommitTest {
 
     /** The words the handler last pushed to the bar; getTopSuggestion answers from it. */
     private var barWords: List<String> = emptyList()
+    private var barMetas: List<SuggestionMeta> = emptyList()
 
     @Before
     fun setup() {
@@ -70,6 +72,7 @@ class SwipeAutocapCommitTest {
         every { Config.globalConfig() } returns config
 
         dictionary = mockk(relaxed = true)
+        every { dictionary.getLanguageIntelligenceProvider(any()) } returns null
         predictor = mockk(relaxed = true)
         every { predictor.applyUserWordCaseToList(any()) } answers { firstArg() }
         coordinator = mockk(relaxed = true)
@@ -86,9 +89,13 @@ class SwipeAutocapCommitTest {
 
         barWords = emptyList()
         bar = mockk(relaxed = true)
-        every { bar.getMetaForSuggestion(any()) } returns null
+        barMetas = emptyList()
+        every { bar.getMetaForSuggestion(any()) } answers {
+            barMetas.getOrNull(barWords.indexOf(firstArg<String>()))
+        }
         every { bar.setSuggestionsWithScores(any(), any(), any()) } answers {
             barWords = firstArg<List<String>>().toList()
+            barMetas = thirdArg<List<SuggestionMeta>>().toList()
         }
         every { bar.getTopSuggestion() } answers { barWords.firstOrNull() }
 
@@ -144,6 +151,17 @@ class SwipeAutocapCommitTest {
     }
 
     // ------------------------------------------------------------------ the gap
+
+    @Test fun staleEditorCapsAfterAnOrdinaryPeriodStillCapitalizesSwipeCommit() {
+        mockkStatic(TextUtils::class)
+        every { TextUtils.getCapsMode("To łódź. ", 9, InputType.TYPE_TEXT_FLAG_CAP_SENTENCES) } returns
+            InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        every { ic.getCursorCapsMode(any()) } returns 0
+        every { ic.getTextBeforeCursor(any(), any()) } returns "To łódź. "
+        swipe(capSentencesField())
+        verify { ic.commitText("Bowie ", 1) }
+        assertWithMessage("commit and slate agree").that(barWords.first()).isEqualTo("Bowie")
+    }
 
     @Test
     fun aSentenceStartSwipeCommitIsCapitalized() {
@@ -202,6 +220,151 @@ class SwipeAutocapCommitTest {
         swipe(capSentencesField(), shiftActive = true)
 
         verify { ic.commitText("Bowie ", 1) }
+    }
+
+    @Test
+    fun sourceVariantsAutoInsertPrimaryAndLowercaseTapReplacesItExactly() {
+        val provider = javaClass.getResource("/language-intelligence-trial.json")!!.openStream().reader().use {
+            tribixbite.cleverkeys.langpack.IntelligenceJson.parse(it, "pl", 3, setOf("capitalization"))
+        }
+        every { dictionary.getCurrentLanguage() } returns "pl"
+        every { dictionary.getLanguageIntelligenceProvider("pl") } returns provider
+        every { ic.getCursorCapsMode(any()) } returns InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        val handler = handler()
+        handler.handleSwipePredictionResults(listOf("łódź", "lód"), listOf(100, 80), ic,
+            capSentencesField(), resources, false, false, inputCoordinator)
+        assertWithMessage("one decoder key supplies the first two surfaces")
+            .that(barWords.take(3)).containsExactly("Łódź", "łódź", "Lód").inOrder()
+        verify { ic.commitText("Łódź ", 1) }
+
+        every { contextTracker.getLastCommitSource() } returns PredictionSource.SWIPE
+        every { contextTracker.getLastAutoInsertedWord() } returns "Łódź"
+        every { contextTracker.getCurrentWord() } returns "Łódź"
+        every { ic.getTextBeforeCursor(any(), any()) } returns "Łódź "
+        handler.onSuggestionSelected("łódź", ic, capSentencesField(), resources, isManualSelection = true)
+        verify { ic.deleteSurroundingText(5, 0) }
+        verify { ic.commitText("łódź ", 1) }
+    }
+
+    // ----------------------------------------------- complete swipe spacing path
+
+    /** Surrounding text changes immediately on commits, as in an ordinary editor. */
+    private fun editorBuffer(initial: String): StringBuilder {
+        val text = StringBuilder(initial)
+        every { ic.getTextBeforeCursor(any(), any()) } answers {
+            text.toString().takeLast(firstArg<Int>())
+        }
+        every { ic.commitText(any(), any()) } answers {
+            text.append(firstArg<CharSequence>())
+            true
+        }
+        every { contextTracker.getCurrentWordLength() } returns 3
+        every { contextTracker.getCurrentWord() } returns "hel"
+        return text
+    }
+
+    @Test
+    fun swipeAfterTypedWordAddsItsSeparatorInTheSameCommit() {
+        config.auto_space_before_suggestion = true
+        val text = editorBuffer("hel")
+
+        swipe(noCapsField())
+
+        assertWithMessage("preserve typed text and apply shared before/after preferences")
+            .that(text.toString()).isEqualTo("hel bowie ")
+        verify(exactly = 1) { ic.commitText(" bowie ", 1) }
+        verify(exactly = 0) { ic.commitText(" ", 1) }
+    }
+
+    @Test
+    fun swipeAfterTypedWordRespectsDisabledLeadingSpace() {
+        config.auto_space_before_suggestion = false
+        val text = editorBuffer("hel")
+
+        swipe(noCapsField())
+
+        assertWithMessage("the full swipe wrapper must not override the before preference")
+            .that(text.toString()).isEqualTo("helbowie ")
+        verify(exactly = 0) { ic.commitText(" ", 1) }
+    }
+
+    @Test
+    fun searchSwipeAfterTypedWordKeepsSpacingLiteral() {
+        config.auto_space_before_suggestion = true
+        val text = editorBuffer("hel")
+        val field = noCapsField().apply { imeOptions = EditorInfo.IME_ACTION_SEARCH }
+
+        swipe(field)
+
+        assertWithMessage("search exclusions must cover the wrapper as well as the commit")
+            .that(text.toString()).isEqualTo("helbowie")
+        verify(exactly = 0) { ic.commitText(" ", 1) }
+    }
+
+    @Test
+    fun optedInPasswordSwipeAfterTypedWordKeepsSpacingLiteral() {
+        config.auto_space_before_suggestion = true
+        config.swipe_on_password_fields = true
+        val text = editorBuffer("hel")
+        val field = noCapsField().apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+
+        swipe(field)
+
+        assertWithMessage("opt-in password swipe must not inject either separator")
+            .that(text.toString()).isEqualTo("helbowie")
+        verify(exactly = 0) { ic.commitText(" ", 1) }
+    }
+
+    @Test
+    fun staleTrackedWordDoesNotDuplicateAnExistingEditorSpace() {
+        config.auto_space_before_suggestion = true
+        val text = editorBuffer("hel ")
+
+        swipe(noCapsField())
+
+        assertWithMessage("actual editor whitespace wins over stale tracked typing")
+            .that(text.toString()).isEqualTo("hel bowie ")
+        verify(exactly = 0) { ic.commitText(" ", 1) }
+    }
+
+    @Test
+    fun numberEndingPeriodAndNextSwipeWordStartASentence() {
+        config.auto_space_before_suggestion = true
+        val text = editorBuffer("Mam 3.")
+        every { ic.getCursorCapsMode(any()) } returns 0
+
+        swipe(capSentencesField())
+
+        assertWithMessage("the separator is decided after casing, so a next-word swipe needs the boundary fallback")
+            .that(text.toString()).isEqualTo("Mam 3. Bowie ")
+    }
+
+    @Test
+    fun decimalNumberBeforeSwipeDoesNotCapitalizeTheWord() {
+        config.auto_space_before_suggestion = true
+        val text = editorBuffer("Mam 3.4")
+        every { ic.getCursorCapsMode(any()) } returns 0
+
+        swipe(capSentencesField())
+
+        assertWithMessage("the decimal's internal period is not sentence punctuation")
+            .that(text.toString()).isEqualTo("Mam 3.4 bowie ")
+    }
+
+    @Test
+    fun numericBoundaryRespectsAutocapAndSearchExclusions() {
+        config.auto_space_before_suggestion = true
+        config.autocapitalisation = false
+        val text = editorBuffer("3.")
+        swipe(capSentencesField())
+        assertWithMessage("disabled autocap stays disabled").that(text.toString()).isEqualTo("3. bowie ")
+
+        config.autocapitalisation = true
+        val searchText = editorBuffer("3.")
+        swipe(capSentencesField().apply { imeOptions = EditorInfo.IME_ACTION_SEARCH })
+        assertWithMessage("the fallback must not format search input").that(searchText.toString()).isEqualTo("3.bowie")
     }
 
     // ------------------------------------------------------------------ reflection

@@ -586,6 +586,10 @@ tasks.register('runPureTests', JavaExec) {
   description = 'Run pure JVM tests via JUnitCore (works on ARM64)'
 
   def pureTestClasses = [
+    'tribixbite.cleverkeys.BackspaceGestureTest',
+    'tribixbite.cleverkeys.PunctuationSpacingTest',
+    'tribixbite.cleverkeys.CursorWordCapitalizationTest',
+    'tribixbite.cleverkeys.langpack.LanguageIntelligenceTest',
     'tribixbite.cleverkeys.DictionaryLoadRequestsTest',
     'tribixbite.cleverkeys.AccentNormalizerTest',
     'tribixbite.cleverkeys.DictionaryWordTest',
@@ -1127,12 +1131,18 @@ tasks.register('runPureTests', JavaExec) {
 // intercepts all calls before the stubs' "Stub!" exceptions are hit.
 // Usage: ./gradlew runMockTests [-PtestClass=AutocapitalisationTest]
 tasks.register('runMockTests', JavaExec) {
-  dependsOn 'compileDebugUnitTestKotlin'
+  dependsOn 'compileDebugUnitTestKotlin', 'processDebugUnitTestJavaRes'
   group = 'verification'
   description = 'Run MockK-based tests with android.jar stubs (works on ARM64)'
   jvmArgs '-XX:+EnableDynamicAgentLoading'
 
   def mockTestClasses = [
+    'tribixbite.cleverkeys.BackspaceHoldTest',
+    'tribixbite.cleverkeys.PointersBackspaceHoldTest',
+    'tribixbite.cleverkeys.EditorPredictionRegressionTest',
+    'tribixbite.cleverkeys.EditorSpacingIntegrationTest',
+    'tribixbite.cleverkeys.ShiftWordCapitalizationTest',
+    'tribixbite.cleverkeys.PointersWordCapitalizationTest',
     // B-1 (2026-09-06 audit, P1): the recognizer/detector letter gate was hard-coded a-z,
     // so swipe typing could never trigger on any non-Latin board. Drives the REAL
     // ImprovedSwipeGestureRecognizer touch-stream path (startSwipe/addPoint/endSwipe) with
@@ -1363,6 +1373,7 @@ tasks.register('runMockTests', JavaExec) {
     "${buildDir}/tmp/kotlin-classes/debugUnitTest",
     "${buildDir}/intermediates/javac/debug/classes",
     "${buildDir}/tmp/kotlin-classes/debug",
+    "${buildDir}/intermediates/java_res/debugUnitTest/processDebugUnitTestJavaRes/out",
   ) + configurations.debugUnitTestRuntimeClasspath + androidDependencyClasses + files(androidJar)
 
   if (project.hasProperty('testClass')) {

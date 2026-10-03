@@ -31,6 +31,15 @@ import java.io.File
 class KeyEventReceiverBridgeDelegationTest {
 
     @Test
+    fun wordCapitalizationRefreshReachesReceiver() {
+        val bridge = KeyEventReceiverBridge(mockk<CleverKeysService>(relaxed = true), mockk<Handler>(relaxed = true))
+        val receiver = mockk<KeyboardReceiver>(relaxed = true)
+        bridge.setReceiver(receiver)
+        (bridge as KeyEventHandler.IReceiver).onWordCapitalizationChanged(12)
+        verify(exactly = 1) { receiver.onWordCapitalizationChanged(12) }
+    }
+
+    @Test
     fun showPrivateCopyFeedbackReachesTheReceiver() {
         val bridge = KeyEventReceiverBridge(mockk<CleverKeysService>(relaxed = true), mockk<Handler>(relaxed = true))
         val receiver = mockk<KeyboardReceiver>(relaxed = true)

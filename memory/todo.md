@@ -1,10 +1,88 @@
 # Current work queue
 
+## Backspace brake/resume v8 (2026-10-03)
+
+- [x] Maintainer accepts v7 on phone; supplied runtime trace confirms preview, left/right steps, deletion on release and empty release. Earlier v5/v6 cause remains unproven.
+- [x] Pause on small opposite movement from active extreme (3 px); resume only after further motion (15 px) from the pause point, left or right.
+- [x] Cancel repeat while paused; preserve current selection for release, edge speed and keyboard-wide pointer ownership.
+- [x] Add five pure and two pointer/timer regressions; retain test names and update lagging-editor integration to assert unchanged selection during brake.
+- [ ] V8 guarded CI build/tests; local Android toolchain unavailable.
+- [ ] Phone acceptance for backspace-pause-v8: pause, stable hold, both resume directions and release while paused.
+- Accepted tap deletion/casing/editor integrity preserved; producer unchanged. Maximum 60 seconds TOTAL Actions monitoring per build.
+
+## Backspace phone diagnostics v7 (2026-10-03)
+
+- Phone rejects v6 too: word preview works, horizontal extension/reversal and release deletion do not.
+- [x] Add bounded playground-only pointer/editor/lifecycle traces, actual runtime package marker and failure reasons; log offsets/counts only, no editor text.
+- [x] Add seven diagnostic regressions for failure reasons, text exclusion, bounded output, cancellation and sink failures.
+- [x] V7 debug assembly, 2790 pure + 209 focused mocks PASS (2999), run 37153176431; APK artifact 11284274382. Existing lint/security failures remain; phone trace pending.
+- [x] V7 phone log supplied; maintainer accepts hold/drag/release. Trace confirms tested paths. Proceed with requested brake/resume UX.
+- Cause remains unconfirmed; v7 changes diagnostics, not the editing policy. Preserve accepted tap/casing behavior.
+- Monitoring: maximum 60 seconds TOTAL per build, then maintainer reports completion.
+
+## Backspace acknowledgement follow-up v6 (2026-10-03)
+
+- Phone confirms v5 tap deletion, sentence capitals and Shift at word end.
+- Phone rejects v5 hold drag/release: preview appears, extension and release deletion fail.
+- [x] Retain gesture through temporarily stale reads; use full selection callbacks to confirm own requests while extraction lags; keep exact live-text and editor guards.
+- [x] Add seven editor/pointer regressions for lag, reversal, synchronous callbacks and unrelated changes.
+- [x] V6 debug build, 2790 pure + 202 focused mock checks PASS (2992), run 37150909557; artifact 11284341482.
+- [x] Retest hold/drag/release on phone with backspace-gesture-v6: FAILED, same drag/release symptoms.
+- Existing 2985 passing v5 checks did not establish real editor timing.
+
+## Polish trial v5 (2026-10-03)
+
+- [x] Implement character-only Backspace taps and non-destructive word hold preview.
+- [x] Implement keyboard-wide reversible selection with edge-dependent speed.
+- [x] Restore explicit Shift word-end editing and reset suggestion scroll after deletion.
+- [x] Add live Android sentence-rule fallback after punctuation; preserve search/private exclusions.
+- [x] Register focused regression tests through scripts/gradle-guard.sh.
+- [x] V5 debug assembly, 2790 pure and 195 focused mock checks PASS (2985), CI 37148132597; artifact 11282318484. Existing lint/security failures remain.
+- V5 phone: tap/capitals/Shift accepted; hold drag/release failed. Follow-up tracked under v6 above.
+- Prior editor-sync-v4: 2951 CI checks passed; maintainer says editor behavior works OK.
+
+
 Updated: 2026-09-30. Full execution state and test evidence: [HANDOFF.md](HANDOFF.md).
 Campaign plan: [`docs/plans/2026-08-30-full-backlog-campaign.md`](../docs/plans/2026-08-30-full-backlog-campaign.md).
 
 The September 1 campaign baseline was `5fb58037`; subsequent work through `79f0b464`
 was pushed with maintainer authorization on September 27. Preserve shared-tree work.
+
+## Polish trial — editor integrity regression (2026-10-03)
+
+- Priority: maintainer reports stale/missing typed-word suggestions after edits/cut/paste and text disappearing on dictionary add. Supplied log still identifies v2; the exact phone sequence is not captured.
+- [x] Implement dictionary-only exact add with live token/selection validation; never delete or recommit editor text. Offer it first and use the full token at a mid-word caret.
+- [x] Implement prediction revision guards, immediate invalidation on cursor notifications, live post-key token refresh, prompt dismissal during edits and validation before preserving swipe/undo slates.
+- [x] Add eight real-pipeline regression tests and update dictionary-add tests; register both in guarded CI.
+- [x] 0d7a1744 debug assembly and test compilation PASS; run 37143267946: 2779 pure, 2 failures (stale RELEASE_RECORD test anchor and literal M6 guard matcher). Regression/mock suites skipped, no uploaded APK.
+- [x] Repair test anchor and split the added editor-revision guard from the unchanged bar-generation guard; preserve both protections and the M6 test.
+- [x] 383137f8 debug assembly + 2779 pure + 172 focused mock PASS (2951 total), run 37143960348. New editor regressions 8 and dictionary-add route 12 PASS. APK artifact 11281383313.
+- [ ] Phone validation for editor-sync-v4; whole CI remains blocked by the earlier SubkeyAssignActivity lint and four devalue HIGH findings. No local Android SDK/Gradle toolchain.
+- [ ] Resume latest Shift-at-word-end and short/held Backspace changes after the integrity regression. Resetting scroll and Ale/Lub casing remain pending.
+- Monitoring policy: maximum 60 seconds TOTAL per Actions build, then user reports status; no idle polling loop.
+- Spec: [editor-prediction-integrity.md](../docs/specs/editor-prediction-integrity.md).
+
+## Polish trial — cursor word capitalization (2026-10-03)
+
+- Maintainer reports that the on-device source casing pairs work quite well; this is qualitative feedback, not a complete acceptance checklist.
+- [x] Implement Shift toggling the first letter after returning the caret to an existing word; preserve ordinary typing, pointer modifiers and cursor position.
+- [x] Shift commit d64439ac: debug build, pure and focused mock checks pass (run 37114260076).
+- [x] Latest phone report: edits work selectively. Fixed/tested missing final batch callback before the next cursor move; every interior position must work. That stage excluded the position after the last letter; the latest request re-enables it, pending after the integrity regression.
+- [ ] Validate cursor-caps-v3 before promotion; whole CI still has pre-existing lint/security failures.
+- Spec: [cursor-word-capitalization.md](../docs/specs/cursor-word-capitalization.md).
+
+## Polish trial — field-aware spacing (2026-10-03)
+
+- [x] Agreed shared swipe/tap preferences, search/password/technical field exclusions and punctuation rules.
+- [x] Implement actual-suffix alternate replacement, manual-space punctuation and field guards.
+- [x] b373391c88de57edacd7ad2d0ad4ea8b62e23985: debug build, 2773 pure + 129 focused mock checks PASS (run 37123257770).
+- [x] New phone log identifies debug v2, PL provider and łodzi/Łodzi pair; maintainer reports much better behavior. Previous missing-pair/spacing report not fully reproducible from old logs.
+- [x] Remove unconditional independent pre-swipe space; route whole swipe through shared field/preferences policy. Add five complete-path buffer regressions and trial/EDIT diagnostics.
+- [x] c272f9ec1787310c69b681b8ef7dd0a7fdbfa813: debug build, 2773 pure + 134 focused mock PASS (2907 total), run 37133110865; APK artifact 11277678542.
+- [x] Numeric sentence follow-up: after 3. + next word use shared gated autocap boundary; preserve 3.4 and search/password exclusions. Playground advertises sentence caps. 6122bf9b: debug build, 2779 pure + 152 focused mock PASS (2931 total), run 37140569285, APK 11280003851.
+- [ ] Verify cursor-caps-v3 on phone; no claim that all selective-Shift causes are established or resolved.
+- Typed-prefix completions are working per maintainer; explicitly withdrawn from scope.
+- Spec: [editor-spacing.md](../docs/specs/editor-spacing.md).
 
 ## September 27 follow-through
 

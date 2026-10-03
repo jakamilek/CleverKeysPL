@@ -156,6 +156,7 @@ class DictionaryManager(private val context: Context) {
      */
     fun setLanguage(languageCode: String?) {
         val code = languageCode ?: "en"
+        tribixbite.cleverkeys.langpack.LanguagePackManager.getInstance(context).warmLanguageIntelligence(code)
         val languageChanged = currentLanguage != code
         currentLanguage = code
 
@@ -339,6 +340,12 @@ class DictionaryManager(private val context: Context) {
      * Get the current language code
      */
     fun getCurrentLanguage(): String? = currentLanguage
+
+    fun getLanguageIntelligenceProvider(code: String): tribixbite.cleverkeys.langpack.LanguageIntelligenceProvider? {
+        val manager = tribixbite.cleverkeys.langpack.LanguagePackManager.getInstance(context)
+        manager.warmLanguageIntelligence(code)
+        return manager.getLanguageIntelligenceProvider(code)
+    }
 
     // ARC-079 (2026-08-29) — deleted with the per-language predictor cache:
     //
