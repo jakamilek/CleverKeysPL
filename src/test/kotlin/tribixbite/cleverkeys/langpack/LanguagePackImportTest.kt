@@ -1002,6 +1002,38 @@ class LanguagePackImportTest {
         assertThat(manager.getLanguageIntelligenceProvider("pl")).isNull()
     }
 
+    @Test fun restartWarmsImmutableSnapshotAwayFromCallingThread() {
+        val bytes = trialBytes()
+        assertThat(import(validPack("pl", "Polish", extras = listOf("language-intelligence.json" to bytes),
+            manifest = trialManifest(bytes)))).isInstanceOf(ImportResult.Success::class.java)
+        val caller = Thread.currentThread()
+        val readThread = java.util.concurrent.atomic.AtomicReference<Thread>()
+        every { context.filesDir } answers { readThread.set(Thread.currentThread()); filesDir }
+        val restarted = LanguagePackManager(context)
+        assertThat(restarted.getLanguageIntelligenceProvider("pl")).isNull()
+        restarted.warmLanguageIntelligence("pl")
+        val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5)
+        while (restarted.getLanguageIntelligenceProvider("pl") == null && System.nanoTime() < deadline) {
+            Thread.sleep(10)
+        }
+        assertThat(restarted.getLanguageIntelligenceProvider("pl")!!.lookup("Łodzi")!!.surfaceKey).isEqualTo("łodzi")
+        assertThat(readThread.get()).isNotEqualTo(caller)
+    }
+
+    @Test fun duplicateArchiveMemberAndOversizedSidecarAreRejectedWithoutReplacingPack() {
+        assertThat(import(validPack("pl", "Previous"))).isInstanceOf(ImportResult.Success::class.java)
+        val duplicate = validPack("pl", "Duplicate", extras = listOf("dictionarx.bin" to dictionaryBytes()))
+        // ZIP writers forbid duplicate names; alter two equal-length header names on disk.
+        duplicate.writeBytes(duplicate.readBytes().toString(Charsets.ISO_8859_1)
+            .replace("dictionarx.bin", "dictionary.bin").toByteArray(Charsets.ISO_8859_1))
+        assertThat(import(duplicate)).isEqualTo(ImportResult.Error(PackImportFailure.InvalidMember("dictionary.bin")))
+        val oversized = ByteArray((IntelligenceJson.MAX_BYTES + 1).toInt())
+        assertThat(import(validPack("pl", "Oversized", extras = listOf("language-intelligence.json" to oversized))))
+            .isEqualTo(ImportResult.Error(PackImportFailure.InvalidMember("language-intelligence.json")))
+        assertThat(manager.getInstalledPacks().single().name).isEqualTo("Previous")
+        assertThat(cacheDir.listFiles()?.toList().orEmpty()).isEmpty()
+    }
+
     /**
      * Anti-regression guard for the OOM fix itself.
      *
