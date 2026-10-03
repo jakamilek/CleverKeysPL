@@ -52,6 +52,7 @@ class SwipeAutocapCommitTest {
 
     /** The words the handler last pushed to the bar; getTopSuggestion answers from it. */
     private var barWords: List<String> = emptyList()
+    private var barMetas: List<SuggestionMeta> = emptyList()
 
     @Before
     fun setup() {
@@ -70,6 +71,7 @@ class SwipeAutocapCommitTest {
         every { Config.globalConfig() } returns config
 
         dictionary = mockk(relaxed = true)
+        every { dictionary.getLanguageIntelligenceProvider(any()) } returns null
         predictor = mockk(relaxed = true)
         every { predictor.applyUserWordCaseToList(any()) } answers { firstArg() }
         coordinator = mockk(relaxed = true)
@@ -86,9 +88,13 @@ class SwipeAutocapCommitTest {
 
         barWords = emptyList()
         bar = mockk(relaxed = true)
-        every { bar.getMetaForSuggestion(any()) } returns null
+        barMetas = emptyList()
+        every { bar.getMetaForSuggestion(any()) } answers {
+            barMetas.getOrNull(barWords.indexOf(firstArg<String>()))
+        }
         every { bar.setSuggestionsWithScores(any(), any(), any()) } answers {
             barWords = firstArg<List<String>>().toList()
+            barMetas = thirdArg<List<SuggestionMeta>>().toList()
         }
         every { bar.getTopSuggestion() } answers { barWords.firstOrNull() }
 
@@ -202,6 +208,30 @@ class SwipeAutocapCommitTest {
         swipe(capSentencesField(), shiftActive = true)
 
         verify { ic.commitText("Bowie ", 1) }
+    }
+
+    @Test
+    fun sourceVariantsAutoInsertPrimaryAndLowercaseTapReplacesItExactly() {
+        val provider = javaClass.getResource("/language-intelligence-trial.json")!!.openStream().reader().use {
+            tribixbite.cleverkeys.langpack.IntelligenceJson.parse(it, "pl", 3, setOf("capitalization"))
+        }
+        every { dictionary.getCurrentLanguage() } returns "pl"
+        every { dictionary.getLanguageIntelligenceProvider("pl") } returns provider
+        every { ic.getCursorCapsMode(any()) } returns InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        val handler = handler()
+        handler.handleSwipePredictionResults(listOf("łódź", "lód"), listOf(100, 80), ic,
+            capSentencesField(), resources, false, false, inputCoordinator)
+        assertWithMessage("one decoder key supplies the first two surfaces")
+            .that(barWords.take(3)).containsExactly("Łódź", "łódź", "Lód").inOrder()
+        verify { ic.commitText("Łódź ", 1) }
+
+        every { contextTracker.getLastCommitSource() } returns PredictionSource.SWIPE
+        every { contextTracker.getLastAutoInsertedWord() } returns "Łódź"
+        every { contextTracker.getCurrentWord() } returns "Łódź"
+        every { ic.getTextBeforeCursor(any(), any()) } returns "Łódź "
+        handler.onSuggestionSelected("łódź", ic, capSentencesField(), resources, isManualSelection = true)
+        verify { ic.deleteSurroundingText(5, 0) }
+        verify { ic.commitText("łódź ", 1) }
     }
 
     // ------------------------------------------------------------------ reflection

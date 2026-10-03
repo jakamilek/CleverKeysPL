@@ -943,11 +943,19 @@ class SuggestionHandler(
         // instead — see [shouldAugmentPossessiveAt]. That path deliberately ignores the active
         // (primary) language: in a merged en+fr slate the primary tells you nothing about the
         // candidate in slot 2.
-        val barWords = rescoredPredictions.toMutableList()
-        val barScores = rescoredScores.toMutableList()
         val activeLanguage = predictionCoordinator.getDictionaryManager()?.getCurrentLanguage()
+        val topLanguage = rescored.languages?.firstOrNull() ?: activeLanguage
+        val provider = topLanguage?.let {
+            predictionCoordinator.getDictionaryManager()?.getLanguageIntelligenceProvider(it)
+        }
+        val surfaceSlate = SwipeSurfaceVariants.expand(
+            rescoredPredictions, rescoredScores, rescored.languages, provider,
+            shiftActive || autocapAtCursor, shiftLocked,
+        )
+        val barWords = surfaceSlate.words.toMutableList()
+        val barScores = surfaceSlate.scores.toMutableList()
         val engineWordCount = barWords.size
-        val barLanguages = rescored.languages
+        val barLanguages = surfaceSlate.languages
         if (barLanguages != null) {
             augmentPredictionsWithPossessives(barWords, barScores, barLanguages)
         } else if (shouldAugmentPossessives(activeLanguage)) {
@@ -960,7 +968,10 @@ class SuggestionHandler(
         // caller; the mode-derived fallback only covers legacy callers.
         val swipeOrigin = origin ?: SuggestionOrigin.forSwipeEngineMode(config.swipe_engine_mode)
         val barMetas = MutableList(barWords.size) { i ->
-            SuggestionMeta(if (i < engineWordCount) swipeOrigin else SuggestionOrigin.POSSESSIVE)
+            SuggestionMeta(
+                if (i < engineWordCount) swipeOrigin else SuggestionOrigin.POSSESSIVE,
+                preserveExactCase = surfaceSlate.exactCase.getOrElse(i) { false },
+            )
         }
         // §6.5: a context-promoted rank 1 carries a note, so a misbehaving promotion is
         // diagnosable from the long-press sheet instead of being invisible. The engine ORIGIN is
@@ -1252,7 +1263,9 @@ class SuggestionHandler(
         // 3) a per-suggestion NEXT_WORD meta on a mixed swipe-alternates bar —
         // either way the commit is tagged NEXT_WORD below. Consumed either way —
         // any selection ends the next-word display state.
-        val tappedOrigin = suggestionBar?.getMetaForSuggestion(word)?.origin
+        val selectedMeta = suggestionBar?.getMetaForSuggestion(word)
+        val preserveExactCase = selectedMeta?.preserveExactCase == true
+        val tappedOrigin = selectedMeta?.origin
         val wasNextWordSelection =
             nextWordSuggestionsActive || tappedOrigin == SuggestionOrigin.NEXT_WORD
         nextWordSuggestionsActive = false
@@ -1306,7 +1319,7 @@ class SuggestionHandler(
         processedWord = processedWord.replace(Regex("^raw:"), "")
 
         // Issue #72: Capitalize "I" words (i → I, i'm → I'm, i'll → I'll)
-        processedWord = capitalizeIWord(processedWord)
+        if (!preserveExactCase) processedWord = capitalizeIWord(processedWord)
 
         // Check if this is a known contraction (already has apostrophes from displayText)
         // If it is, skip autocorrect to prevent fuzzy matching to wrong words
@@ -1322,7 +1335,7 @@ class SuggestionHandler(
         // 2. Contraction keys (apostrophe-free forms — same protection)
         // 3. Raw predictions (user explicitly selected this decoder output)
         // 4. Manual selections (user explicitly tapped a swipe prediction - issue #63 fix)
-        if (isKnownContraction || isContractionKey || isRawPrediction || isManualSelection) {
+        if (isKnownContraction || isContractionKey || isRawPrediction || isManualSelection || preserveExactCase) {
             if (isKnownContraction) {
                 vlog { "KNOWN CONTRACTION: \"$processedWord\" - skipping autocorrect" }
             }
@@ -1622,7 +1635,7 @@ class SuggestionHandler(
                 // Apply capitalization if user was typing with shift (first letter uppercase)
                 val currentWord = contextTracker.getCurrentWord()
                 val shouldCapitalize = currentWord.isNotEmpty() && currentWord[0].isUpperCase()
-                val capitalizedWord = if (shouldCapitalize && processedWord.isNotEmpty()) {
+                val capitalizedWord = if (!preserveExactCase && shouldCapitalize && processedWord.isNotEmpty()) {
                     processedWord.replaceFirstChar {
                         if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString()
                     }
