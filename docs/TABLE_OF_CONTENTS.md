@@ -141,4 +141,4 @@ Only in-force audit records live here; everything superseded is under `docs/hist
 3. Check: `cat docs/TABLE_OF_CONTENTS.md` (navigation)
 4. Check relevant spec: `cat docs/specs/[feature].md`
 
-
+- [Editor prediction integrity — Polish trial regression](specs/editor-prediction-integrity.md)

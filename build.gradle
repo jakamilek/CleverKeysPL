@@ -1136,6 +1136,7 @@ tasks.register('runMockTests', JavaExec) {
   jvmArgs '-XX:+EnableDynamicAgentLoading'
 
   def mockTestClasses = [
+    'tribixbite.cleverkeys.EditorPredictionRegressionTest',
     'tribixbite.cleverkeys.EditorSpacingIntegrationTest',
     'tribixbite.cleverkeys.ShiftWordCapitalizationTest',
     'tribixbite.cleverkeys.PointersWordCapitalizationTest',
@@ -1595,4 +1596,3 @@ tasks.configureEach { task ->
         task.finalizedBy("normalizeApkPaths")
     }
 }
-

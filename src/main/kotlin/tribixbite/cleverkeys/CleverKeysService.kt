@@ -833,15 +833,17 @@ class CleverKeysService : InputMethodService(),
         }
 
         // v1.2.6: Trigger cursor-aware prediction sync when cursor moves
-        // Only sync when cursor position changes (not selection range change)
-        // and when there's no active selection (newSelStart == newSelEnd)
-        if (newSelStart == newSelEnd && oldSelStart != newSelStart) {
+        // Same-position notifications also occur after equal-length replacements.
+        // Invalidate queued results during a range selection; read only at a caret.
+        if (newSelStart == newSelEnd) {
             _inputCoordinator.onCursorMoved(
                 newPosition = newSelStart,
                 ic = currentInputConnection,
                 language = _config?.primary_language ?: "en",
                 editorInfo = currentInputEditorInfo
             )
+        } else {
+            _inputCoordinator.cancelPendingCursorSync()
         }
     }
 

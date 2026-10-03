@@ -48,6 +48,8 @@ jobs:
     - name: Run language-pack, casing and spacing integration tests
       timeout-minutes: 15
       run: |
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=EditorPredictionRegressionTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=SuggestionTapAddAndIWordTest --stacktrace
         bash scripts/gradle-guard.sh runMockTests -PtestClass=langpack.LanguagePackImportTest --stacktrace
         bash scripts/gradle-guard.sh runMockTests -PtestClass=SwipeAutocapCommitTest --stacktrace
         bash scripts/gradle-guard.sh runMockTests -PtestClass=AutocapitalisationTest --stacktrace

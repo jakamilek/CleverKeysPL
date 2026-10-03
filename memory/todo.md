@@ -6,12 +6,23 @@ Campaign plan: [`docs/plans/2026-08-30-full-backlog-campaign.md`](../docs/plans/
 The September 1 campaign baseline was `5fb58037`; subsequent work through `79f0b464`
 was pushed with maintainer authorization on September 27. Preserve shared-tree work.
 
+## Polish trial — editor integrity regression (2026-10-03)
+
+- Priority: maintainer reports stale/missing typed-word suggestions after edits/cut/paste and text disappearing on dictionary add. Supplied log still identifies v2; the exact phone sequence is not captured.
+- [x] Implement dictionary-only exact add with live token/selection validation; never delete or recommit editor text. Offer it first and use the full token at a mid-word caret.
+- [x] Implement prediction revision guards, immediate invalidation on cursor notifications, live post-key token refresh, prompt dismissal during edits and validation before preserving swipe/undo slates.
+- [x] Add eight real-pipeline regression tests and update dictionary-add tests; register both in guarded CI.
+- [ ] Compilation, CI results and phone validation for editor-sync-v4. No local Android SDK/Gradle toolchain.
+- [ ] Resume latest Shift-at-word-end and short/held Backspace changes after the integrity regression. Resetting scroll and Ale/Lub casing remain pending.
+- Monitoring policy: maximum 60 seconds TOTAL per Actions build, then user reports status; no idle polling loop.
+- Spec: [editor-prediction-integrity.md](../docs/specs/editor-prediction-integrity.md).
+
 ## Polish trial — cursor word capitalization (2026-10-03)
 
 - Maintainer reports that the on-device source casing pairs work quite well; this is qualitative feedback, not a complete acceptance checklist.
 - [x] Implement Shift toggling the first letter after returning the caret to an existing word; preserve ordinary typing, pointer modifiers and cursor position.
 - [x] Shift commit d64439ac: debug build, pure and focused mock checks pass (run 37114260076).
-- [x] Latest phone report: edits work selectively. Fixed/tested missing final batch callback before the next cursor move; every interior position must work. Maintainer now excludes the position after the last letter.
+- [x] Latest phone report: edits work selectively. Fixed/tested missing final batch callback before the next cursor move; every interior position must work. That stage excluded the position after the last letter; the latest request re-enables it, pending after the integrity regression.
 - [ ] Validate cursor-caps-v3 before promotion; whole CI still has pre-existing lint/security failures.
 - Spec: [cursor-word-capitalization.md](../docs/specs/cursor-word-capitalization.md).
 

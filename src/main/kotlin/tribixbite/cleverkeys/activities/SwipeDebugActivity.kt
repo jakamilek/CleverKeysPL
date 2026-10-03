@@ -200,7 +200,7 @@ class SwipeDebugActivity : Activity() {
         registerPlaygroundReceivers()
 
         appendLog(getString(R.string.swipe_debug_session_intro) + "\n\n")
-        appendLog("TRIAL cursor-caps-v3 app=${BuildConfig.APPLICATION_ID}\n")
+        appendLog("TRIAL editor-sync-v4 app=${BuildConfig.APPLICATION_ID}\n")
         refreshTraceCount()
     }
 
@@ -285,7 +285,7 @@ class SwipeDebugActivity : Activity() {
     private fun clearLogs() {
         logBuffer.setLength(0)
         logOutput.text = getString(R.string.swipe_debug_log_cleared_banner) + "\n"
-        appendLog("TRIAL cursor-caps-v3 app=${BuildConfig.APPLICATION_ID}\n")
+        appendLog("TRIAL editor-sync-v4 app=${BuildConfig.APPLICATION_ID}\n")
         Toast.makeText(this, R.string.swipe_debug_toast_logs_cleared, Toast.LENGTH_SHORT).show()
     }
 

@@ -322,6 +322,7 @@ class InputCoordinator(
         editorInfo: EditorInfo? = null
     ) {
         if (closed) return
+        cursorSyncDelegate?.onEditorCursorChanged()
         // SAS-1: cursor movement invalidates the pending auto-space swallow unless
         // it reports exactly the stamped position (the auto-space commit's own
         // onUpdateSelection callback). Synchronous — must run before any debounce.
@@ -356,10 +357,24 @@ class InputCoordinator(
                 // v1.2.6 FIX: Don't clear suggestions if showing special prompts or swipe corrections
                 // After autocorrect/swipe, cursor moves to after space (prefix empty), but we want
                 // to keep showing suggestions for undo/correction/add-to-dictionary
-                val hasAutocorrectUndo = contextTracker.getLastAutocorrectOriginalWord() != null
-                val hasSwipeCorrections = contextTracker.getLastCommitSource() == PredictionSource.SWIPE
+                // Preserve an undo/alternate only while its committed token is still
+                // immediately before the live caret. Cut/paste can leave old flags set.
+                val source = contextTracker.getLastCommitSource()
+                val preservedWord = if (source == PredictionSource.SWIPE || source == PredictionSource.AUTOCORRECT) {
+                    contextTracker.getLastAutoInsertedWord()
+                } else contextTracker.getLastAutocorrectOriginalWord()
+                val tokenStillPresent = try {
+                    !preservedWord.isNullOrEmpty() && SmartAutoSpace.committedWordDeleteCount(
+                        ic?.getTextBeforeCursor(preservedWord.length + 2, 0)?.toString(), preservedWord
+                    ) != null
+                } catch (_: Exception) { false }
+                val hasAutocorrectUndo = tokenStillPresent && contextTracker.getLastAutocorrectOriginalWord() != null
+                val hasSwipeCorrections = tokenStillPresent && source == PredictionSource.SWIPE
 
                 if (!hasAutocorrectUndo && !hasSwipeCorrections) {
+                    contextTracker.clearLastAutoInsertedWord()
+                    contextTracker.clearAutocorrectTracking()
+                    contextTracker.setLastCommitSource(PredictionSource.UNKNOWN)
                     // Next-word call-site 4 (audit §4.4): cursor parked with no
                     // partial word — route through SuggestionHandler so the
                     // opt-in next-word feature can surface context-only
@@ -385,6 +400,7 @@ class InputCoordinator(
      * Call when input view is finishing or resetting.
      */
     fun cancelPendingCursorSync() {
+        cursorSyncDelegate?.onEditorCursorChanged()
         pendingSyncRunnable?.let { syncHandler.removeCallbacks(it) }
         pendingSyncRunnable = null
     }
