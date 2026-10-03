@@ -74,6 +74,14 @@ class CursorWordCapitalizationTest {
         state.selection(12, 12, 10, 10)
         assertEquals(10, state.eligiblePosition)
     }
+    @Test fun delayedEditorReadOfPreCommitCursorDoesNotArmShift() {
+        val state = CursorWordCapitalization()
+        state.mutation(8)
+        state.selection(8, 8, 12, 12)
+        assertNull(state.eligiblePosition)
+        state.selection(12, 12, 10, 10)
+        assertEquals(10, state.eligiblePosition)
+    }
     @Test fun rangeSelectionAndTypingDisarm() {
         val state = CursorWordCapitalization()
         state.selection(20, 20, 10, 10)

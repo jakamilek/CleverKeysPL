@@ -6,6 +6,7 @@ internal class CursorWordCapitalization {
         private set
     private var expectedPosition: Int? = null
     private var awaitingUnknownMutation = false
+    private var awaitingMutationAcknowledgement = false
     private var repeatEdit = false
 
     fun disarm() {
@@ -17,6 +18,7 @@ internal class CursorWordCapitalization {
         eligiblePosition = null
         expectedPosition = null
         awaitingUnknownMutation = false
+        awaitingMutationAcknowledgement = false
         repeatEdit = false
     }
 
@@ -24,6 +26,7 @@ internal class CursorWordCapitalization {
         eligiblePosition = if (retainEdit && position >= 0) position else null
         expectedPosition = position.takeIf { it >= 0 }
         awaitingUnknownMutation = position < 0
+        awaitingMutationAcknowledgement = true
         repeatEdit = retainEdit
     }
 
@@ -33,16 +36,27 @@ internal class CursorWordCapitalization {
             return
         }
         if (newStart == expectedPosition) {
+            awaitingMutationAcknowledgement = false
             eligiblePosition = if (repeatEdit) newStart else null
             return
         }
         if (awaitingUnknownMutation) {
             awaitingUnknownMutation = false
+            awaitingMutationAcknowledgement = false
+            eligiblePosition = null
+            return
+        }
+        // Some editors expose the pre-commit cursor during the immediate read.
+        // Its first movement acknowledgement must still leave ordinary Shift alone.
+        if (awaitingMutationAcknowledgement && oldStart == expectedPosition && oldStart == oldEnd) {
+            awaitingMutationAcknowledgement = false
+            expectedPosition = null
             eligiblePosition = null
             return
         }
         if (oldStart != newStart || oldEnd != newEnd) {
             expectedPosition = null
+            awaitingMutationAcknowledgement = false
             repeatEdit = false
             eligiblePosition = newStart
         }
