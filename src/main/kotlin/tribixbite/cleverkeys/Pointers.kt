@@ -620,6 +620,24 @@ class Pointers(
         val latchedPtrs = _ptrs.filter { it.hasFlagsAny(FLAG_P_LATCHED) }
         if (BuildConfig.ENABLE_VERBOSE_LOGGING) Log.d("Pointers", "Current latched pointers: ${latchedPtrs.map { "${it.value}(flags=0x${it.flags.toString(16)})" }}")
         // REMOVED: Legacy gesture.pointer_up() call - curved gestures obsolete
+        // Only a released, unused plain Shift tap can edit a parked word. Holds,
+        // chords, lock state and directional subkeys keep their modifier behavior.
+        if (ptr_value?.getKind() == KeyValue.Kind.Modifier &&
+            ptr_value.getModifier() == KeyValue.Modifier.SHIFT &&
+            ptr.hasFlagsAny(FLAG_P_LATCHABLE) &&
+            !ptr.hasFlagsAny(FLAG_P_LOCKED) && ptr.gesture == null &&
+            !ptr.hasLeftStartingKey && countActivePointers() == 1 &&
+            !_handler.isShiftLocked() &&
+            (0 until ptr.modifiers.size()).all {
+                ptr.modifiers[it]?.getKind() == KeyValue.Kind.Modifier &&
+                    ptr.modifiers[it]?.getModifier() == KeyValue.Modifier.SHIFT
+            } && _handler.tryWordCapitalization()
+        ) {
+            removePtr(ptr)
+            clearLatched()
+            _handler.onPointerFlagsChanged(null)
+            return
+        }
         val latched = getLatched(ptr)
         if (BuildConfig.ENABLE_VERBOSE_LOGGING) Log.d("Pointers", "onTouchUp path: latched=$latched, ptr.flags=0x${ptr.flags.toString(16)}, isLatchable=${(ptr.flags and FLAG_P_LATCHABLE) != 0}")
         if (latched != null) { // Already latched
@@ -2072,6 +2090,7 @@ class Pointers(
     }
 
     interface IPointerEventHandler {
+        fun tryWordCapitalization(): Boolean = false
         /** Key can be modified or removed by returning [null]. */
         fun modifyKey(k: KeyValue?, mods: Modifiers): KeyValue?
 

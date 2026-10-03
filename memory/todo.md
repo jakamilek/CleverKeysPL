@@ -6,6 +6,13 @@ Campaign plan: [`docs/plans/2026-08-30-full-backlog-campaign.md`](../docs/plans/
 The September 1 campaign baseline was `5fb58037`; subsequent work through `79f0b464`
 was pushed with maintainer authorization on September 27. Preserve shared-tree work.
 
+## Polish trial — cursor word capitalization (2026-10-03)
+
+- Maintainer reports that the on-device source casing pairs work quite well; this is qualitative feedback, not a complete acceptance checklist.
+- [x] Implement Shift toggling the first letter after returning the caret to an existing word; preserve ordinary typing, pointer modifiers and cursor position.
+- [ ] CI build / pure and focused mock checks; real-device validation before promotion.
+- Spec: [cursor-word-capitalization.md](../docs/specs/cursor-word-capitalization.md).
+
 ## September 27 follow-through
 
 - [x] Prior 54 commits through `79f0b464` pushed; commit-specific CI, site deployment,
@@ -93,3 +100,4 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 ## Release authority
 
 Do not commit, tag, push, publish, or open external issues without explicit user authorization.
+

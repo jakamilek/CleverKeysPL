@@ -574,6 +574,9 @@ class Keyboard2View @JvmOverloads constructor(
         invalidate()
     }
 
+    override fun tryWordCapitalization(): Boolean =
+        _config.handler?.tryWordCapitalization() ?: false
+
     override fun onPointerHold(k: KeyValue, mods: Pointers.Modifiers) {
         _config.handler?.key_up(k, mods, isKeyRepeat = true)
         updateFlags()

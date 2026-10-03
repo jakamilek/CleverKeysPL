@@ -91,6 +91,10 @@ class KeyEventReceiverBridge(
         receiver?.handle_backspace()
     }
 
+    override fun onWordCapitalizationChanged(cursor: Int) {
+        receiver?.onWordCapitalizationChanged(cursor)
+    }
+
     override fun handle_delete_last_word() {
         receiver?.handle_delete_last_word()
     }

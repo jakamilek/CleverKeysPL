@@ -1004,6 +1004,7 @@ class SuggestionHandler(
                 flushPendingTypedWord(ic)
                 if (typingInProgress && ic != null) {
                     ic.commitText(" ", 1)
+                    keyeventhandler.noteEditorTextMutation(ic)
                     contextTracker.clearCurrentWord()
                     contextTracker.clearLastAutoInsertedWord()
                     contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
@@ -1692,6 +1693,7 @@ class SuggestionHandler(
 
                 vlog { "Committing text: len=${textToInsert.length}" }
                 inputConnection.commitText(textToInsert, 1)
+                keyeventhandler.noteEditorTextMutation(inputConnection)
 
                 if (addedTrailingSpace) {
                     contextTracker.markAutoSpacePending(
@@ -2310,6 +2312,7 @@ class SuggestionHandler(
 
         // Commit the exact word with trailing space
         ic?.commitText("$exactWord ", 1)
+        keyeventhandler.noteEditorTextMutation(ic)
 
         // Add to user dictionary
         val inserted = predictionCoordinator.getDictionaryManager()?.addUserWord(exactWord) ?: false
@@ -2371,6 +2374,7 @@ class SuggestionHandler(
 
             // Insert the original word with trailing space
             inputConnection.commitText("$tappedWord ", 1)
+            keyeventhandler.noteEditorTextMutation(inputConnection)
 
             // Learning rollback (2026-08-06): the REJECTED correction was already
             // fed through the learn funnel when it was committed. Remove it from
@@ -2695,6 +2699,7 @@ class SuggestionHandler(
                             inputConnection.deleteSurroundingText(completedWord.length + 1, 0)
                             // Insert the capitalized word with trailing space
                             inputConnection.commitText("$capitalizedWord ", 1)
+                            keyeventhandler.noteEditorTextMutation(inputConnection)
                             if (typedThisSession) updateContext(capitalizedWord)
                             noteTypedWordCommitted(capitalizedWord, inputConnection, editorInfo)
                                 ?.let { deferSwipeOffer(it) }
@@ -2740,6 +2745,7 @@ class SuggestionHandler(
 
                                 // Insert the corrected word WITH trailing space (normal apps only)
                                 inputConnection.commitText("$correctedWord ", 1)
+                                keyeventhandler.noteEditorTextMutation(inputConnection)
 
                                 // Update context with corrected word (learn-once: typed words only)
                                 if (typedThisSession) updateContext(correctedWord)

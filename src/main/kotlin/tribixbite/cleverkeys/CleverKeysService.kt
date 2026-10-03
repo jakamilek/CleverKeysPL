@@ -827,7 +827,7 @@ class CleverKeysService : InputMethodService(),
         candidatesEnd: Int
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
-        _keyeventhandler.selection_updated(oldSelStart, newSelStart)
+        _keyeventhandler.selection_updated(oldSelStart, newSelStart, oldSelEnd, newSelEnd)
         if ((oldSelStart == oldSelEnd) != (newSelStart == newSelEnd)) {
             _keyboardView.set_selection_state(newSelStart != newSelEnd)
         }
@@ -847,6 +847,7 @@ class CleverKeysService : InputMethodService(),
 
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
+        _keyeventhandler.invalidateWordCaseEdit()
         // gh #175: a minimized keyboard comes back full size the next time it is shown.
         _minimizer.reset()
         _keyboardView.reset()

@@ -907,6 +907,16 @@ class KeyboardReceiver(
         keyboard2.handleBackspace()
     }
 
+    override fun onWordCapitalizationChanged(cursor: Int) {
+        clearSwipeUndoState()
+        clearAutocorrectUndoState()
+        contextTracker.invalidateAutoSpacePending()
+        contextTracker.clearTrailingSpaceWatch()
+        inputCoordinator.onCursorMoved(
+            cursor, getCurrentInputConnection(), Config.globalConfig().primary_language, getCurrentEditorInfo()
+        )
+    }
+
     override fun handle_delete_last_word() {
         keyboard2.handleDeleteLastWord()
     }

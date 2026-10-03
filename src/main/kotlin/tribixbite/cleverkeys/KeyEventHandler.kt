@@ -34,6 +34,7 @@ class KeyEventHandler(
      * from [mods] to ensure that the meta state is correct while up and down
      * events are sent for the modifier keys. */
     private var metaState = 0
+    private val cursorWordCapitalization = CursorWordCapitalization()
 
     /** Whether to force sending arrow keys to move the cursor when
      * [setSelection] could be used instead. */
@@ -55,6 +56,7 @@ class KeyEventHandler(
 
     /** Editing just started. */
     fun started(info: EditorInfo) {
+        cursorWordCapitalization.reset()
         val conn = recv.getCurrentInputConnection()
         if (conn != null) {
             autocap.started(info, conn)
@@ -63,14 +65,85 @@ class KeyEventHandler(
     }
 
     /** Selection has been updated. */
-    fun selection_updated(oldSelStart: Int, newSelStart: Int) {
+    fun selection_updated(
+        oldSelStart: Int, newSelStart: Int,
+        oldSelEnd: Int = oldSelStart, newSelEnd: Int = newSelStart
+    ) {
+        cursorWordCapitalization.selection(oldSelStart, oldSelEnd, newSelStart, newSelEnd)
         autocap.selection_updated(oldSelStart, newSelStart)
+    }
+
+    fun invalidateWordCaseEdit() = cursorWordCapitalization.reset()
+
+    /** A commit's cursor callback is not a user returning to an existing word. */
+    fun noteEditorTextMutation(conn: InputConnection?) {
+        val pos = try {
+            val et = conn?.let { getCursorPos(it) }
+            if (et != null && et.selectionStart >= 0 && et.selectionStart == et.selectionEnd) {
+                et.startOffset + et.selectionStart
+            } else -1
+        } catch (_: Exception) { -1 }
+        cursorWordCapitalization.mutation(pos)
+    }
+
+    override fun tryWordCapitalization(): Boolean {
+        val parkedPosition = cursorWordCapitalization.eligiblePosition ?: return false
+        val info = recv.getCurrentEditorInfo() ?: return false
+        if ((info.inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT ||
+            (info.inputType and InputType.TYPE_MASK_VARIATION) !in setOf(
+                InputType.TYPE_TEXT_VARIATION_NORMAL,
+                InputType.TYPE_TEXT_VARIATION_PERSON_NAME,
+                InputType.TYPE_TEXT_VARIATION_SHORT_MESSAGE,
+                InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE,
+                InputType.TYPE_TEXT_VARIATION_POSTAL_ADDRESS
+            ) || TerminalUtils.isTerminalApp(info) ||
+            recv.isClipboardTagMode() || recv.isClipboardEditMode() ||
+            recv.isClipboardSearchMode() || recv.isEmojiPaneOpen() || recv.isGifPaneOpen()
+        ) return false
+        val conn = recv.getCurrentInputConnection() ?: return false
+        var committed = false
+        var positioned = false
+        var batching = false
+        try {
+            val et = getCursorPos(conn) ?: return false
+            if (et.selectionStart < 0 || et.selectionStart != et.selectionEnd ||
+                et.startOffset + et.selectionStart != parkedPosition) return false
+            val before = conn.getTextBeforeCursor(CursorWordCapitalization.CONTEXT_LIMIT, 0)
+                ?.toString() ?: return false
+            val after = conn.getTextAfterCursor(CursorWordCapitalization.CONTEXT_LIMIT, 0)
+                ?.toString() ?: return false
+            val edit = CursorWordCapitalization.plan(before, after, parkedPosition) ?: return false
+            batching = conn.beginBatchEdit()
+            // Replace only the first code point, preserving suffix spelling and its spans.
+            positioned = true
+            if (!conn.setSelection(edit.start, edit.start + edit.original.length)) return false
+            if (conn.getSelectedText(0)?.toString() != edit.original) return false
+            if (!conn.commitText(edit.replacement, 1)) return false
+            committed = true
+            cursorWordCapitalization.mutation(parkedPosition, retainEdit = true)
+        } catch (_: Exception) {
+            // Uncooperative editors retain normal Shift behavior if no text was committed.
+        } finally {
+            if (positioned) {
+                try { conn.setSelection(parkedPosition, parkedPosition) } catch (_: Exception) {}
+            }
+            if (batching) {
+                try { conn.endBatchEdit() } catch (_: Exception) {}
+            }
+        }
+        if (committed) {
+            lastTypedChar = '\u0000'
+            autocap.stop()
+            recv.onWordCapitalizationChanged(parkedPosition)
+        }
+        return committed
     }
 
     /** A key is being pressed. There will not necessarily be a corresponding
      * [keyUp] event. */
     override fun key_down(key: KeyValue?, isSwipe: Boolean) {
         if (key == null) return
+        if (key.getKind() != KeyValue.Kind.Modifier) cursorWordCapitalization.disarm()
 
         // Stop auto capitalisation when pressing some keys
         when (key.getKind()) {
@@ -337,6 +410,8 @@ class KeyEventHandler(
         )
         if (eventAction == KeyEvent.ACTION_UP) {
             autocap.event_sent(eventCode, metaState)
+            if (eventCode == KeyEvent.KEYCODE_DEL || eventCode == KeyEvent.KEYCODE_FORWARD_DEL ||
+                eventCode == KeyEvent.KEYCODE_ENTER) noteEditorTextMutation(conn)
         }
     }
 
@@ -500,6 +575,7 @@ class KeyEventHandler(
         }
 
         conn.commitText(if (repairOwedSpace) " $textToCommit" else textToCommit, 1)
+        noteEditorTextMutation(conn)
         if (reMarkAutoSpaceAfterCommit) {
             // SAS-1: fixes the v1.2.7 clobber where the chain flag was set BEFORE the
             // unconditional clear above and thus never survived — mark AFTER commit.
@@ -567,12 +643,14 @@ class KeyEventHandler(
         conn.beginBatchEdit()
         conn.commitText(text, 1)
         conn.endBatchEdit()
+        noteEditorTextMutation(conn)
     }
 
     /** See {!InputConnection.performContextMenuAction}. */
     private fun sendContextMenuAction(id: Int) {
         val conn = recv.getCurrentInputConnection() ?: return
         conn.performContextMenuAction(id)
+        if (id != android.R.id.copy && id != android.R.id.selectAll) noteEditorTextMutation(conn)
     }
 
     /**
@@ -1087,6 +1165,7 @@ class KeyEventHandler(
     }
 
     interface IReceiver {
+        fun onWordCapitalizationChanged(cursor: Int) {}
         fun handle_event_key(ev: KeyValue.Event)
         fun set_shift_state(state: Boolean, lock: Boolean)
         fun set_compose_pending(pending: Boolean)

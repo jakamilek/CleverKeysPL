@@ -51,6 +51,10 @@ jobs:
         bash scripts/gradle-guard.sh runMockTests -PtestClass=langpack.LanguagePackImportTest --stacktrace
         bash scripts/gradle-guard.sh runMockTests -PtestClass=SwipeAutocapCommitTest --stacktrace
         bash scripts/gradle-guard.sh runMockTests -PtestClass=SuggestionTapPartialReplaceTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=ShiftWordCapitalizationTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=PointersWordCapitalizationTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=KeyEventReceiverBridgeDelegationTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=KeyEventHandlerSliderTest --stacktrace
 
     - name: Upload test results
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

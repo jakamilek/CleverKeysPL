@@ -586,6 +586,7 @@ tasks.register('runPureTests', JavaExec) {
   description = 'Run pure JVM tests via JUnitCore (works on ARM64)'
 
   def pureTestClasses = [
+    'tribixbite.cleverkeys.CursorWordCapitalizationTest',
     'tribixbite.cleverkeys.langpack.LanguageIntelligenceTest',
     'tribixbite.cleverkeys.DictionaryLoadRequestsTest',
     'tribixbite.cleverkeys.AccentNormalizerTest',
@@ -1134,6 +1135,8 @@ tasks.register('runMockTests', JavaExec) {
   jvmArgs '-XX:+EnableDynamicAgentLoading'
 
   def mockTestClasses = [
+    'tribixbite.cleverkeys.ShiftWordCapitalizationTest',
+    'tribixbite.cleverkeys.PointersWordCapitalizationTest',
     // B-1 (2026-09-06 audit, P1): the recognizer/detector letter gate was hard-coded a-z,
     // so swipe typing could never trigger on any non-Latin board. Drives the REAL
     // ImprovedSwipeGestureRecognizer touch-stream path (startSwipe/addPoint/endSwipe) with
