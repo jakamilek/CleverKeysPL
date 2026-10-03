@@ -1416,6 +1416,7 @@ class SuggestionHandler(
                 // these fields up front and (a) force the editor-scan fallback,
                 // (b) never inject a leading space (it would corrupt the value).
                 val syncSuppressedField = !contextTracker.shouldSyncForInputType(editorInfo)
+                val automaticSpacing = !inPasswordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo)
 
                 // Next-word call-site 3 (audit §4.4): a NEXT_WORD candidate that
                 // was APPENDED after swipe alternates must append after the
@@ -1454,55 +1455,26 @@ class SuggestionHandler(
                     vlog { "REPLACE: Deleting auto-inserted word: '${contextTracker.getLastAutoInsertedWord()}'" }
                     val rejectedWord = contextTracker.getLastAutoInsertedWord().orEmpty()
 
-                    var deleteCount = (contextTracker.getLastAutoInsertedWord()?.length ?: 0) + 1 // Word + trailing space
-                    var deletedLeadingSpace = false
-
-                    if (inTermuxApp) {
-                        // TERMUX: Use backspace key events instead of InputConnection methods
-                        // Termux doesn't support deleteSurroundingText properly
-                        vlog { "TERMUX: Using backspace key events to delete $deleteCount chars" }
-
-                        // Check if there's a leading space to delete
-                        val textBefore = inputConnection.getTextBeforeCursor(1, 0)
-                        if (textBefore != null && textBefore.isNotEmpty() && textBefore[0] == ' ') {
-                            deleteCount++ // Include leading space
-                            deletedLeadingSpace = true
+                    val before = inputConnection.getTextBeforeCursor(rejectedWord.length + 2, 0)?.toString()
+                    val deleteCount = SmartAutoSpace.committedWordDeleteCount(before, rejectedWord)
+                        ?: if (inTermuxApp && before == null) {
+                            rejectedWord.length + if (automaticSpacing && config.auto_space_after_suggestion) 1 else 0
+                        } else {
+                            // Stale alternate: never erase unrelated text at a moved caret.
+                            contextTracker.clearLastAutoInsertedWord()
+                            contextTracker.invalidateAutoSpacePending()
+                            contextTracker.clearTrailingSpaceWatch()
+                            return null
                         }
-
-                        // Send backspace key events
+                    if (inTermuxApp) {
                         repeat(deleteCount) {
                             keyeventhandler.send_key_down_up(KeyEvent.KEYCODE_DEL, 0)
                         }
                     } else {
-                        // NORMAL APPS: Use InputConnection methods
-                        if (BuildConfig.ENABLE_VERBOSE_LOGGING) {
-                            val debugBefore = inputConnection.getTextBeforeCursor(50, 0)
-                            Log.d(TAG, "REPLACE: Text before cursor (50 chars): '$debugBefore'")
-                        }
-                        vlog { "REPLACE: Delete count = $deleteCount" }
-
-                        // Delete the auto-inserted word and its space
                         inputConnection.deleteSurroundingText(deleteCount, 0)
-
-                        if (BuildConfig.ENABLE_VERBOSE_LOGGING) {
-                            val debugAfter = inputConnection.getTextBeforeCursor(50, 0)
-                            Log.d(TAG, "REPLACE: After deleting word, text before cursor: '$debugAfter'")
-                        }
-
-                        // Also need to check if there was a space added before it
-                        val textBefore = inputConnection.getTextBeforeCursor(1, 0)
-                        vlog { "REPLACE: Checking for leading space, got: '$textBefore'" }
-                        if (textBefore != null && textBefore.isNotEmpty() && textBefore[0] == ' ') {
-                            vlog { "REPLACE: Deleting leading space" }
-                            // Delete the leading space too
-                            inputConnection.deleteSurroundingText(1, 0)
-
-                            if (BuildConfig.ENABLE_VERBOSE_LOGGING) {
-                                val debugFinal = inputConnection.getTextBeforeCursor(50, 0)
-                                Log.d(TAG, "REPLACE: After deleting leading space: '$debugFinal'")
-                            }
-                        }
                     }
+                    // Preserve any existing separator BEFORE the word; the leading-space
+                    // decision below adds one only when genuinely needed.
 
                     // W2 (audit 2026-09-26): the replaced swipe word was REJECTED. Its commit
                     // already ran the learn funnel (prev→rejected, window += rejected); roll that
@@ -1594,10 +1566,9 @@ class SuggestionHandler(
                 }
 
                 // Add space before word if previous character isn't whitespace.
-                // For tapped suggestions (not swipe), respect auto_space_before_suggestion setting.
-                // Swipe auto-inserts always get the leading space since the swipe replaces no typed text.
-                val needsSpaceBefore = if (!isSwipeAutoInsert && !config.auto_space_before_suggestion) {
-                    false  // User disabled leading space before tapped suggestions
+                // Swipe and tap share both the preference and live-field formatting policy.
+                val needsSpaceBefore = if (!automaticSpacing || !config.auto_space_before_suggestion) {
+                    false  // User disabled leading space, or the field requires literal spacing
                 } else if (syncSuppressedField) {
                     // #151: never inject a leading space into URL/email/etc. fields —
                     // after replacing "exa" in "https://exa" the previous char is '/',
@@ -1624,11 +1595,10 @@ class SuggestionHandler(
                     }
                 }
 
-                // v1.2.6 FIX: Check if there's already a space after cursor (mid-sentence replacement)
-                // Don't add trailing space if one already exists to avoid double spaces
+                // Existing whitespace/closing punctuation after a replacement stays attached.
                 val hasSpaceAfter = try {
                     val textAfter = inputConnection.getTextAfterCursor(1, 0)
-                    textAfter != null && textAfter.isNotEmpty() && textAfter[0].isWhitespace()
+                    SmartAutoSpace.hasSeparatorAfter(textAfter?.firstOrNull())
                 } catch (e: Exception) {
                     false
                 }
@@ -1653,14 +1623,14 @@ class SuggestionHandler(
                 // The decision itself lives in SmartAutoSpace (pure, unit-tested) so it
                 // can't drift from AutoSpaceLogicTest.
                 val trailingSpaceMode = SmartAutoSpace.decideTrailingSpace(
-                    autoSpaceAfterEnabled = config.auto_space_after_suggestion,
+                    autoSpaceAfterEnabled = automaticSpacing && config.auto_space_after_suggestion,
                     isSwipeAutoInsert = isSwipeAutoInsert,
                     hasSpaceAfter = hasSpaceAfter
                 )
                 val insertMode: String
                 val textToInsert = when (trailingSpaceMode) {
                     SmartAutoSpace.TrailingSpaceMode.NO_SPACE_USER_DISABLED -> {
-                        // #82: User disabled auto-space after suggestion (tap selection only)
+                        // Preference or field policy disables trailing space for both swipe and tap
                         insertMode = "AUTO-SPACE DISABLED"
                         if (needsSpaceBefore) " $capitalizedWord" else capitalizedWord
                     }
@@ -2286,6 +2256,12 @@ class SuggestionHandler(
      * @param ic InputConnection for text manipulation
      * @param editorInfo Editor info for app detection
      */
+    private fun suggestionSpaceSuffix(ic: InputConnection?, info: EditorInfo?): String {
+        if (isPasswordMode || !config.auto_space_after_suggestion ||
+            !EditorSpacingPolicy.allowsAutomaticSpacing(info)) return ""
+        return if (SmartAutoSpace.hasSeparatorAfter(ic?.getTextAfterCursor(1, 0)?.firstOrNull())) "" else " "
+    }
+
     private fun handleExactWordAdd(exactWord: String, ic: InputConnection?, editorInfo: EditorInfo?) {
         if (exactWord.isEmpty()) {
             Log.w(TAG, "EXACT ADD: Empty word, ignoring")
@@ -2310,8 +2286,8 @@ class SuggestionHandler(
             }
         }
 
-        // Commit the exact word with trailing space
-        ic?.commitText("$exactWord ", 1)
+        // Commit the exact word with the shared field-aware separator.
+        ic?.commitText(exactWord + suggestionSpaceSuffix(ic, editorInfo), 1)
         keyeventhandler.noteEditorTextMutation(ic)
 
         // Add to user dictionary
@@ -2372,8 +2348,8 @@ class SuggestionHandler(
                 inputConnection.deleteSurroundingText(deleteCount, 0)
             }
 
-            // Insert the original word with trailing space
-            inputConnection.commitText("$tappedWord ", 1)
+            // Insert the original word with the shared field-aware separator.
+            inputConnection.commitText(tappedWord + suggestionSpaceSuffix(inputConnection, editorInfo), 1)
             keyeventhandler.noteEditorTextMutation(inputConnection)
 
             // Learning rollback (2026-08-06): the REJECTED correction was already
@@ -3388,3 +3364,4 @@ class SuggestionHandler(
         }
     }
 }
+

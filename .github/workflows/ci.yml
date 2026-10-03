@@ -45,7 +45,7 @@ jobs:
       # MockK tests (runMockTests) require android.jar stubs + specific classpath
       # ordering that can hang on CI runners. Run via ew-cli instrumented tests instead.
 
-    - name: Run language-pack import and exact-case swipe tests
+    - name: Run language-pack, casing and spacing integration tests
       timeout-minutes: 15
       run: |
         bash scripts/gradle-guard.sh runMockTests -PtestClass=langpack.LanguagePackImportTest --stacktrace
@@ -55,6 +55,7 @@ jobs:
         bash scripts/gradle-guard.sh runMockTests -PtestClass=PointersWordCapitalizationTest --stacktrace
         bash scripts/gradle-guard.sh runMockTests -PtestClass=KeyEventReceiverBridgeDelegationTest --stacktrace
         bash scripts/gradle-guard.sh runMockTests -PtestClass=KeyEventHandlerSliderTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=EditorSpacingIntegrationTest --stacktrace
 
     - name: Upload test results
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -245,3 +246,4 @@ jobs:
         if [ $FAIL -eq 1 ]; then
           echo "::warning::Some APKs exceed size thresholds"
         fi
+

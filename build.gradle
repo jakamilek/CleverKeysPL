@@ -586,6 +586,7 @@ tasks.register('runPureTests', JavaExec) {
   description = 'Run pure JVM tests via JUnitCore (works on ARM64)'
 
   def pureTestClasses = [
+    'tribixbite.cleverkeys.PunctuationSpacingTest',
     'tribixbite.cleverkeys.CursorWordCapitalizationTest',
     'tribixbite.cleverkeys.langpack.LanguageIntelligenceTest',
     'tribixbite.cleverkeys.DictionaryLoadRequestsTest',
@@ -1135,6 +1136,7 @@ tasks.register('runMockTests', JavaExec) {
   jvmArgs '-XX:+EnableDynamicAgentLoading'
 
   def mockTestClasses = [
+    'tribixbite.cleverkeys.EditorSpacingIntegrationTest',
     'tribixbite.cleverkeys.ShiftWordCapitalizationTest',
     'tribixbite.cleverkeys.PointersWordCapitalizationTest',
     // B-1 (2026-09-06 audit, P1): the recognizer/detector letter gate was hard-coded a-z,
@@ -1593,3 +1595,4 @@ tasks.configureEach { task ->
         task.finalizedBy("normalizeApkPaths")
     }
 }
+

@@ -10,8 +10,17 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 
 - Maintainer reports that the on-device source casing pairs work quite well; this is qualitative feedback, not a complete acceptance checklist.
 - [x] Implement Shift toggling the first letter after returning the caret to an existing word; preserve ordinary typing, pointer modifiers and cursor position.
-- [ ] CI build / pure and focused mock checks; real-device validation before promotion.
+- [x] Shift commit d64439ac: debug build, pure and focused mock checks pass (run 37114260076).
+- [ ] Real-device validation before promotion; whole CI still has pre-existing lint/security failures.
 - Spec: [cursor-word-capitalization.md](../docs/specs/cursor-word-capitalization.md).
+
+## Polish trial — field-aware spacing (2026-10-03)
+
+- [x] Agreed shared swipe/tap preferences, search/password/technical field exclusions and punctuation rules.
+- [x] Implement actual-suffix alternate replacement, manual-space punctuation and field guards.
+- [ ] CI validation and phone check of the new spacing build.
+- Typed-prefix completions are working per maintainer; explicitly withdrawn from scope.
+- Spec: [editor-spacing.md](../docs/specs/editor-spacing.md).
 
 ## September 27 follow-through
 
@@ -100,4 +109,5 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 ## Release authority
 
 Do not commit, tag, push, publish, or open external issues without explicit user authorization.
+
 

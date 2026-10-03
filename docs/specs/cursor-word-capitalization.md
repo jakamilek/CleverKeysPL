@@ -2,7 +2,8 @@
 
 ## Feature Overview
 
-Status: implementation prepared; CI and real-device validation pending (2026-10-03).
+Status: debug build and pure/focused mock checks passed at d64439ac (CI run 37114260076); real-device validation pending (2026-10-03).
+The workflow still fails on pre-existing SubkeyAssignActivity lint and site devalue security findings.
 Motivation: after selecting łódź from a swipe pair, a user can return to the word
 and change it to Łódź without retyping or locating the original suggestion slate.
 
@@ -50,7 +51,7 @@ not call the typed-word learning funnel or add another dictionary entry.
 - [x] Exact initial-code-point replacement and cursor restoration.
 - [x] Bridge/receiver prediction refresh and mutation acknowledgements.
 - [x] Pure and mock tests registered in CI.
-- [ ] Debug build and appropriate CI test suites.
+- [x] Debug build and appropriate CI test suites (d64439ac).
 - [ ] Real editor and device verification before promotion.
 
 ## Testing Strategy
@@ -82,3 +83,4 @@ read after text commits; device latency remains unmeasured. Full-uppercase cycli
 selected-range transformations, AI and Łódźi→Łodzi are outside this change.
 
 Created: 2026-10-03. No merge, release or version bump authorized by this stage.
+

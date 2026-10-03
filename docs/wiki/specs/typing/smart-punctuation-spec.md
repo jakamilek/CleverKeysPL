@@ -1,3 +1,8 @@
+> Polish trial update (2026-10-03): [editor-spacing.md](../../../specs/editor-spacing.md)
+> supersedes the automatic-space-only swallow rule and sentence-ending-only trailing
+> space on the trial branch, and adds search/password/technical field guards. The
+> implementation listings and device results below describe the historical SAS-1 stage.
+
 ---
 title: Smart Punctuation - Technical Specification
 description: Auto-space tracking, closing-punctuation space swallowing, and opening-punctuation leading-space suppression (SAS-1)
@@ -450,3 +455,4 @@ The pure suite covers the opener/closer classification tables and every `isSwall
 | v1.2.7 | Added auto-inserted space tracking for manual space preservation |
 | v1.2.0 | Added quote handling (opening vs closing detection) |
 | v1.1.0 | Initial smart punctuation implementation |
+

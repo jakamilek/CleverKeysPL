@@ -462,11 +462,11 @@ class KeyEventHandler(
         // Skip if: feature disabled, key repeat (long press), or previous char wasn't alphanumeric
         val currentTime = System.currentTimeMillis()
         var textToCommit = text
-        // SAS-1: set when sentence-ending punctuation swallows the auto-space and
-        // re-adds one — the fresh space is re-marked pending AFTER the commit below.
+        // A formatter-added space is re-marked pending AFTER the commit below.
         var reMarkAutoSpaceAfterCommit = false
         val config = Config.globalConfig()
-        if (config.double_space_to_period && !isKeyRepeat &&
+        val automaticSpacing = EditorSpacingPolicy.allowsAutomaticSpacing(recv.getCurrentEditorInfo())
+        if (automaticSpacing && config.double_space_to_period && !isKeyRepeat &&
             text.length == 1 && text[0] == ' ' && lastTypedChar == ' ' &&
             (currentTime - lastTypedTimestamp) < doubleSpaceThresholdMs) {
             // Only trigger if the character before the first space was alphanumeric
@@ -489,52 +489,23 @@ class KeyEventHandler(
         } else if (text.length == 1) {
             val char = text[0]
 
-            // Smart punctuation: If typing punctuation and previous char is space, delete the space
-            // This attaches punctuation to the end of the previous word (e.g., "word ." -> "word.")
-            // v1.2.7: Only attach if space was auto-inserted (respects manual space+punctuation)
-            // SAS-1: eligibility is verified at use — the actual editor text must show
-            // a plain space before the cursor AND the cursor must sit exactly at the
-            // position stamped when the auto-space was committed. A manually typed
-            // space or a cursor move can therefore never be swallowed.
-            val smartPuncEnabled = Config.globalConfig().smart_punctuation
-            val isPunctChar = isSmartPunctuationChar(char)
-            val isQuote = isQuoteChar(char)
-
-            if (smartPuncEnabled && (isPunctChar || isQuote)) {
-                val textBefore = conn.getTextBeforeCursor(500, 0)  // Get enough context for quote counting
-                val eligible = SmartAutoSpace.isSwallowEligible(
-                    autoSpacePending = recv.wasLastSpaceAutoInserted(),
-                    stampedPosition = recv.getAutoSpaceStampedPosition(),
-                    actualPrevChar = textBefore?.lastOrNull(),
-                    actualPosition = PredictionContextTracker.currentCursorPosition(conn)
+            if (automaticSpacing && config.smart_punctuation && SmartAutoSpace.isFormattingPunctuation(char)) {
+                val edit = SmartAutoSpace.punctuationEdit(
+                    char,
+                    conn.getTextBeforeCursor(500, 0)?.toString(),
+                    conn.getTextAfterCursor(1, 0)?.toString()
                 )
-
-                if (isPunctChar && eligible) {
-                    // Closing punctuation: swallow the automatic space to attach to the word
-                    conn.deleteSurroundingText(1, 0)
-                    // v1.2.8: For sentence-ending punctuation, add space after so autocap triggers
-                    // "hello " + "." → "hello. " (enables getCursorCapsMode to detect sentence end)
-                    if (isSentenceEndingPunctuation(char)) {
-                        textToCommit = "$char "
-                        // SAS-1: re-mark the re-added space as auto-inserted (with a
-                        // fresh position stamp) AFTER the commit below — chaining.
-                        reMarkAutoSpaceAfterCommit = true
-                    }
-                } else if (isQuote && eligible) {
-                    // Straight double quote: parity disambiguation — an odd count of
-                    // prior " means an unmatched opener, so this one is CLOSING.
-                    // (Apostrophes are handled by isSmartPunctuationChar above.)
-                    if (isClosingQuote(char, textBefore)) {
-                        // Closing quote: delete space to attach to word
-                        conn.deleteSurroundingText(1, 0)
-                    }
-                    // Opening quote: keep the space (do nothing)
+                // If deletion is refused, commit the literal key instead of claiming success.
+                if (edit != null && (edit.deleteBefore == 0 ||
+                        conn.deleteSurroundingText(edit.deleteBefore, 0))) {
+                    textToCommit = edit.text
+                    reMarkAutoSpaceAfterCommit = edit.addedSpace
                 }
             }
 
             // v1.2.7/SAS-1: Any other single-char input invalidates the pending
             // auto-space (flag + position stamp), cleared AFTER the swallow check.
-            // This ensures: swipe→":"→attaches, but swipe→" "→":"→doesn't attach
+            // The new punctuation plan uses actual context even after a manual space.
             recv.setLastSpaceAutoInserted(false)
 
             lastTypedChar = char
@@ -559,7 +530,7 @@ class KeyEventHandler(
         // below (autocap/handle_text_typed) still sees the bare char — the space is an
         // editor-text repair, not a typed character (the word context was already
         // committed at suggestion time).
-        val repairOwedSpace = owedTrailingSpaceWord != null &&
+        val repairOwedSpace = automaticSpacing && owedTrailingSpaceWord != null &&
             text.length == 1 && text[0].isLetterOrDigit() &&
             conn.getTextBeforeCursor(owedTrailingSpaceWord.length, 0)?.toString() ==
             owedTrailingSpaceWord
@@ -587,52 +558,6 @@ class KeyEventHandler(
         autocap.typed(textToCommit)
         recv.handle_text_typed(textToCommit.toString())
     }
-
-    /** Characters that should attach to the previous word (smart punctuation).
-     * SAS-1: full closer set — . , ; : ! ? ) ] } ” ’ … ' — via SmartAutoSpace.
-     * Straight double quote `"` is excluded here and parity-resolved through
-     * isClosingQuote(). Straight apostrophe `'` IS a closer: mid-word
-     * contractions (don't) never reach the swallow path because the char
-     * before the cursor there is a letter, not the pending auto-space, so an
-     * apostrophe typed right after an auto-space reads as possessive/closing
-     * (`kids ` + `'` → `kids'`). */
-    private fun isSmartPunctuationChar(c: Char): Boolean = SmartAutoSpace.isClosingPunctuation(c)
-
-    /** v1.2.8: Sentence-ending punctuation that should trigger autocap for next word. */
-    private fun isSentenceEndingPunctuation(c: Char): Boolean {
-        return when (c) {
-            '.', '!', '?' -> true
-            else -> false
-        }
-    }
-
-    /**
-     * Determines if a quote should attach to the previous word (closing quote).
-     * Opening quotes should have space before them; closing quotes should not.
-     *
-     * Heuristic: Count quotes of the same type in textBefore. If odd count,
-     * there's an unmatched opening quote, so this is a closing quote.
-     * If even count (or zero), this is an opening quote.
-     *
-     * Example: 'He said "hello ' + '"' → one " found (odd) → closing
-     * Example: 'He said ' + '"' → zero " found (even) → opening
-     */
-    private fun isClosingQuote(quote: Char, textBefore: CharSequence?): Boolean {
-        if (quote != '"') return false
-        if (textBefore.isNullOrEmpty()) return false
-
-        // Count occurrences of this quote type in the text before cursor
-        val quoteCount = textBefore.count { it == quote }
-
-        // Odd count means there's an unmatched opening quote → this is closing
-        // Even count (including 0) means no unmatched quote → this is opening
-        return quoteCount % 2 == 1
-    }
-
-    /** Check if quote character needs parity-based smart punctuation handling.
-     * SAS-1: only the straight double quote — `'` moved to the closer set
-     * (isSmartPunctuationChar) and curly quotes are unambiguous. */
-    private fun isQuoteChar(c: Char): Boolean = c == '"'
 
     /**
      * Send text directly to the app's InputConnection, bypassing all mode routing
@@ -1252,3 +1177,4 @@ class KeyEventHandler(
         )
     }
 }
+
