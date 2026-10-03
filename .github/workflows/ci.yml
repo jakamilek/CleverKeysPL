@@ -17,6 +17,11 @@ jobs:
   build:
     name: Build and Test
     runs-on: ubuntu-latest
+    env:
+      # The full compiler exceeds the phone wrapper's 1 GiB default on this runner.
+      # Keep guarded single-worker/no-daemon execution with an explicit CI-only cap.
+      GRADLE_GUARD_XMX: 2048m
+      GRADLE_GUARD_METASPACE: 512m
 
     steps:
     - name: Checkout code
@@ -236,4 +241,3 @@ jobs:
         if [ $FAIL -eq 1 ]; then
           echo "::warning::Some APKs exceed size thresholds"
         fi
-
