@@ -1,6 +1,6 @@
 # Field-aware suggestion and punctuation spacing
 
-Status: implemented on the Polish trial branch; CI and device verification pending.
+Status: debug build and all 2902 selected tests PASS at b373391c88de57edacd7ad2d0ad4ea8b62e23985 (run 37123257770); device verification pending. The workflow retains existing lint/security failures.
 Created: 2026-10-03. Maintainer approved the behavior after discussion.
 
 ## Requirements
@@ -38,6 +38,8 @@ digit stays literal; this conservative rule also leaves sentence punctuation aft
 numbers without an added space. This is a deterministic formatter, not a complete
 language parser for abbreviations or embedded URLs in arbitrary prose.
 
+Legacy apostrophe attachment after a stamped automatic swipe space is retained without a new trailing space inside lexical forms.
+
 The handler verifies the actual editor text at use, checks deletion success and
 falls back to the literal key if context/deletion is unavailable. Field gating
 also covers double-space-to-period and previously owed-space repair. Inline IME
@@ -58,7 +60,7 @@ limited case when surrounding text is unavailable, and needs device verification
 - SuggestionTapPartialReplaceTest: retained partial replacement, updated URI result
   without a trailing space, search tap, password swipe/alternate, before preference,
   ordinary alternate and space-disabled alternate preserving preceding text.
-- Existing pure, import, swipe-case, cursor Shift, pointer/bridge and slider checks.
+- Existing pure, import, swipe-case, cursor Shift, pointer/bridge, slider, double-space and dropped-space repair checks.
 
 Device checklist: ordinary notes/message; search box and browser address bar;
 password (opt-in swipe if enabled); comma/colon/semicolon/?!/…/quotes/brackets;

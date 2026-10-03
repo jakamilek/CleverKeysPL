@@ -84,3 +84,5 @@ selected-range transformations, AI and Łódźi→Łodzi are outside this change
 
 Created: 2026-10-03. No merge, release or version bump authorized by this stage.
 
+
+Spacing integration at b373391c88de57edacd7ad2d0ad4ea8b62e23985: debug build, 2773 pure and all focused mock suites PASS (run 37123257770); device check still pending.

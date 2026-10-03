@@ -73,7 +73,7 @@
 | `geometric-swipe-engine.md` | Layout-agnostic geometric swipe decoder (standalone) | ✅ Implemented |
 | `context-learning-and-next-word.md` | **NEW 2026-08-06** Persistent context LM, master learning privacy gate, opt-in next-word prediction, suggestion provenance, learned-data manager | ✅ Implemented |
 | `ctc-swipe-engine.md` | **UPDATED 2026-08-15** CTC trie-beam swipe engine — WIRED opt-in `ctc` mode (2026-08-08): CleverKeys-trained ONNX encoder, router/adapter/settings/provenance As-Built | ✅ Implemented |
-| `editor-spacing.md` | Field-aware swipe/tap spaces and punctuation; CI/device verification pending | 🚧 In progress |
+| `editor-spacing.md` | Field-aware swipe/tap spaces and punctuation; build/tests pass, device verification pending | 🚧 In progress |
 | `cursor-word-capitalization.md` | Shift toggles a parked word's first letter; build/tests pass, device verification pending | 🚧 In progress |
 | `cursor-aware-predictions.md` | Cursor sync + cursor-park next-word integration | ✅ Implemented |
 | `architectural-decisions.md` | Architectural Decision Records | ✅ Active |
