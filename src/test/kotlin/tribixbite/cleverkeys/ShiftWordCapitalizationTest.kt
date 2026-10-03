@@ -199,6 +199,13 @@ class ShiftWordCapitalizationTest {
         assertFalse(handler.tryWordCapitalization())
         verify(exactly = 0) { conn.commitText(any(), any()) }
     }
+    @Test fun webTextEditorUsesTheSameWordEdit() {
+        park(10)
+        info.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT
+        assertTrue(handler.tryWordCapitalization())
+        assertEquals("To jest Łódź.", text)
+        assertEquals(10, start)
+    }
     @Test fun terminalKeepsNormalShift() {
         park(10); info.packageName = "com.termux"
         assertFalse(handler.tryWordCapitalization())

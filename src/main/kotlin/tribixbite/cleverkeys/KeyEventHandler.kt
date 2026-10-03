@@ -95,6 +95,7 @@ class KeyEventHandler(
                 InputType.TYPE_TEXT_VARIATION_PERSON_NAME,
                 InputType.TYPE_TEXT_VARIATION_SHORT_MESSAGE,
                 InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE,
+                InputType.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT,
                 InputType.TYPE_TEXT_VARIATION_POSTAL_ADDRESS
             ) || TerminalUtils.isTerminalApp(info) ||
             recv.isClipboardTagMode() || recv.isClipboardEditMode() ||
