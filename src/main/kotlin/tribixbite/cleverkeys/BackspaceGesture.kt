@@ -31,25 +31,41 @@ object BackspaceGesture {
         return (200f - 170f * edge * edge).toLong().coerceIn(30L, 200L)
     }
 
-    class Drag(private val originX: Float, private val threshold: Float = 15f) {
+    /**
+     * A small reversal brakes the current repeat; a separate deliberate move resumes.
+     * References follow the active extreme, so touch jitter cannot drift the brake point.
+     */
+    class Drag(
+        private val originX: Float,
+        private val threshold: Float = 15f,
+        private val pauseThreshold: Float = 3f
+    ) {
         var direction = 0
             private set
+        private var activated = false
         private var motionReference = originX
+        private var extremeX = originX
+
         fun move(x: Float): Boolean {
             if (!x.isFinite()) return false
-            val delta = x - motionReference
-            if (direction == 0 && x - originX <= -threshold) {
-                direction = -1
+            if (direction == 0) {
+                val delta = x - motionReference
+                // Initially only a left drag extends the word preview. After braking,
+                // either direction can resume, relative to the new pause position.
+                if (!activated && delta > -threshold) return false
+                if (kotlin.math.abs(delta) < threshold) return false
+                direction = if (delta < 0f) -1 else 1
+                activated = true
+                extremeX = x
+                return true
+            }
+            val advance = (x - extremeX) * direction
+            if (advance <= -pauseThreshold) {
+                direction = 0
                 motionReference = x
                 return true
             }
-            if (direction != 0 && kotlin.math.abs(delta) >= threshold) {
-                val next = if (delta < 0f) -1 else 1
-                motionReference = x
-                val changed = next != direction
-                direction = next
-                return changed
-            }
+            if (advance > 0f) extremeX = x
             return false
         }
     }

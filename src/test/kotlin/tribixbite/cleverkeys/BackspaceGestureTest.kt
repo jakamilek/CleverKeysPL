@@ -54,8 +54,49 @@ class BackspaceGestureTest {
     @Test fun rightwardReversalShrinksEvenInTheLeftHalf() {
         val drag = BackspaceGesture.Drag(900f)
         assertTrue(drag.move(100f)); assertEquals(-1, drag.direction)
+        assertTrue(drag.move(103f)); assertEquals(0, drag.direction)
         assertTrue(drag.move(130f)); assertEquals(1, drag.direction)
         assertFalse(drag.move(135f)); assertEquals(1, drag.direction)
+        assertTrue(drag.move(132f)); assertEquals(0, drag.direction)
         assertTrue(drag.move(100f)); assertEquals(-1, drag.direction)
+    }
+
+    @Test fun smallReversalBrakesWithoutImmediatelyShrinking() {
+        val drag = BackspaceGesture.Drag(900f)
+        assertTrue(drag.move(100f))
+        assertTrue(drag.move(103f)); assertEquals(0, drag.direction)
+        repeat(20) { assertFalse(drag.move(103f)); assertEquals(0, drag.direction) }
+        assertFalse(drag.move(110f)); assertEquals(0, drag.direction)
+    }
+    @Test fun pausedGestureCanResumeLeftFromItsPausePosition() {
+        val drag = BackspaceGesture.Drag(900f)
+        drag.move(100f); drag.move(103f)
+        assertFalse(drag.move(89f)); assertEquals(0, drag.direction)
+        assertTrue(drag.move(88f)); assertEquals(-1, drag.direction)
+    }
+    @Test fun pausedGestureCanResumeRightAndBrakeAgain() {
+        val drag = BackspaceGesture.Drag(900f)
+        drag.move(100f); drag.move(103f)
+        assertFalse(drag.move(117f)); assertEquals(0, drag.direction)
+        assertTrue(drag.move(118f)); assertEquals(1, drag.direction)
+        assertTrue(drag.move(115f)); assertEquals(0, drag.direction)
+        assertTrue(drag.move(130f)); assertEquals(1, drag.direction)
+    }
+    @Test fun brakeFollowsLatestExtremeAndIgnoresSubThresholdJitter() {
+        val drag = BackspaceGesture.Drag(900f)
+        drag.move(100f); assertFalse(drag.move(50f))
+        assertFalse(drag.move(52f)); assertEquals(-1, drag.direction)
+        assertTrue(drag.move(53f)); assertEquals(0, drag.direction)
+        assertFalse(drag.move(54f)); assertFalse(drag.move(52f))
+        assertFalse(drag.move(67f)); assertEquals(0, drag.direction)
+        assertTrue(drag.move(68f)); assertEquals(1, drag.direction)
+    }
+    @Test fun nonFiniteMotionCannotBrakeOrResume() {
+        val drag = BackspaceGesture.Drag(900f)
+        drag.move(100f)
+        assertFalse(drag.move(Float.NaN)); assertEquals(-1, drag.direction)
+        drag.move(103f)
+        assertFalse(drag.move(Float.POSITIVE_INFINITY)); assertEquals(0, drag.direction)
+        assertTrue(drag.move(118f)); assertEquals(1, drag.direction)
     }
 }

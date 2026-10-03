@@ -1252,10 +1252,10 @@ class Pointers(
     private fun handleSelectionDeleteRepeat(ptr: Pointer) {
         if (ptr.backspaceWordHold) {
             val direction = ptr.backspaceDrag?.direction ?: 0
-            if (direction != 0) {
-                val accepted = _handler.stepBackspaceHold(direction)
-                traceBackspace(ptr, "repeat direction=$direction accepted=$accepted")
-            }
+            // A brake has no polling timer. A later deliberate move starts it again.
+            if (direction == 0) return
+            val accepted = _handler.stepBackspaceHold(direction)
+            traceBackspace(ptr, "repeat direction=$direction accepted=$accepted")
             val what = uniqueTimeoutWhat++
             ptr.selectionDeleteWhat = what
             _longpress_handler.sendEmptyMessageDelayed(what, BackspaceGesture.repeatDelay(

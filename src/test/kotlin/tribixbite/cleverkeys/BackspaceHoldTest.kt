@@ -196,6 +196,8 @@ class BackspaceHoldTest {
         pointers.onTouchMove(100f,200f,1)
         assertEquals(" mleko ",conn.getSelectedText(0))
         acknowledgeSelection()
+        pointers.onTouchMove(103f,200f,1)
+        assertEquals(" mleko ",conn.getSelectedText(0))
         pointers.onTouchMove(130f,200f,1)
         assertEquals("mleko ",conn.getSelectedText(0))
         acknowledgeSelection()

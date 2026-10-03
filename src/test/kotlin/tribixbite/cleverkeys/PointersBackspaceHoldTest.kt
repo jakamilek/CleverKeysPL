@@ -43,11 +43,13 @@ class PointersBackspaceHoldTest {
     @Test fun diagnosticsDistinguishHoldMoveReversalAndRelease() {
         val trace = mutableListOf<String>()
         every { handler.traceBackspace(any()) } answers { trace.add(firstArg()); Unit }
-        hold(); pointers.onTouchMove(100f,200f,1); pointers.onTouchMove(130f,200f,1)
+        hold(); pointers.onTouchMove(100f,200f,1); pointers.onTouchMove(103f,200f,1)
+        pointers.onTouchMove(130f,200f,1)
         pointers.onTouchUp(1)
         assertTrue(trace.any { it.contains("hold started=true") })
         assertEquals(1,trace.count { it.contains("move observed") })
         assertTrue(trace.any { it.contains("move direction=-1") })
+        assertTrue(trace.any { it.contains("move direction=0") })
         assertTrue(trace.any { it.contains("move direction=1") })
         assertTrue(trace.last().contains("up pointer=1 owned=true"))
         verify(exactly = 1) { handler.finishBackspaceHold(true) }
@@ -80,7 +82,8 @@ class PointersBackspaceHoldTest {
         assertTrue(pointers.isSliding())
     }
     @Test fun movingRightInLeftHalfShrinksSelection() {
-        hold(); pointers.onTouchMove(100f,200f,1); pointers.onTouchMove(130f,300f,1)
+        hold(); pointers.onTouchMove(100f,200f,1); pointers.onTouchMove(103f,300f,1)
+        pointers.onTouchMove(130f,300f,1)
         verify(exactly = 1) { handler.stepBackspaceHold(-1) }
         verify(exactly = 1) { handler.stepBackspaceHold(1) }
     }
@@ -102,5 +105,39 @@ class PointersBackspaceHoldTest {
         pointers.onTouchDown(20f,20f,2,ptr.key)
         assertEquals(1,ptrs.size)
         verify(exactly = 0) { handler.onPointerDown(any(),any()) }
+    }
+
+    private fun tick() {
+        Pointers::class.java.getDeclaredMethod("handleSelectionDeleteRepeat", Pointers.Pointer::class.java)
+            .apply { isAccessible = true }.invoke(pointers,ptr)
+    }
+    @Test fun brakeStopsPendingRepeatUntilFurtherRightMotion() {
+        hold(); pointers.onTouchMove(100f,200f,1)
+        val activeTimer = ptr.selectionDeleteWhat
+        pointers.onTouchMove(103f,200f,1)
+        assertEquals(0,ptr.backspaceDrag!!.direction)
+        verify { timers.removeMessages(activeTimer) }
+        repeat(5) { tick() }
+        pointers.onTouchMove(110f,200f,1)
+        verify(exactly = 1) { handler.stepBackspaceHold(-1) }
+        verify(exactly = 0) { handler.stepBackspaceHold(1) }
+        // Initial hold timer and first active step only; the pause adds no timer.
+        verify(exactly = 2) { timers.sendEmptyMessageDelayed(any(),any()) }
+        pointers.onTouchMove(118f,200f,1)
+        verify(exactly = 1) { handler.stepBackspaceHold(1) }
+        tick()
+        verify(exactly = 2) { handler.stepBackspaceHold(1) }
+    }
+    @Test fun brakeCanResumeLeftAndReleaseStillCommitsSelection() {
+        hold(); pointers.onTouchMove(100f,200f,1)
+        pointers.onTouchMove(103f,200f,1); tick()
+        pointers.onTouchMove(88f,200f,1)
+        verify(exactly = 2) { handler.stepBackspaceHold(-1) }
+        pointers.onTouchMove(91f,200f,1); tick()
+        pointers.onTouchUp(1)
+        verify(exactly = 2) { handler.stepBackspaceHold(-1) }
+        verify(exactly = 0) { handler.stepBackspaceHold(1) }
+        verify(exactly = 1) { handler.finishBackspaceHold(true) }
+        verify(exactly = 0) { handler.onPointerUp(any(),any()) }
     }
 }

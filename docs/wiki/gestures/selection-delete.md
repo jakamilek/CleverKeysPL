@@ -8,17 +8,19 @@ related_spec: ../specs/gestures/selection-delete-spec.md
 
 # Selection Delete
 
-## Polish trial v5 (2026-10-03)
+## Polish trial v8 (2026-10-03)
 
-This behavior applies to ordinary text editors that support selection APIs. Debug build and 2985 CI checks passed
-in run 37148132597; device verification is pending. It is not a released change.
+This behavior applies to ordinary text editors that support selection APIs. The maintainer has tested and accepted the v7 hold and release behavior. V8 adds a pause after a small movement in the opposite direction; its build and phone checks are pending. It is not a released change.
 
 | Action | Result |
 |--------|--------|
 | Tap Backspace | Delete one character or space, including after swipe/autocorrection |
 | Hold, then release | Preview and delete the preceding word; keep the space before it |
 | Hold, then move left | Extend the preview selection towards preceding text |
-| Move right without lifting | Shrink the selection, even while the finger is in the left half |
+| Make a small move opposite to the current direction | Pause with the current selection unchanged |
+| After pausing, move farther left without lifting | Resume extending the selection |
+| After pausing, move farther right without lifting | Start shrinking the selection, even in the left half |
+| Release while paused | Delete exactly the current selection |
 | Release with an empty selection | Delete nothing |
 
 The finger can move across all keyboard keys without activating them. Moving closer

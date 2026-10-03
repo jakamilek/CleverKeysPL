@@ -8,9 +8,36 @@ version: v1.4.0
 
 # Selection Delete Technical Specification
 
+## Polish trial v8 — brake and resume
+
+The maintainer accepts v7 hold preview, keyboard-wide extension/reversal and
+release deletion. The uploaded v7 runtime trace includes an acknowledged six-unit
+word preview followed by successful empty-text replacement, accepted left/right
+steps and zero-length release without deletion. This confirms those tested phone
+paths, but does not establish why earlier v5/v6 phone trials failed.
+
+The new requested contract inserts a pause between opposite directions. During
+active selection, motion of at least 3 physical pixels against the most recent
+directional extreme sets direction to zero. That event stops the timer and cannot
+shrink/extend selection. Further motion of at least 15 physical pixels from the
+pause position resumes left extension or right shrinking. Subthreshold touch
+jitter leaves the pause position fixed. The first activation still requires a
+leftward drag of 15 pixels. Edge speed after resuming is unchanged. Releasing while
+paused commits exactly the current verified selection; cancellation and empty
+selection retain their existing behavior.
+
+BackspaceGesture.kt:38 defines Drag. Pointers.handleSelectionDeleteRepeat returns
+without scheduling another modern timer while direction is zero; onTouchMove
+cancels a pending timer at each pause/resume transition. Editor mutation, safe live
+selection checks, tap deletion, Shift, spacing and unsupported-editor fallback are
+unchanged. Five new pure cases and two pointer/timer cases cover braking, jitter,
+both resume directions, stopped timer delivery and release. Existing lagging-editor
+integration now checks that the brake leaves its selected text unchanged before
+resumption. V8 build/tests and phone acceptance are pending.
+
 ## Polish trial v7 — phone diagnostics, issue unresolved
 
-The maintainer tested v6 and reports the same failure: hold previews a word, but
+Historical report before v7: the maintainer tested v6 and reported the same failure: hold previews a word, but
 motion does not change the selection and lifting the finger does not delete it.
 V6's 2992 passing host checks therefore do not establish a phone fix. The cause is
 not confirmed; neither editor lag nor missing pointer events is assumed.
@@ -27,7 +54,7 @@ policy changes are introduced. V7 debug assembly and 2790 pure + 209 focused moc
 Device procedure: use `backspace-diagnostic-v7`, enable playground debug, clear
 the log, type `olej mleko`, hold Backspace and release; then repeat with left motion,
 right reversal and release. Copy the complete log including the `BACKSPACE RUNTIME`
-line. Distinguish this evidence from a successful mock execution.
+line. The subsequent v7 phone log and maintainer report accept the tested hold/drag/release paths; no earlier cause is proven.
 
 ## Polish trial v6 — editor acknowledgement follow-up
 

@@ -463,7 +463,7 @@ class CleverKeysService : InputMethodService(),
                 _keyeventhandler.backspaceTrace = if (enabled) {
                     { message: String -> traceBackspaceGesture("EDITOR $message") }
                 } else null
-                if (enabled) traceBackspaceGesture("RUNTIME backspace-diagnostic-v7 app=${BuildConfig.APPLICATION_ID}")
+                if (enabled) traceBackspaceGesture("RUNTIME backspace-pause-v8 app=${BuildConfig.APPLICATION_ID}")
             }
         })
 
