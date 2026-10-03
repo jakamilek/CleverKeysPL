@@ -40,6 +40,9 @@ class EditorSpacingIntegrationTest {
         every { recv.getHandler() } returns mockk<Handler>(relaxed = true)
         every { recv.getCurrentInputConnection() } returns conn
         every { recv.getCurrentEditorInfo() } returns info
+        // Relaxed MockK returns an empty String for this nullable method; the real
+        // receiver returns null unless an editor-dropped trailing space is owed.
+        every { recv.takeOwedTrailingSpace() } returns null
         every { conn.getTextBeforeCursor(any(), any()) } answers { before.takeLast(firstArg<Int>()) }
         every { conn.getTextAfterCursor(any(), any()) } answers { after.take(firstArg<Int>()) }
         every { conn.getExtractedText(any(), any()) } returns null
