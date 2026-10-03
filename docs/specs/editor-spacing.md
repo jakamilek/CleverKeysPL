@@ -1,6 +1,6 @@
 # Field-aware suggestion and punctuation spacing
 
-Status: device feedback reports weak behavior; investigation remains open. Previous build and 2902 selected tests PASS at b373391c88de57edacd7ad2d0ad4ea8b62e23985 (run 37123257770) did not cover the complete typed-word-to-swipe spacing wrapper. The workflow retains existing lint/security failures.
+Status: device feedback reports weak behavior; investigation remains open. Follow-up c272f9ec1787310c69b681b8ef7dd0a7fdbfa813: debug build and 2907 selected tests PASS (run 37133110865), including five new full-path regressions. Previous build/tests at b373391c88de57edacd7ad2d0ad4ea8b62e23985 did not cover this wrapper. The workflow retains existing lint/security failures; the phone report is not closed.
 Created: 2026-10-03. Maintainer approved the behavior after discussion.
 
 ## Requirements
@@ -67,7 +67,13 @@ limited case when surrounding text is unavailable, and needs device verification
 - Existing pure, import, swipe-case, cursor Shift, pointer/bridge, slider, double-space and dropped-space repair checks.
 - Complete SwipeAutocapCommitTest path with live editor buffer: typed word then
   swipe, before preference off, search, opted-in password and stale tracked word
-  with an existing separator. Compilation/CI for these new regressions is pending.
+  with an existing separator. All 12 tests in the suite PASS in run 37133110865.
+
+Follow-up validation: 2773 pure + 134 focused mock tests PASS (2907 total).
+Debug lint still fails on the pre-existing ProduceStateDoesNotAssignValue at
+SubkeyAssignActivity.kt:148 (1 error, 210 warnings); release lint is skipped.
+Security scan still fails on four HIGH devalue 5.8.1 findings in site/bun.lock.
+Gates remain enabled; this is not an all-green workflow.
 
 ## Device report and diagnostics
 

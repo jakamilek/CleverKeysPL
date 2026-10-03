@@ -21,7 +21,8 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 - [x] b373391c88de57edacd7ad2d0ad4ea8b62e23985: debug build, 2773 pure + 129 focused mock checks PASS (run 37123257770).
 - [ ] Phone report unresolved: joined tracker prefixes and missing casing pairs; supplied log cannot establish exact edits, active build/provider or root cause.
 - [x] Remove unconditional independent pre-swipe space; route whole swipe through shared field/preferences policy. Add five complete-path buffer regressions and trial/EDIT diagnostics.
-- [ ] Compile/test the swipe-spacing-v2 follow-up and verify on phone; baseline lint/security failures still keep the workflow red.
+- [x] c272f9ec1787310c69b681b8ef7dd0a7fdbfa813: debug build, 2773 pure + 134 focused mock PASS (2907 total), run 37133110865; APK artifact 11277678542.
+- [ ] Verify swipe-spacing-v2 on phone; baseline lint/security failures still keep the workflow red. Mock success does not close the phone report.
 - Typed-prefix completions are working per maintainer; explicitly withdrawn from scope.
 - Spec: [editor-spacing.md](../docs/specs/editor-spacing.md).
 
@@ -112,5 +113,4 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 ## Release authority
 
 Do not commit, tag, push, publish, or open external issues without explicit user authorization.
-
 
