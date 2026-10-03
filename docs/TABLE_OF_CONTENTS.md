@@ -1,6 +1,6 @@
 # CleverKeys Documentation - Table of Contents
 
-Trial v5: [Backspace hold and reversible selection](wiki/gestures/selection-delete.md), [technical changes](wiki/specs/gestures/selection-delete-spec.md). CI/device validation pending (2026-10-03).
+Trial v5: [Backspace hold and reversible selection](wiki/gestures/selection-delete.md), [technical changes](wiki/specs/gestures/selection-delete-spec.md). Debug build and 2985 CI checks PASS; device validation pending (2026-10-03).
 
 
 **Last Updated**: 2026-08-15

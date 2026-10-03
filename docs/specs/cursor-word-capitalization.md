@@ -100,4 +100,4 @@ final batch acknowledgements. This reproduces a code gap; it does not prove that
 it was the only cause of the phone symptoms. Baseline lint/security gates remain red.
 
 
-Trial v5: word-end editing restored; updated tests and device checks are pending.
+Trial v5: word-end editing restored; updated pure/editor tests PASS in CI 37148132597 (debug assembly, 2790 pure + 195 focused mock checks). Device checks remain pending.

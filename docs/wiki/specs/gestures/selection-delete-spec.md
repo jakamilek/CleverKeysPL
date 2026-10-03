@@ -8,7 +8,7 @@ version: v1.4.0
 
 # Selection Delete Technical Specification
 
-## Polish trial v5 — pending validation
+## Polish trial v5 — CI checks passed; device validation pending
 
 The modern path precedes navigation subkeys in Pointers.handleLongPress. A deferred
 Backspace asks the view/Config.IKeyEventHandler for a word preview. The pointer owns
@@ -28,7 +28,7 @@ Components: KeyEventHandler.kt:87 (beginBackspaceHold), BackspaceGesture.kt:7
 (previousWord) and Pointers.kt (handleLongPress/handleSelectionDeleteRepeat).
 BackspaceHoldTest and PointersBackspaceHoldTest drive the real handlers with mocked
 editors/pointers; BackspaceGestureTest covers pure word boundaries and speed policy.
-They are registered in guarded CI; execution and real-device acceptance are pending.
+Guarded CI run 37148132597 passed debug assembly, 2790 pure and 195 focused mock checks; BackspaceHoldTest passed 12 and PointersBackspaceHoldTest passed 6. Real-device acceptance remains pending.
 
 The historical implementation below remains the unsupported-editor fallback.
 

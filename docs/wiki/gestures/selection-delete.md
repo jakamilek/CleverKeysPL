@@ -10,8 +10,8 @@ related_spec: ../specs/gestures/selection-delete-spec.md
 
 ## Polish trial v5 (2026-10-03)
 
-This behavior applies to ordinary text editors that support selection APIs. Build
-and device verification for this trial are pending; it is not a released change.
+This behavior applies to ordinary text editors that support selection APIs. Debug build and 2985 CI checks passed
+in run 37148132597; device verification is pending. It is not a released change.
 
 | Action | Result |
 |--------|--------|

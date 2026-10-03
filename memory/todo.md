@@ -7,7 +7,7 @@
 - [x] Restore explicit Shift word-end editing and reset suggestion scroll after deletion.
 - [x] Add live Android sentence-rule fallback after punctuation; preserve search/private exclusions.
 - [x] Register focused regression tests through scripts/gradle-guard.sh.
-- [ ] Confirm v5 compilation, pure and focused mock results in Actions (no polling beyond 60 s).
+- [x] V5 debug assembly, 2790 pure and 195 focused mock checks PASS (2985), CI 37148132597; artifact 11282318484. Existing lint/security failures remain.
 - [ ] Test hold/reversal/cancel/field switch and occasional missing capitals on the phone.
 - Prior editor-sync-v4: 2951 CI checks passed; maintainer says editor behavior works OK.
 
