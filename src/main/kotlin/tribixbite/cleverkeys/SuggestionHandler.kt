@@ -1220,8 +1220,8 @@ class SuggestionHandler(
             mainHandler.post {
                 // M6: the swipe-alternates bar this append targets must still be
                 // the live content — abort if anything replaced it while queued.
-                if (bar.contentGeneration() != generationAtSubmit ||
-                    editorPredictionRevision != revisionAtSubmit || isPasswordMode) return@post
+                if (bar.contentGeneration() != generationAtSubmit) return@post
+                if (editorPredictionRevision != revisionAtSubmit || isPasswordMode) return@post
                 barWords.addAll(appendWords)
                 barScores.addAll(appendScores)
                 barMetas.addAll(appendMetas)

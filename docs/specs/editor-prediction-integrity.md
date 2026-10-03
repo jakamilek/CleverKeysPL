@@ -31,3 +31,7 @@ Phone check: type an unknown word and add it (text/caret unchanged); change it, 
 ## Deferred work
 
 Latest Shift-at-word-end and short/held Backspace semantics, scroll reset and diagnosis of Ale/Lub remain accepted follow-ups after the editor-integrity regression. No AI/CTC/dictionary format/release/version changes.
+
+## CI follow-up (2026-10-03)
+
+0d7a1744 compiled debug APK and all test sources successfully in run 37143267946. Pure run: 2779 tests, two failures: RELEASE_RECORD retained a renamed test anchor; LearningWiringDriftTest's literal matcher did not recognize the combined generation/revision condition. Mock regression suites were skipped and no APK artifact was uploaded. The follow-up updates the documentation anchor and separates the identical bar-generation guard from the added revision/password guard. Neither protection nor the M6 test is removed or weakened. New CI and phone verification remain pending. Security scan retains the previous four devalue HIGH findings.

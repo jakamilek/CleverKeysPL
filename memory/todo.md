@@ -12,7 +12,9 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 - [x] Implement dictionary-only exact add with live token/selection validation; never delete or recommit editor text. Offer it first and use the full token at a mid-word caret.
 - [x] Implement prediction revision guards, immediate invalidation on cursor notifications, live post-key token refresh, prompt dismissal during edits and validation before preserving swipe/undo slates.
 - [x] Add eight real-pipeline regression tests and update dictionary-add tests; register both in guarded CI.
-- [ ] Compilation, CI results and phone validation for editor-sync-v4. No local Android SDK/Gradle toolchain.
+- [x] 0d7a1744 debug assembly and test compilation PASS; run 37143267946: 2779 pure, 2 failures (stale RELEASE_RECORD test anchor and literal M6 guard matcher). Regression/mock suites skipped, no uploaded APK.
+- [x] Repair test anchor and split the added editor-revision guard from the unchanged bar-generation guard; preserve both protections and the M6 test.
+- [ ] Follow-up CI and phone validation for editor-sync-v4. No local Android SDK/Gradle toolchain. Existing devalue security failures remain.
 - [ ] Resume latest Shift-at-word-end and short/held Backspace changes after the integrity regression. Resetting scroll and Ale/Lub casing remain pending.
 - Monitoring policy: maximum 60 seconds TOTAL per Actions build, then user reports status; no idle polling loop.
 - Spec: [editor-prediction-integrity.md](../docs/specs/editor-prediction-integrity.md).
