@@ -1,6 +1,6 @@
 # CleverKeys Documentation - Table of Contents
 
-Trial v7: [Backspace phone diagnostics](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v7--phone-diagnostics-issue-unresolved). V6 phone retest failed; v7 build/tests and phone trace pending. No fix claimed.
+Trial v7: [Backspace phone diagnostics](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v7--phone-diagnostics-issue-unresolved). V6 phone retest failed; v7 debug build and 2999 checks PASS (run 37153176431); phone trace pending. No fix claimed.
 
 Trial v6: Backspace editor-acknowledgement follow-up; debug build and 2992 CI checks PASS, phone validation pending. V5 phone accepts tap/caps/Shift but rejects hold drag/release.
 

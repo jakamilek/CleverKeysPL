@@ -22,7 +22,7 @@ boolean result of empty-text replacement. Offsets, counts, enum/integer key kind
 and exception class are logged, never editor text or exception messages. Repeated
 pointer and editor progress is capped at 24 entries per session; terminal outcomes
 remain visible. Sink exceptions cannot alter editing. No deletion/casing/spacing
-policy changes are introduced. Build and seven new focused checks are pending CI.
+policy changes are introduced. V7 debug assembly and 2790 pure + 209 focused mocks passed (2999) in run 37153176431; BackspaceHoldTest 23 and PointersBackspaceHoldTest 9 passed. APK artifact 11284274382 is available; phone trace remains pending.
 
 Device procedure: use `backspace-diagnostic-v7`, enable playground debug, clear
 the log, type `olej mleko`, hold Backspace and release; then repeat with left motion,

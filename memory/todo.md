@@ -5,7 +5,7 @@
 - Phone rejects v6 too: word preview works, horizontal extension/reversal and release deletion do not.
 - [x] Add bounded playground-only pointer/editor/lifecycle traces, actual runtime package marker and failure reasons; log offsets/counts only, no editor text.
 - [x] Add seven diagnostic regressions for failure reasons, text exclusion, bounded output, cancellation and sink failures.
-- [ ] Guarded CI build/test results for backspace-diagnostic-v7; local Android toolchain unavailable.
+- [x] V7 debug assembly, 2790 pure + 209 focused mocks PASS (2999), run 37153176431; APK artifact 11284274382. Existing lint/security failures remain; phone trace pending.
 - [ ] Obtain the complete phone log for hold/release and hold/left/right/release before selecting another behavior patch.
 - Cause remains unconfirmed; v7 changes diagnostics, not the editing policy. Preserve accepted tap/casing behavior.
 - Monitoring: maximum 60 seconds TOTAL per build, then maintainer reports completion.
