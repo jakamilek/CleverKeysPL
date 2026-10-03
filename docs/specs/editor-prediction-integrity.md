@@ -1,6 +1,6 @@
 # Editor prediction integrity
 
-Status: implemented on the Polish trial branch, compilation/CI and phone validation pending (2026-10-03). Priority regression: edits, cut/paste and suggestion selection can leave stale tracking or queued results; exact-add used cached deletion lengths before recommitting text.
+Status: debug assembly and 2951 tests PASS on the Polish trial branch; whole CI still blocked by earlier lint/security findings; phone validation pending (2026-10-03). Priority regression: edits, cut/paste and suggestion selection can leave stale tracking or queued results; exact-add used cached deletion lengths before recommitting text.
 
 ## Requirements
 
@@ -35,3 +35,7 @@ Latest Shift-at-word-end and short/held Backspace semantics, scroll reset and di
 ## CI follow-up (2026-10-03)
 
 0d7a1744 compiled debug APK and all test sources successfully in run 37143267946. Pure run: 2779 tests, two failures: RELEASE_RECORD retained a renamed test anchor; LearningWiringDriftTest's literal matcher did not recognize the combined generation/revision condition. Mock regression suites were skipped and no APK artifact was uploaded. The follow-up updates the documentation anchor and separates the identical bar-generation guard from the added revision/password guard. Neither protection nor the M6 test is removed or weakened. New CI and phone verification remain pending. Security scan retains the previous four devalue HIGH findings.
+
+## Verified follow-up (2026-10-03)
+
+383137f8a60f372215cb887c57a4c115b46a488f: run 37143960348 compiled debug successfully and passed 2779 pure + 172 focused mock tests (2951 total). The eight EditorPredictionRegressionTest cases and twelve SuggestionTapAddAndIWordTest cases all passed. Existing replacement, capitalization, pointer, import and spacing suites passed as well. APK artifact 11281383313 is attached to that code commit. This supersedes the preceding pending-CI state; phone validation is still required. Full CI fails on the pre-existing ProduceStateDoesNotAssignValue at popover/SubkeyAssignActivity.kt:148 (1 error, 210 warnings) and four HIGH devalue 5.8.1 findings in site/bun.lock. Gates remain active; no device/instrumented or release build verification is claimed.

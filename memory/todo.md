@@ -14,7 +14,8 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 - [x] Add eight real-pipeline regression tests and update dictionary-add tests; register both in guarded CI.
 - [x] 0d7a1744 debug assembly and test compilation PASS; run 37143267946: 2779 pure, 2 failures (stale RELEASE_RECORD test anchor and literal M6 guard matcher). Regression/mock suites skipped, no uploaded APK.
 - [x] Repair test anchor and split the added editor-revision guard from the unchanged bar-generation guard; preserve both protections and the M6 test.
-- [ ] Follow-up CI and phone validation for editor-sync-v4. No local Android SDK/Gradle toolchain. Existing devalue security failures remain.
+- [x] 383137f8 debug assembly + 2779 pure + 172 focused mock PASS (2951 total), run 37143960348. New editor regressions 8 and dictionary-add route 12 PASS. APK artifact 11281383313.
+- [ ] Phone validation for editor-sync-v4; whole CI remains blocked by the earlier SubkeyAssignActivity lint and four devalue HIGH findings. No local Android SDK/Gradle toolchain.
 - [ ] Resume latest Shift-at-word-end and short/held Backspace changes after the integrity regression. Resetting scroll and Ale/Lub casing remain pending.
 - Monitoring policy: maximum 60 seconds TOTAL per Actions build, then user reports status; no idle polling loop.
 - Spec: [editor-prediction-integrity.md](../docs/specs/editor-prediction-integrity.md).
