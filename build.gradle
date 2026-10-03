@@ -1128,7 +1128,7 @@ tasks.register('runPureTests', JavaExec) {
 // intercepts all calls before the stubs' "Stub!" exceptions are hit.
 // Usage: ./gradlew runMockTests [-PtestClass=AutocapitalisationTest]
 tasks.register('runMockTests', JavaExec) {
-  dependsOn 'compileDebugUnitTestKotlin'
+  dependsOn 'compileDebugUnitTestKotlin', 'processDebugUnitTestJavaRes'
   group = 'verification'
   description = 'Run MockK-based tests with android.jar stubs (works on ARM64)'
   jvmArgs '-XX:+EnableDynamicAgentLoading'
@@ -1364,6 +1364,7 @@ tasks.register('runMockTests', JavaExec) {
     "${buildDir}/tmp/kotlin-classes/debugUnitTest",
     "${buildDir}/intermediates/javac/debug/classes",
     "${buildDir}/tmp/kotlin-classes/debug",
+    "${buildDir}/intermediates/java_res/debugUnitTest/processDebugUnitTestJavaRes/out",
   ) + configurations.debugUnitTestRuntimeClasspath + androidDependencyClasses + files(androidJar)
 
   if (project.hasProperty('testClass')) {
