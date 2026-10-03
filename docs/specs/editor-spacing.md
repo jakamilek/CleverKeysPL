@@ -1,6 +1,6 @@
 # Field-aware suggestion and punctuation spacing
 
-Status: debug build and all 2902 selected tests PASS at b373391c88de57edacd7ad2d0ad4ea8b62e23985 (run 37123257770); device verification pending. The workflow retains existing lint/security failures.
+Status: device feedback reports weak behavior; investigation remains open. Previous build and 2902 selected tests PASS at b373391c88de57edacd7ad2d0ad4ea8b62e23985 (run 37123257770) did not cover the complete typed-word-to-swipe spacing wrapper. The workflow retains existing lint/security failures.
 Created: 2026-10-03. Maintainer approved the behavior after discussion.
 
 ## Requirements
@@ -46,6 +46,10 @@ also covers double-space-to-period and previously owed-space repair. Inline IME
 panes retain their established routing before app-field formatting.
 
 SuggestionHandler keeps the existing partial replacement and prediction pipeline.
+The full swipe wrapper must not commit an independent separator before the shared
+suggestion commit. Flush pending typed-word learning in order and clear its tracking,
+then let actual surrounding text and the live field/preferences determine spacing.
+Cursor synchronization can populate the tracked word without manual typing.
 Exact-add and autocorrect-undo taps use the same field/preference separator policy.
 Stale swipe alternate text is not erased. Terminal key-event fallback remains a
 limited case when surrounding text is unavailable, and needs device verification.
@@ -61,6 +65,24 @@ limited case when surrounding text is unavailable, and needs device verification
   without a trailing space, search tap, password swipe/alternate, before preference,
   ordinary alternate and space-disabled alternate preserving preceding text.
 - Existing pure, import, swipe-case, cursor Shift, pointer/bridge, slider, double-space and dropped-space repair checks.
+- Complete SwipeAutocapCommitTest path with live editor buffer: typed word then
+  swipe, before preference off, search, opted-in password and stale tracked word
+  with an existing separator. Compilation/CI for these new regressions is pending.
+
+## Device report and diagnostics
+
+The reported log contains joined tracker prefixes (łódźłodzi, łódźłodzijuror) and
+omits the expected source casing pairs. It does not identify the active build,
+pack/provider, preferences or intervening user actions. Debounced cursor logs can
+combine a callback position with later editor text or a skipped/stale tracker sync;
+do not infer an exact edit sequence or a proven root cause from them.
+
+Trial marker `swipe-spacing-v2` identifies the new screen and IME. The IME debug
+line reports app ID, spacing preferences, live formatting eligibility, top language,
+provider presence and exact-form count, without editor text. The explicit playground
+field logs bounded EDIT deltas (start, removed/inserted lengths and up to 120 inserted
+characters; ␠/⏎/⇥ show spaces/newlines/tabs). This is scoped to the test screen.
+Neither diagnostics nor passing mock tests close the real-device report.
 
 Device checklist: ordinary notes/message; search box and browser address bar;
 password (opt-in swipe if enabled); comma/colon/semicolon/?!/…/quotes/brackets;

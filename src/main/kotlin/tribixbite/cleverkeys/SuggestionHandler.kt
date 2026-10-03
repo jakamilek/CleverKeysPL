@@ -956,6 +956,14 @@ class SuggestionHandler(
         val barScores = surfaceSlate.scores.toMutableList()
         val engineWordCount = barWords.size
         val barLanguages = surfaceSlate.languages
+        // Metadata only: do not add editor text to logs from arbitrary app fields.
+        sendDebugLog(
+            "TRIAL swipe-spacing-v2 app=${BuildConfig.APPLICATION_ID} " +
+                "before=${config.auto_space_before_suggestion} after=${config.auto_space_after_suggestion} " +
+                "format=${!passwordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo)} " +
+                "language=$topLanguage provider=${provider != null} " +
+                "exactForms=${surfaceSlate.exactCase.count { it }}\n"
+        )
         if (barLanguages != null) {
             augmentPredictionsWithPossessives(barWords, barScores, barLanguages)
         } else if (shouldAugmentPossessives(activeLanguage)) {
@@ -991,20 +999,20 @@ class SuggestionHandler(
             bar.getTopSuggestion()?.takeIf { it.isNotEmpty() }?.let { topPrediction ->
                 inputCoordinator.triggerSwipeCompleteHaptic()
 
-                // If manual typing was in progress, terminate it with a space. The typed chars are
-                // already committed via KeyEventHandler.send_text() — currentWord is only a tracking
-                // buffer, so committing just the space preserves them ("i" + swipe "think" → "i think ").
+                // Typed chars are already committed via KeyEventHandler.send_text(). End their
+                // tracking here, but let the shared commit below decide the separator from the
+                // actual editor text, field and preferences. A separate space commit bypassed
+                // those rules, including in search/password fields and with leading space off.
                 // W5 (audit 2026-09-26): the swipe ENDS whatever the user was typing (a word, or a
                 // joiner stem like "kids'"), exactly as a typed space would — so it goes through the
                 // learn funnel first, BEFORE the swiped word, and the context LM records
                 // typed→swiped in order. Previously it was never learned. No-op when nothing is
-                // pending. The typing-in-progress test is taken first: a successful flush clears
-                // the tracker's word, and the terminating space below must still be committed.
+                // pending. Take the typing-in-progress test first: a successful flush clears
+                // the tracker's word. Cursor synchronization can also populate this buffer;
+                // its presence alone is never evidence that a separator is missing.
                 val typingInProgress = contextTracker.getCurrentWordLength() > 0
                 flushPendingTypedWord(ic)
                 if (typingInProgress && ic != null) {
-                    ic.commitText(" ", 1)
-                    keyeventhandler.noteEditorTextMutation(ic)
                     contextTracker.clearCurrentWord()
                     contextTracker.clearLastAutoInsertedWord()
                     contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)

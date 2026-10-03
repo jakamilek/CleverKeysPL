@@ -234,6 +234,89 @@ class SwipeAutocapCommitTest {
         verify { ic.commitText("łódź ", 1) }
     }
 
+    // ----------------------------------------------- complete swipe spacing path
+
+    /** Surrounding text changes immediately on commits, as in an ordinary editor. */
+    private fun editorBuffer(initial: String): StringBuilder {
+        val text = StringBuilder(initial)
+        every { ic.getTextBeforeCursor(any(), any()) } answers {
+            text.toString().takeLast(firstArg<Int>())
+        }
+        every { ic.commitText(any(), any()) } answers {
+            text.append(firstArg<CharSequence>())
+            true
+        }
+        every { contextTracker.getCurrentWordLength() } returns 3
+        every { contextTracker.getCurrentWord() } returns "hel"
+        return text
+    }
+
+    @Test
+    fun swipeAfterTypedWordAddsItsSeparatorInTheSameCommit() {
+        config.auto_space_before_suggestion = true
+        val text = editorBuffer("hel")
+
+        swipe(noCapsField())
+
+        assertWithMessage("preserve typed text and apply shared before/after preferences")
+            .that(text.toString()).isEqualTo("hel bowie ")
+        verify(exactly = 1) { ic.commitText(" bowie ", 1) }
+        verify(exactly = 0) { ic.commitText(" ", 1) }
+    }
+
+    @Test
+    fun swipeAfterTypedWordRespectsDisabledLeadingSpace() {
+        config.auto_space_before_suggestion = false
+        val text = editorBuffer("hel")
+
+        swipe(noCapsField())
+
+        assertWithMessage("the full swipe wrapper must not override the before preference")
+            .that(text.toString()).isEqualTo("helbowie ")
+        verify(exactly = 0) { ic.commitText(" ", 1) }
+    }
+
+    @Test
+    fun searchSwipeAfterTypedWordKeepsSpacingLiteral() {
+        config.auto_space_before_suggestion = true
+        val text = editorBuffer("hel")
+        val field = noCapsField().apply { imeOptions = EditorInfo.IME_ACTION_SEARCH }
+
+        swipe(field)
+
+        assertWithMessage("search exclusions must cover the wrapper as well as the commit")
+            .that(text.toString()).isEqualTo("helbowie")
+        verify(exactly = 0) { ic.commitText(" ", 1) }
+    }
+
+    @Test
+    fun optedInPasswordSwipeAfterTypedWordKeepsSpacingLiteral() {
+        config.auto_space_before_suggestion = true
+        config.swipe_on_password_fields = true
+        val text = editorBuffer("hel")
+        val field = noCapsField().apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+
+        swipe(field)
+
+        assertWithMessage("opt-in password swipe must not inject either separator")
+            .that(text.toString()).isEqualTo("helbowie")
+        verify(exactly = 0) { ic.commitText(" ", 1) }
+    }
+
+    @Test
+    fun staleTrackedWordDoesNotDuplicateAnExistingEditorSpace() {
+        config.auto_space_before_suggestion = true
+        val text = editorBuffer("hel ")
+
+        swipe(noCapsField())
+
+        assertWithMessage("actual editor whitespace wins over stale tracked typing")
+            .that(text.toString()).isEqualTo("hel bowie ")
+        verify(exactly = 0) { ic.commitText(" ", 1) }
+    }
+
     // ------------------------------------------------------------------ reflection
 
     private fun Any.setField(name: String, value: Any?) {

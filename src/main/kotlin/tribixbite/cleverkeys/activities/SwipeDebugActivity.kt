@@ -161,7 +161,13 @@ class SwipeDebugActivity : Activity() {
         // Setup input field with auto-scroll behavior
         inputText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                // This explicit test field already displays/records the swiped text. Log only
+                // its bounded edit delta, never text from the IME's other app fields.
+                val inserted = s?.subSequence(start, start + count)?.take(120)?.toString()
+                    .orEmpty().replace(" ", "␠").replace("\n", "⏎").replace("\t", "⇥")
+                appendLog("EDIT start=$start removed=$before inserted=$count text='$inserted' total=${s?.length ?: 0}\n")
+            }
             override fun afterTextChanged(s: Editable?) {
                 // Scroll to show cursor position (usually end of text)
                 // Use scrollTo with cursor position instead of fullScroll for better control
@@ -194,6 +200,7 @@ class SwipeDebugActivity : Activity() {
         registerPlaygroundReceivers()
 
         appendLog(getString(R.string.swipe_debug_session_intro) + "\n\n")
+        appendLog("TRIAL swipe-spacing-v2 app=${BuildConfig.APPLICATION_ID}\n")
         refreshTraceCount()
     }
 
@@ -278,6 +285,7 @@ class SwipeDebugActivity : Activity() {
     private fun clearLogs() {
         logBuffer.setLength(0)
         logOutput.text = getString(R.string.swipe_debug_log_cleared_banner) + "\n"
+        appendLog("TRIAL swipe-spacing-v2 app=${BuildConfig.APPLICATION_ID}\n")
         Toast.makeText(this, R.string.swipe_debug_toast_logs_cleared, Toast.LENGTH_SHORT).show()
     }
 

@@ -19,7 +19,9 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 - [x] Agreed shared swipe/tap preferences, search/password/technical field exclusions and punctuation rules.
 - [x] Implement actual-suffix alternate replacement, manual-space punctuation and field guards.
 - [x] b373391c88de57edacd7ad2d0ad4ea8b62e23985: debug build, 2773 pure + 129 focused mock checks PASS (run 37123257770).
-- [ ] Phone check of Shift/spacing; baseline lint/security failures still keep the workflow red.
+- [ ] Phone report unresolved: joined tracker prefixes and missing casing pairs; supplied log cannot establish exact edits, active build/provider or root cause.
+- [x] Remove unconditional independent pre-swipe space; route whole swipe through shared field/preferences policy. Add five complete-path buffer regressions and trial/EDIT diagnostics.
+- [ ] Compile/test the swipe-spacing-v2 follow-up and verify on phone; baseline lint/security failures still keep the workflow red.
 - Typed-prefix completions are working per maintainer; explicitly withdrawn from scope.
 - Spec: [editor-spacing.md](../docs/specs/editor-spacing.md).
 
