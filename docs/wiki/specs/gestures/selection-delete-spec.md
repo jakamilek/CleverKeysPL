@@ -24,8 +24,9 @@ identity must still match before deletion. No release sends an unchecked DEL.
 
 Seven BackspaceHoldTest regressions cover lag/recovery, release with an acknowledged
 preview, extension/reversal, unexpected positions or changed text, synchronous
-callbacks and real Pointers routing into the editor handler. V6 execution and phone
-confirmation are pending. The release contract and speed policy are unchanged.
+callbacks and real Pointers routing into the editor handler. V6 debug assembly and
+2790 pure + 202 focused mock checks passed (2992) in run 37150909557; all 19
+BackspaceHoldTest checks passed. Phone confirmation remains pending. The release contract and speed policy are unchanged.
 
 ## Polish trial v5 — CI checks passed; device validation pending
 

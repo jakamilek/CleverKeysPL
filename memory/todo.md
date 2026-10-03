@@ -6,7 +6,8 @@
 - Phone rejects v5 hold drag/release: preview appears, extension and release deletion fail.
 - [x] Retain gesture through temporarily stale reads; use full selection callbacks to confirm own requests while extraction lags; keep exact live-text and editor guards.
 - [x] Add seven editor/pointer regressions for lag, reversal, synchronous callbacks and unrelated changes.
-- [ ] Confirm v6 build and focused tests; then retest hold/drag/release on phone.
+- [x] V6 debug build, 2790 pure + 202 focused mock checks PASS (2992), run 37150909557; artifact 11284341482.
+- [ ] Retest hold/drag/release on phone with backspace-gesture-v6.
 - Existing 2985 passing v5 checks did not establish real editor timing.
 
 ## Polish trial v5 (2026-10-03)
@@ -17,7 +18,7 @@
 - [x] Add live Android sentence-rule fallback after punctuation; preserve search/private exclusions.
 - [x] Register focused regression tests through scripts/gradle-guard.sh.
 - [x] V5 debug assembly, 2790 pure and 195 focused mock checks PASS (2985), CI 37148132597; artifact 11282318484. Existing lint/security failures remain.
-- [ ] Test hold/reversal/cancel/field switch and occasional missing capitals on the phone.
+- V5 phone: tap/capitals/Shift accepted; hold drag/release failed. Follow-up tracked under v6 above.
 - Prior editor-sync-v4: 2951 CI checks passed; maintainer says editor behavior works OK.
 
 

@@ -1,6 +1,6 @@
 # CleverKeys Documentation - Table of Contents
 
-Trial v6: Backspace editor-acknowledgement follow-up; CI and phone validation pending. V5 phone accepts tap/caps/Shift but rejects hold drag/release.
+Trial v6: Backspace editor-acknowledgement follow-up; debug build and 2992 CI checks PASS, phone validation pending. V5 phone accepts tap/caps/Shift but rejects hold drag/release.
 
 Trial v5: [Backspace hold and reversible selection](wiki/gestures/selection-delete.md), [technical changes](wiki/specs/gestures/selection-delete-spec.md). Debug build and 2985 CI checks PASS; device validation pending (2026-10-03).
 
