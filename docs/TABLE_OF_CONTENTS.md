@@ -1,5 +1,10 @@
 # CleverKeys Documentation - Table of Contents
 
+Trial v15: [New-word suggestion viewport](wiki/specs/settings/input-behavior-spec.md#polish-trial-v15--new-word-suggestion-viewport).
+Runtime now resets the strip at new swipe/typed-word boundaries; compile/tests and phone
+validation pending. Ale/Lub correction is in a separate pack v4, not delivered by APK
+updates: producer run 37188544526 passed; maintainer reports only updating the APK.
+
 Trial v14: [Ordered Backspace editor ranges](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v14--ordered-editor-selection-ranges).
 V13 passed 3049 CI tests and both lint and was accepted generally on phone; SimpleX
 selection freeze requires this separate compatibility trial and retest.

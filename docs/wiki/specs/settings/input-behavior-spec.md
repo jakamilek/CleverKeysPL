@@ -273,9 +273,39 @@ The Config symbols remain solely to preserve historical RELEASE_RECORD anchors.
 `BackspaceGestureTest` covers shared motion, acceleration and Unicode counts.
 `EditingSettingsPolicyTest` covers punctuation switches and backup boundaries. `EditingSettingsReadTest` covers defaults, old keys, clamping and
 immutable reads. Existing pointer, editor, Shift and capitalization suites include
-option-specific cases. V13 execution is pending its Actions run.
+option-specific cases. V13 passed 3049 tests in run 37192552115; the newer v14/v15
+runtime results and phone checks remain separately pending here.
 
 ## Configuration
+
+### Polish trial v15 — new-word suggestion viewport
+
+`SuggestionBar.resetScrollPosition` posts a reset on its current parent
+`HorizontalScrollView`. The posted callback checks that the parent still owns the bar;
+theme/view replacement cannot scroll an old detached strip.
+`SuggestionHandler` requests it for every nonempty accepted swipe slate, a one-code-point
+typed prefix after live-editor synchronization, a typed word separator, and Enter/action
+word boundaries outside password mode. A repeated swipe slate still resets even when
+the content renderer skips identical suggestions. Longer prefix updates and cursor-sync
+prediction updates preserve the viewport. In-word apostrophe/hyphen joiners retain their
+existing branch. New-word resets are unconditional; `reset_suggestions_on_delete`
+continues to control only the existing Backspace reset.
+
+Three registered `SuggestionStripScrollTest` cases exercise the posted viewport reset,
+repeated content and detached/replaced owners. Three additional
+`LearningFunnelBookkeepingTest` cases drive real tracker/handler word transitions:
+tap → separator → tap, repeated swipe slates, and swipe → tap → Enter. The typed-word
+case disables the Backspace reset preference to verify the scopes stay separate.
+Host execution and phone validation await the next runtime CI; no local Android
+toolchain is available.
+
+The separate Polish function-word correction is language-pack version 4. Installing a
+new APK does not replace an already imported pack. Producer commit
+`bb55e87f5bfa2c7ce2a3eb2214cf5a7f3031205f` passed run `37188544526`; its
+`cleverkeys-pl-function-words-trial` artifact contains the pack ZIP to import.
+It corrects source-backed default spellings (including ale/lub), retaining CKDT keys,
+ranks and the existing variant sidecar. It adds no word-specific runtime exceptions.
+User reports only updating the APK; installed pack bytes remain uninspected.
 
 Every row is a preference key the app actually reads, with the control's own section noted
 where it is not Input Behavior. "Range" gives the Settings slider bound; where the import

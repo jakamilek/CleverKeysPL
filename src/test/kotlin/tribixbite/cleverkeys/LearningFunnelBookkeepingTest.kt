@@ -187,6 +187,29 @@ class LearningFunnelBookkeepingTest {
         unmockkAll()
     }
 
+    @Test fun startingTheNextTypedWordResetsTheStripWithoutResettingEachLetter() {
+        config.edit_behavior = EditBehaviorOptions(resetSuggestionsOnDelete = false)
+        type("olej")
+        verify(exactly = 1) { bar.resetScrollPosition() }
+        type(" ")
+        type("mleko")
+        verify(exactly = 3) { bar.resetScrollPosition() }
+    }
+
+    @Test fun eachNewSwipeResetsTheStripEvenWhenTheCandidateSlateRepeats() {
+        swipe("olej", "Olek")
+        swipe("olej", "Olek")
+        verify(exactly = 2) { bar.resetScrollPosition() }
+    }
+
+    @Test fun aTypedWordAfterASwipeResetsTheStripAndEnterEndsTheWord() {
+        swipe("olej", "Olek")
+        type("mleko")
+        verify(exactly = 2) { bar.resetScrollPosition() }
+        handler.onEditorWordBoundary(ic)
+        verify(exactly = 3) { bar.resetScrollPosition() }
+    }
+
     // ------------------------------------------------------------------ fixtures
 
     private fun textField(): EditorInfo = objenesis.newInstance(EditorInfo::class.java).apply {

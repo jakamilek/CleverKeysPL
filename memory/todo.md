@@ -1,5 +1,21 @@
 # Current work queue
 
+## New-word suggestion viewport v15 (2026-10-04)
+
+- Maintainer reports only updating the APK, not importing function-word pack v4.
+  Producer run 37188544526 SUCCESS for bb55e87f5bfa2c7ce2a3eb2214cf5a7f3031205f;
+  artifact 11297484236 contains cleverkeys-pl-function-words-trial.zip. Import still
+  requires phone action; existing pack bytes and user case overrides are uninspected.
+  No new hardcoded Ale/Lub exceptions or duplicate dictionary entries.
+- Implemented: strip resets for every nonempty accepted swipe, first typed code point,
+  word separators and Enter/action boundaries; continuing a prefix keeps its viewport.
+  Existing reset_suggestions_on_delete remains scoped to Backspace. No new setting.
+- Three posted-view regressions plus three real tracker/handler transition regressions
+  registered in focused CI, including identical swipe slates and BS-reset disabled.
+- Local Android/Kotlin execution unavailable; runtime CI and phone validation pending.
+  V14 SimpleX retest still pending; v15 includes that change without modifying BS motion.
+- Do not monitor ongoing runtime runs this turn. No merge/release/tag/version bump.
+
 ## Backspace ordered editor ranges v14 (2026-10-04)
 
 - Maintainer accepts v13 generally; SimpleX freezes selection at a space before a word.
@@ -234,7 +250,8 @@ Do not commit, tag, push, publish, or open external issues without explicit user
   No local Android SDK, Gradle or Kotlin compiler here.
 - Preserve the 60-second TOTAL Actions monitoring cap. No merge/tag/release/version bump.
 - Pack/producer/AI/CTC unchanged. Existing lint/security issues, instrumented/minified/
-  performance checks and Ale/Lub diagnosis remain open.
+  performance checks remain open. Ale/Lub producer correction passed CI; pack v4
+  import on the phone remains pending (see v15).
 
 ## CI stabilization after accepted v9 — 2026-10-04
 

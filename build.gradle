@@ -1304,6 +1304,7 @@ tasks.register('runMockTests', JavaExec) {
     // never replace the input view (the setInputView fallbacks are gone); the GIF tap path
     // commits the case-preserved URL / local media, never the legacy dead link.
     'tribixbite.cleverkeys.KeyboardReceiverPaneHostTest',
+    'tribixbite.cleverkeys.SuggestionStripScrollTest',
     // Audit W2 (2026-09-07): A-2 — the keyboard view is late-bound behind a provider on
     // every wiring/coordinator seam (structural + provider-consultation pins); A-1 — the
     // bridge overrides EVERY IReceiver method (delegation-gap ratchet, 3rd instance);

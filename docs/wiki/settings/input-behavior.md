@@ -19,6 +19,19 @@ Configure how CleverKeys processes your input, including capitalization, punctua
 
 ## Word Prediction Section
 
+### Starting a new word
+
+The Polish fork trial returns the suggestion strip to its first candidate for a new
+swipe, the first typed letter of a word, and a word-ending separator or Enter.
+Continuing to type the same word preserves your scroll position. The Backspace reset
+switch continues to affect deletion only.
+
+The Polish dictionary's ale/lub spelling correction requires importing the updated
+language pack version 4; updating the keyboard APK alone does not replace an imported
+dictionary. After extracting the GitHub artifact, import its inner
+`cleverkeys-pl-function-words-trial.zip` through the language-pack manager. Test ale/lub
+in the middle of a sentence; sentence-start capitalization and explicit Shift still apply.
+
 ### Auto-Space After Suggestion
 
 Automatically add a space after a swiped word or a tapped suggestion:

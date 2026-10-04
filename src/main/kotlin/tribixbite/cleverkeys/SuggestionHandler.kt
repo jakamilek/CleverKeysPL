@@ -909,6 +909,9 @@ class SuggestionHandler(
             return
         }
 
+        // A fresh swipe owns a new candidate slate even if its words match the old slate.
+        suggestionBar?.resetScrollPosition()
+
         // Apply user word case preservation BEFORE shift transformation (proper nouns like "Boston"),
         // then the shift/caps-lock-at-swipe-start transform — IDENTICAL to the legacy IC path so
         // shift/caps casing (oracle 2/3) is unchanged.
@@ -980,7 +983,7 @@ class SuggestionHandler(
         val barLanguages = surfaceSlate.languages
         // Metadata only: do not add editor text to logs from arbitrary app fields.
         sendDebugLog(
-            "TRIAL backspace-ordered-v14 app=${BuildConfig.APPLICATION_ID} " +
+            "TRIAL word-strip-v15 app=${BuildConfig.APPLICATION_ID} " +
                 "autocap=${config.autocapitalisation} capAtCursor=$autocapAtCursor " +
                 "before=${config.auto_space_before_suggestion} after=${config.auto_space_after_suggestion} " +
                 "format=${!passwordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo, (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields)} " +
@@ -2552,6 +2555,7 @@ class SuggestionHandler(
      * the same way sentence-final punctuation does (audit §4.6 — no bigram across it).
      */
     override fun onEditorWordBoundary(ic: InputConnection?) {
+        if (!isPasswordMode) suggestionBar?.resetScrollPosition()
         flushPendingTypedWord(ic)
         predictionCoordinator.getWordPredictor()?.onSentenceBoundary()
         // Swipe corrections resolved here are recorded; the offer is not shown now (the editor is
@@ -2616,6 +2620,10 @@ class SuggestionHandler(
                 if (!contextTracker.refreshCurrentWordFromEditor(ic, config.primary_language, editorInfo)) {
                     contextTracker.appendToCurrentWord(text)
                 }
+                val partial = contextTracker.getCurrentWord()
+                if (partial.codePointCount(0, partial.length) == 1) {
+                    suggestionBar?.resetScrollPosition()
+                }
                 // Editing ANY token supersedes the previous swipe/autocorrect slate,
                 // including a pasted or cursor-synced token longer than one letter.
                 contextTracker.clearLastAutoInsertedWord()
@@ -2640,6 +2648,7 @@ class SuggestionHandler(
             }
             text.length == 1 && !text[0].isLetter() -> {
                 // Any non-letter character - update context and reset current word
+                suggestionBar?.resetScrollPosition()
 
                 // Swipe-correction offer earned by this completion (shown at the end of the branch).
                 var swipeOffer: String? = null
