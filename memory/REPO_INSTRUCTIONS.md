@@ -8,6 +8,10 @@ Quick reference for AI assistants and developers working in this codebase.
 
 The maintainer explicitly waived the inherited mandatory Gemini 3 Pro / PAL MCP consultation requirement for work in this fork. Proceed with code review and appropriate tests; unavailable external consultation must not block implementation. This override supersedes the Gemini/PAL requirements below and other inherited references to that requirement. Other workflow, security, testing and release rules remain in force.
 
+## Fork translation priority (2026-10-04)
+
+The maintainer prioritizes Polish UI translation. Record discovered defects in other locales in the active backlog with locale, resource key, symptom and evidence; defer routine non-Polish corrections instead of letting them interrupt Polish work. Structural resource defects that block the build/test package should be identified separately. Automated structural/length checks do not replace native-speaker review. See docs/PROJECT_MILESTONE_2026-10-04_SETTINGS_V9.md for current validation and deferred review.
+
 ## Critical Workflow Rules
 
 ### NEVER
