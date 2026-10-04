@@ -175,3 +175,7 @@ V9 build and phone acceptance are pending; this is not a release.
 ### Polish Backspace trial v13 (2026-10-04)
 
 Space and Backspace share motion-driven sliding: see [Selection Delete](wiki/gestures/selection-delete.md) and its [specification](wiki/specs/gestures/selection-delete-spec.md). Stationary word deletion remains as accepted in v12.
+
+## Polish contextual SI trial
+
+- [Polish contextual SI preparation](specs/polish-context-ai.md) — real ONNX scorer/feed and context/case contract; model conversion, tokenizer and phone gates pending; live IME unchanged.
