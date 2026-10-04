@@ -2,6 +2,9 @@ package tribixbite.cleverkeys
 
 /** Pure policy for the hold preview and keyboard-wide reversible drag. */
 object BackspaceGesture {
+    enum class Mode { WORD_PREVIEW, WORD_GAP, DRAG }
+    const val WORD_PREVIEW_MS = 350L
+    const val WORD_GAP_MS = 200L
     data class Span(val start: Int, val end: Int)
 
     fun previousWord(before: String, hasEarlierText: Boolean = false): Span? {
@@ -94,4 +97,3 @@ object BackspaceGesture {
         }
     }
 }
-

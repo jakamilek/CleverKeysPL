@@ -1412,6 +1412,9 @@ class Config private constructor(
         /** A plain Shift tap may edit the word the user returned to. */
         fun tryWordCapitalization(): Boolean = false
         fun beginBackspaceHold(): Boolean = false
+        fun beginBackspaceDrag(): Boolean = false
+        fun deleteBackspaceHoldWord(): Boolean = false
+        fun previewPreviousBackspaceWord(): Boolean = false
         fun stepBackspaceHold(direction: Int): Boolean = false
         fun finishBackspaceHold(commit: Boolean) {}
         fun keepBackspaceHoldSelection() {}

@@ -945,12 +945,24 @@ class Pointers(
         // reads the snapshot captured at that pointer's down event, never the live config.
         val snap = ptr.snap
 
+        // Left drag claims Backspace before the long-press timeout. Diagonal subkey
+        // flicks retain their existing path; once claimed, all keys belong to this pointer.
+        if (x.isFinite() && y.isFinite() && !ptr.backspaceWordHold && snap.edit_behavior.holdSelect &&
+            ptr.hasFlagsAny(FLAG_P_DEFERRED_DOWN) && isBackspaceKey(ptr.key.keys[0])) {
+            val density = _handler.backspaceDensity().takeIf { it.isFinite() && it > 0f } ?: 1f
+            val dx = x - ptr.downX
+            if (dx <= -snap.edit_behavior.resumeDp * density && abs(dx) > 2f * abs(y - ptr.downY)) {
+                beginBackspacePointer(ptr, drag = true)
+            }
+        }
+
         if (ptr.backspaceWordHold) {
             if (!ptr.backspaceMoveObserved) {
                 ptr.backspaceMoveObserved = true
                 traceBackspace(ptr, "move observed pointer=$pointerId")
             }
             if (ptr.backspaceDrag?.move(x) == true) {
+                ptr.backspaceMode = BackspaceGesture.Mode.DRAG
                 traceBackspace(ptr, "move direction=${ptr.backspaceDrag?.direction} pointer=$pointerId")
                 stopSelectionDeleteRepeat(ptr)
                 handleSelectionDeleteRepeat(ptr)
@@ -1243,6 +1255,31 @@ class Pointers(
 
     private fun stopSelectionDeleteRepeat(ptr: Pointer) {
         _longpress_handler.removeMessages(ptr.selectionDeleteWhat)
+        ptr.selectionDeleteWhat = -1
+    }
+
+    private fun scheduleBackspaceRepeat(ptr: Pointer, delay: Long) {
+        val what = uniqueTimeoutWhat++
+        ptr.selectionDeleteWhat = what
+        _longpress_handler.sendEmptyMessageDelayed(what, delay)
+    }
+
+    private fun beginBackspacePointer(ptr: Pointer, drag: Boolean): Boolean {
+        val started = if (drag) _handler.beginBackspaceDrag() else _handler.beginBackspaceHold()
+        traceBackspace(ptr, "${if (drag) "drag" else "hold"} started=$started")
+        if (!started) return false
+        stopLongPress(ptr)
+        ptr.timeoutWhat = -1
+        ptr.flags = ptr.flags and FLAG_P_DEFERRED_DOWN.inv()
+        ptr.backspaceWordHold = true
+        ptr.backspaceMode = if (drag) BackspaceGesture.Mode.DRAG else BackspaceGesture.Mode.WORD_PREVIEW
+        val density = _handler.backspaceDensity().takeIf { it.isFinite() && it > 0f } ?: 1f
+        ptr.backspaceDrag = BackspaceGesture.Drag(ptr.downX,
+            ptr.snap.edit_behavior.resumeDp * density, ptr.snap.edit_behavior.pauseDp * density,
+            ptr.snap.edit_behavior.pauseEnabled)
+        _handler.onPointerFlagsChanged(HapticEvent.TRACKPOINT_ACTIVATE)
+        if (!drag) scheduleBackspaceRepeat(ptr, BackspaceGesture.WORD_PREVIEW_MS)
+        return true
     }
 
     /** Handle selection-delete repeat - send Shift+Arrow keys to extend selection.
@@ -1252,6 +1289,19 @@ class Pointers(
      */
     private fun handleSelectionDeleteRepeat(ptr: Pointer) {
         if (ptr.backspaceWordHold) {
+            if (ptr.backspaceMode != BackspaceGesture.Mode.DRAG) {
+                val deleting = ptr.backspaceMode == BackspaceGesture.Mode.WORD_PREVIEW
+                val accepted = if (deleting) _handler.deleteBackspaceHoldWord()
+                    else _handler.previewPreviousBackspaceWord()
+                traceBackspace(ptr, "word cycle deleting=$deleting accepted=$accepted")
+                if (accepted) {
+                    ptr.backspaceMode = if (deleting) BackspaceGesture.Mode.WORD_GAP
+                        else BackspaceGesture.Mode.WORD_PREVIEW
+                    scheduleBackspaceRepeat(ptr, if (deleting) BackspaceGesture.WORD_GAP_MS
+                        else BackspaceGesture.WORD_PREVIEW_MS)
+                } else stopSelectionDeleteRepeat(ptr)
+                return
+            }
             val direction = ptr.backspaceDrag?.direction ?: 0
             // A brake has no polling timer. A later deliberate move starts it again.
             if (direction == 0) return
@@ -1447,6 +1497,7 @@ class Pointers(
 
     /** A pointer is long pressing. */
     private fun handleLongPress(ptr: Pointer) {
+        if (ptr.backspaceWordHold) return // Ignore a cancelled pre-drag hold timeout.
         // Skip if already in TrackPoint mode (movement handled in onTouchMove)
         if (ptr.hasFlagsAny(FLAG_P_TRACKPOINT_MODE)) {
             return
@@ -1469,21 +1520,8 @@ class Pointers(
         if (isBackspaceKey(ptr.key.keys[0]) || isBackspaceKey(ptr.value))
             traceBackspace(ptr, "hold pointer=${ptr.pointerId} deferred=${ptr.hasFlagsAny(FLAG_P_DEFERRED_DOWN)} kind=${ptr.value?.getKind()} keyevent=${ptr.value?.takeIf { it.getKind() == KeyValue.Kind.Keyevent }?.getKeyevent()}")
         if (ptr.hasFlagsAny(FLAG_P_DEFERRED_DOWN)) {
-            val started = snap.edit_behavior.holdSelect && isBackspaceKey(ptr.value) && _handler.beginBackspaceHold()
-            if (isBackspaceKey(ptr.value)) traceBackspace(ptr, "hold started=$started")
-            if (started) {
-                stopLongPress(ptr)
-                ptr.flags = ptr.flags and FLAG_P_DEFERRED_DOWN.inv()
-                ptr.backspaceWordHold = true
-                val density = _handler.backspaceDensity().takeIf { it.isFinite() && it > 0f } ?: 1f
-                ptr.backspaceDrag = BackspaceGesture.Drag(ptr.downX,
-                    snap.edit_behavior.resumeDp * density, snap.edit_behavior.pauseDp * density,
-                    snap.edit_behavior.pauseEnabled)
-                ptr.backspaceDrag?.move(ptr.lastX)
-                _handler.onPointerFlagsChanged(HapticEvent.TRACKPOINT_ACTIVATE)
-                startSelectionDeleteRepeat(ptr)
-                return
-            }
+            if (snap.edit_behavior.holdSelect && isBackspaceKey(ptr.value) &&
+                beginBackspacePointer(ptr, drag = false)) return
             val hasNavSubkeys = hasNavigationSubkeys(ptr) &&
                 !(isBackspaceKey(ptr.value) && !snap.edit_behavior.holdSelect)
 
@@ -1949,6 +1987,7 @@ class Pointers(
         /** Timeout identifier for selection-delete repeat messages. */
         var selectionDeleteWhat: Int = -1
         var backspaceWordHold: Boolean = false
+        var backspaceMode: BackspaceGesture.Mode = BackspaceGesture.Mode.WORD_PREVIEW
         var backspaceMoveObserved: Boolean = false
         var backspaceTraceBudget: Int = 24
         var backspaceDrag: BackspaceGesture.Drag? = null
@@ -2193,6 +2232,9 @@ class Pointers(
         fun onPointerHold(k: KeyValue, mods: Modifiers)
 
         fun beginBackspaceHold(): Boolean = false
+        fun beginBackspaceDrag(): Boolean = false
+        fun deleteBackspaceHoldWord(): Boolean = false
+        fun previewPreviousBackspaceWord(): Boolean = false
         fun stepBackspaceHold(direction: Int): Boolean = false
         fun finishBackspaceHold(commit: Boolean) {}
         fun keepBackspaceHoldSelection() {}
@@ -2349,4 +2391,3 @@ class Pointers(
         }
     }
 }
-

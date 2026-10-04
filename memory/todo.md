@@ -1,5 +1,24 @@
 # Current work queue
 
+## Backspace direct drag and repeated words v12 (2026-10-04)
+
+- Implemented: direct left drag selects characters from caret without holding;
+  stationary hold cycles word preview (350 ms), verified deletion, gap (200 ms),
+  next preview. Release stops; a drag never resumes the stationary cycle after braking.
+- Added 13 regressions in the existing registered pointer/editor suites, including
+  real pointer/timer-to-editor integration, Unicode, synchronous callbacks, stale
+  timers, release during gap, mutation/connection guards and rejected commits.
+- Pending: guarded Android compile/tests/lint in Actions, then phone checks for
+  direct drag, uninterrupted repeated words, release between words, drag after
+  preview and brake/resume. No local Android/Kotlin toolchain; no test PASS claim.
+- Polish and baseline English four titles/help strings updated; no new preference
+  keys or backup changes. Other 20 resource locale sets deferred: cs de es fa fil fr hu
+  in it ja ko lv nl pt ro ru tr uk vi zh-rCN. Keys edit_backspace_hold_select_title,
+  edit_backspace_help, edit_backspace_resume_dp_title, edit_pause_help still describe
+  only the old hold/resume gesture. Evidence: values-*/strings.xml at runtime 5200,
+  new direct-start/cycle semantics in Pointers. Translate later per maintainer priority.
+- Preserve max 60 seconds TOTAL Actions monitoring per build. No merge/release/tag.
+
 ## Backspace brake/resume v8 (2026-10-03)
 
 - [x] Maintainer accepts v7 on phone; supplied runtime trace confirms preview, left/right steps, deletion on release and empty release. Earlier v5/v6 cause remains unproven.

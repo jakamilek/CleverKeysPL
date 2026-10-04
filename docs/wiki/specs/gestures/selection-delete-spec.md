@@ -1,12 +1,63 @@
 ---
 title: Selection Delete - Technical Specification
-description: Backspace swipe-and-hold joystick that selects text and deletes it on release.
+description: Immediate Backspace character selection, stationary word deletion and the legacy joystick fallback.
 user_guide: ../../gestures/selection-delete.md
 status: implemented
 version: v1.4.0
 ---
 
 # Selection Delete Technical Specification
+
+## Polish trial v12 — direct drag and repeated words
+
+The ordinary-text path now starts horizontal selection in `Pointers.onTouchMove`,
+before the long-press timeout. It requires the captured holdSelect option, a deferred
+pointer starting on Backspace, finite coordinates and left travel of at least the
+captured resumeDp scaled by density. Horizontal travel must exceed twice the
+vertical travel, reserving diagonal flicks for subkeys. `beginBackspaceDrag` starts
+with an empty selection at the caret; the first step selects one Unicode code point.
+The pointer owns all keyboard motion and cancels its original long-press timer.
+
+A stationary hold instead enters WORD_PREVIEW with the previous word selected.
+The timer commits that verified selection after WORD_PREVIEW_MS (350 ms), enters
+WORD_GAP, waits WORD_GAP_MS (200 ms) and previews the next word. It repeats until
+release, cancellation, no complete preceding word or failed editor validation.
+No unchecked DEL fallback runs when the modern word cycle stops. The cycle does
+not depend on ordinary key repeat. The first preview still uses longpress_timeout.
+The two cycle intervals are constants, not new settings.
+
+| State | Timer | Deliberate left movement | Release |
+|---|---|---|---|
+| WORD_PREVIEW | Delete verified word, then WORD_GAP | DRAG with current word preview retained | Apply releaseDelete to pending preview |
+| WORD_GAP | Preview next word, then WORD_PREVIEW | DRAG from the post-deletion caret | End without deleting another word |
+| DRAG | Existing character-selection repeat | Extend, brake or resume using captured options | Apply releaseDelete to current selection |
+
+DRAG never falls back to the stationary cycle when paused. A timer identifier is
+invalidated when cancelled, so queued word-cycle messages cannot delete after
+switching to a drag. Ownership remains until pointer-up/clear; release dispatches
+neither the original Backspace nor any crossed key. Stale long-press messages do
+not replace an active modern gesture.
+
+`deleteBackspaceHoldWord` shares the verified empty-text replacement and prediction/
+learning cleanup with release deletion. It installs a collapsed continuation session
+before commitText so synchronous selection acknowledgements are captured. Before
+`previewPreviousBackspaceWord` re-arms a preview, connection/editor identity, caret,
+selected text and the remaining preceding snapshot must still match. A fresh bounded
+read replenishes the preceding context without using an old extracted-text caret.
+The separator before each deleted word remains; trailing spaces are selected with it.
+Cancellation collapses a pending verified preview; prior deletions remain committed.
+
+No preference key, backup format or default changes. holdSelect gates direct drag
+and word cycling. releaseDelete governs release only, not timed deletion. resumeDp
+is also the initial activation distance; its slider is available even with pause off.
+Other drag rates/thresholds retain v9 behavior and the pointer-down ConfigSnapshot.
+Polish and baseline English descriptions are current. The equivalent four keys in
+20 other locales are recorded in memory/todo.md for later translation.
+
+New regression cases are in the already registered BackspaceHoldTest (editor and
+real pointer/timer integration) and PointersBackspaceHoldTest (routing, cycle,
+cancelled-message suppression and release). Test execution and device acceptance
+remain pending CI; local source/resource/search checks do not establish a phone fix.
 
 ## Polish trial v8 — brake and resume
 

@@ -201,15 +201,22 @@ Tuning** section. See [Short Swipes](../gestures/short-swipes-spec.md).
 
 ## Configurable editing behavior (Polish fork trial v9)
 
-These controls are implemented on the trial branch; CI and device acceptance for v9
-are pending. They do not change the application version or promote a release.
+The maintainer accepted v9 controls on the phone; runtime 5200 CI passed 3031 tests
+and both lint gates. The subsequent v12 Backspace gesture requires separate CI and
+phone verification. No application version or release promotion changes here.
 
 Gesture Tuning contains **Backspace**: a tap deletes one character/space by default;
 an explicit mode can instead undo the immediately preceding autocorrection or remove
-the verified last swiped word. A hold previews the preceding word while retaining
-its preceding separator. Movement owns the pointer across the whole keyboard.
+the verified last swiped word. Dragging left starts character selection immediately,
+without waiting for a hold, after the configured start/resume distance. A stationary
+hold previews the preceding word while retaining its preceding separator; after
+350 ms it deletes the word, waits 200 ms, then previews the next word while held.
+Moving left switches permanently to character dragging for that pointer.
+Movement owns the pointer across the whole keyboard.
 Release deletes the verified selection by default; switching that option off leaves
-the selection for a later edit. Cancellation never deletes.
+the selection for a later edit. The release option does not disable timed word
+deletion. Cancellation deletes no pending selection; earlier committed deletions
+remain. See [the gesture specification](../gestures/selection-delete-spec.md#polish-trial-v12--direct-drag-and-repeated-words).
 
 A reversal brakes after 6 dp by default. While paused, no repeat timer runs. A later
 movement of 24 dp from the pause position resumes in either direction. Jitter does
@@ -220,7 +227,7 @@ These two rates are relative to v8, not relative to each other. Resuming in the 
 direction retains travel; reversing resets its origin. Screen travel and dp values
 remain distinct. Nonfinite coordinates are ignored.
 
-Turning off hold selection uses ordinary character repeat when Key Repeat is enabled.
+Turning off drag selection and word deletion uses ordinary character repeat when Key Repeat is enabled.
 The older vertical selection-delete sliders describe only the two-axis fallback when
 an editor refuses the modern word preview. They do not tune the horizontal gesture.
 
@@ -347,4 +354,3 @@ personal), which is deliberately outside every learning gate. See the
 - [Settings System](../../../specs/settings-system.md) - Preferences
 - [Autocorrect](../typing/autocorrect-spec.md) - Text correction
 - [Next-Word Prediction](../typing/next-word-prediction-spec.md) - Built-in and learned next-word suggestions
-

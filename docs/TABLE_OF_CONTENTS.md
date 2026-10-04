@@ -1,5 +1,8 @@
 # CleverKeys Documentation - Table of Contents
 
+Trial v12: [Immediate Backspace drag and repeated word deletion](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v12--direct-drag-and-repeated-words).
+V9 settings accepted on phone; v12 CI and phone validation pending.
+
 Trial v8: [Backspace brake and resume](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v8--brake-and-resume). V7 accepted on phone; v8 adds a small reversal to pause, then deliberate motion to resume. Debug build and 3006 checks PASS (run 37154899155); phone checks pending.
 
 Trial v7: [Backspace phone diagnostics](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v7--phone-diagnostics-issue-unresolved). V6 phone retest failed; v7 debug build and 2999 checks PASS (run 37153176431); phone trace received and tested hold/drag/release accepted by maintainer.

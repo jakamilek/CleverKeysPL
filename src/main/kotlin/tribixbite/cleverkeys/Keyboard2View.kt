@@ -580,6 +580,9 @@ class Keyboard2View @JvmOverloads constructor(
         _config.handler?.tryWordCapitalization() ?: false
 
     override fun beginBackspaceHold(): Boolean = _config.handler?.beginBackspaceHold() ?: false
+    override fun beginBackspaceDrag(): Boolean = _config.handler?.beginBackspaceDrag() ?: false
+    override fun deleteBackspaceHoldWord(): Boolean = _config.handler?.deleteBackspaceHoldWord() ?: false
+    override fun previewPreviousBackspaceWord(): Boolean = _config.handler?.previewPreviousBackspaceWord() ?: false
     override fun stepBackspaceHold(direction: Int): Boolean =
         _config.handler?.stepBackspaceHold(direction) ?: false
     override fun finishBackspaceHold(commit: Boolean) {
@@ -2234,4 +2237,3 @@ internal object NavBarAppearance {
         )
     }
 }
-

@@ -23,6 +23,7 @@ class PointersBackspaceHoldTest {
         every { Log.d(any(), any<String>()) } returns 0
         handler = mockk(relaxed = true); timers = mockk(relaxed = true)
         every { handler.beginBackspaceHold() } returns true
+        every { handler.beginBackspaceDrag() } returns true
         every { handler.backspaceKeyboardWidth() } returns 1000f
         val key = KeyValue.keyeventKey(0xE003, KeyEvent.KEYCODE_DEL, 0)
         ptr = Pointers.Pointer(1, KeyboardData.Key.EMPTY.withKeyValue(0,key), key, 900f, 100f,
@@ -140,6 +141,83 @@ class PointersBackspaceHoldTest {
     private fun tick() {
         Pointers::class.java.getDeclaredMethod("handleSelectionDeleteRepeat", Pointers.Pointer::class.java)
             .apply { isAccessible = true }.invoke(pointers,ptr)
+    }
+    @Test fun leftDragClaimsPointerImmediatelyWithoutWordPreviewOrLongPress() {
+        ptr.timeoutWhat = 17
+        pointers.onTouchMove(870f,100f,1)
+        assertTrue(ptr.backspaceWordHold)
+        assertEquals(BackspaceGesture.Mode.DRAG, ptr.backspaceMode)
+        verify(exactly = 1) { handler.beginBackspaceDrag() }
+        verify(exactly = 0) { handler.beginBackspaceHold() }
+        verify(exactly = 1) { handler.stepBackspaceHold(-1) }
+        verify { timers.removeMessages(17) }
+        hold() // A cancelled hold message must not replace the active drag.
+        verify(exactly = 0) { handler.beginBackspaceHold() }
+        pointers.onTouchUp(1)
+        verify(exactly = 1) { handler.finishBackspaceHold(true) }
+        verify(exactly = 0) { handler.onPointerDown(any(),any()) }
+        verify(exactly = 0) { handler.onPointerUp(any(),any()) }
+    }
+    @Test fun immediateDragUsesDensityAndCapturedDistanceBeforeTheHoldTimeout() {
+        configured(EditBehaviorOptions(resumeDp = 24))
+        every { handler.backspaceDensity() } returns 2f
+        // 48 px is exactly the captured 24 dp threshold at density 2.
+        pointers.onTouchMove(852f,100f,1)
+        verify(exactly = 1) { handler.beginBackspaceDrag() }
+        verify(exactly = 1) { handler.stepBackspaceHold(-1) }
+    }
+    @Test fun stationaryHoldAlternatesPreviewAndDeletionWithoutCharacterRepeat() {
+        every { handler.deleteBackspaceHoldWord() } returns true
+        every { handler.previewPreviousBackspaceWord() } returns true
+        hold()
+        verify(exactly = 0) { handler.deleteBackspaceHoldWord() }
+        verify { timers.sendEmptyMessageDelayed(any(), BackspaceGesture.WORD_PREVIEW_MS) }
+        tick()
+        assertEquals(BackspaceGesture.Mode.WORD_GAP, ptr.backspaceMode)
+        verify(exactly = 1) { handler.deleteBackspaceHoldWord() }
+        verify(exactly = 0) { handler.previewPreviousBackspaceWord() }
+        verify { timers.sendEmptyMessageDelayed(any(), BackspaceGesture.WORD_GAP_MS) }
+        tick()
+        assertEquals(BackspaceGesture.Mode.WORD_PREVIEW, ptr.backspaceMode)
+        verify(exactly = 1) { handler.previewPreviousBackspaceWord() }
+        tick()
+        verify(exactly = 2) { handler.deleteBackspaceHoldWord() }
+        verify(exactly = 0) { handler.onPointerHold(any(),any()) }
+    }
+    @Test fun releaseImmediatelyAfterTimedDeletionStopsBeforeSelectingAnotherWord() {
+        every { handler.deleteBackspaceHoldWord() } returns true
+        hold(); tick()
+        val message = ptr.selectionDeleteWhat
+        pointers.onTouchUp(1)
+        val stale = org.objenesis.ObjenesisStd().newInstance(android.os.Message::class.java)
+        stale.what = message
+        assertFalse(pointers.handleMessage(stale))
+        verify(exactly = 1) { handler.deleteBackspaceHoldWord() }
+        verify(exactly = 0) { handler.previewPreviousBackspaceWord() }
+        verify(exactly = 1) { handler.finishBackspaceHold(true) }
+    }
+    @Test fun draggingDuringWordPreviewCancelsAutomaticWordCycleEvenAfterBraking() {
+        hold()
+        val oldMessage = ptr.selectionDeleteWhat
+        pointers.onTouchMove(100f,100f,1)
+        assertEquals(BackspaceGesture.Mode.DRAG, ptr.backspaceMode)
+        val stale = org.objenesis.ObjenesisStd().newInstance(android.os.Message::class.java)
+        stale.what = oldMessage
+        assertFalse(pointers.handleMessage(stale))
+        pointers.onTouchMove(103f,100f,1)
+        repeat(3) { tick() }
+        verify(exactly = 0) { handler.deleteBackspaceHoldWord() }
+        verify(exactly = 0) { handler.previewPreviousBackspaceWord() }
+        pointers.onTouchUp(1)
+        verify(exactly = 1) { handler.finishBackspaceHold(true) }
+    }
+    @Test fun exhaustedWordCycleStopsInsteadOfFallingBackToDeleteKey() {
+        every { handler.deleteBackspaceHoldWord() } returns false
+        hold(); tick()
+        assertEquals(-1, ptr.selectionDeleteWhat)
+        verify(exactly = 0) { handler.onPointerDown(any(),any()) }
+        verify(exactly = 0) { handler.onPointerHold(any(),any()) }
+        verify(exactly = 0) { handler.previewPreviousBackspaceWord() }
     }
     @Test fun brakeStopsPendingRepeatUntilFurtherRightMotion() {
         hold(); pointers.onTouchMove(100f,200f,1)

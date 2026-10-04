@@ -215,6 +215,114 @@ class BackspaceHoldTest {
         assertEquals("olej ", text); assertEquals(5, a); assertEquals(a,b)
         verify(exactly = 1) { recv.handle_backspace() }
     }
+    @Test fun immediateDragStartsAtCaretAndSelectsOnlyTheNextCodePoint() {
+        text = "olej łódź😀"; caret(text.length)
+        assertTrue(handler.beginBackspaceDrag())
+        assertEquals("", conn.getSelectedText(0))
+        assertTrue(handler.stepBackspaceHold(-1))
+        assertEquals("😀", conn.getSelectedText(0))
+        handler.finishBackspaceHold(true)
+        assertEquals("olej łódź", text)
+    }
+    @Test fun timedWordsPreserveLeadingSpacesAndReleaseDuringGapDoesNotDeleteAgain() {
+        text = "olej mleko karton "; caret(text.length)
+        assertTrue(handler.beginBackspaceHold())
+        assertEquals("karton ", conn.getSelectedText(0))
+        assertTrue(handler.deleteBackspaceHoldWord())
+        assertEquals("olej mleko ", text)
+        assertEquals(a,b)
+        assertTrue(handler.previewPreviousBackspaceWord())
+        assertEquals("mleko ", conn.getSelectedText(0))
+        assertTrue(handler.deleteBackspaceHoldWord())
+        assertEquals("olej ", text)
+        handler.finishBackspaceHold(true)
+        assertEquals("olej ", text)
+        assertFalse(handler.previewPreviousBackspaceWord())
+        verify(exactly = 2) { conn.commitText("",1) }
+    }
+    @Test fun repeatedWordsStopAtStartAndCannotDeleteNewlyInsertedText() {
+        text = "łódź"; caret(text.length)
+        assertTrue(handler.beginBackspaceHold())
+        assertTrue(handler.deleteBackspaceHoldWord())
+        assertEquals("",text)
+        assertFalse(handler.previewPreviousBackspaceWord())
+        assertFalse(handler.deleteBackspaceHoldWord())
+        handler.finishBackspaceHold(true)
+        verify(exactly = 1) { conn.commitText("",1) }
+    }
+    @Test fun repeatingWordCycleCannotRearmAfterConnectionOrTextChanges() {
+        assertTrue(handler.beginBackspaceHold())
+        assertTrue(handler.deleteBackspaceHoldWord())
+        text = "sokx " // Same caret/length, but preceding text changed externally.
+        assertFalse(handler.previewPreviousBackspaceWord())
+        every { recv.getCurrentInputConnection() } returns mockk(relaxed = true)
+        assertFalse(handler.previewPreviousBackspaceWord())
+        handler.finishBackspaceHold(true)
+        assertEquals("sokx ",text)
+        verify(exactly = 1) { conn.commitText("",1) }
+    }
+    @Test fun rejectedTimedDeletionNeverArmsTheNextWord() {
+        assertTrue(handler.beginBackspaceHold())
+        every { conn.commitText(any(),any()) } returns false
+        assertFalse(handler.deleteBackspaceHoldWord())
+        assertFalse(handler.previewPreviousBackspaceWord())
+        handler.finishBackspaceHold(true)
+        assertEquals("olej mleko ",text)
+        verify(exactly = 1) { conn.commitText("",1) }
+    }
+    @Test fun wordCycleCapturesSynchronousCallbacksDespiteLaggingExtraction() {
+        every { conn.commitText(any(), any()) } answers {
+            val start = minOf(a,b); val end = maxOf(a,b)
+            text = text.take(start) + text.drop(end); caret(start)
+            acknowledgeSelection(); true
+        }
+        every { conn.setSelection(any(),any()) } answers {
+            a = firstArg(); b = secondArg(); acknowledgeSelection(); true
+        }
+        assertTrue(handler.beginBackspaceHold())
+        assertTrue(handler.deleteBackspaceHoldWord())
+        reportedSelection = 11 to 11 // Unrelated old caret must not authorize re-arming.
+        assertFalse(handler.previewPreviousBackspaceWord())
+        reportedSelection = null
+        assertTrue(handler.previewPreviousBackspaceWord())
+        assertTrue(handler.deleteBackspaceHoldWord())
+        assertEquals("",text)
+    }
+    @Test fun realPointerTimerDeletesOneWordAtATimeAndReleaseDuringGapKeepsThePreviousWord() {
+        text = "olej mleko karton "; caret(text.length)
+        val host = mockk<Pointers.IPointerEventHandler>(relaxed = true)
+        every { host.beginBackspaceHold() } answers { handler.beginBackspaceHold() }
+        every { host.beginBackspaceDrag() } answers { handler.beginBackspaceDrag() }
+        every { host.deleteBackspaceHoldWord() } answers { handler.deleteBackspaceHoldWord() }
+        every { host.previewPreviousBackspaceWord() } answers { handler.previewPreviousBackspaceWord() }
+        every { host.finishBackspaceHold(any()) } answers { handler.finishBackspaceHold(firstArg()) }
+        val pointers = org.objenesis.ObjenesisStd().newInstance(Pointers::class.java)
+        val key = KeyValue.keyeventKey(0xE003,KeyEvent.KEYCODE_DEL,0)
+        val ptr = Pointers.Pointer(1, KeyboardData.Key.EMPTY.withKeyValue(0,key), key,900f,100f,
+            Pointers.Modifiers.EMPTY,Pointers.FLAG_P_DEFERRED_DOWN,
+            testConfigSnapshot(swipe_typing_enabled = false))
+        fun field(name: String, value: Any) {
+            Pointers::class.java.getDeclaredField(name).apply { isAccessible = true }.set(pointers,value)
+        }
+        field("_handler",host); field("_ptrs",arrayListOf(ptr))
+        field("_longpress_handler",mockk<Handler>(relaxed = true))
+        fun invoke(name: String) {
+            Pointers::class.java.getDeclaredMethod(name,Pointers.Pointer::class.java)
+                .apply { isAccessible = true }.invoke(pointers,ptr)
+        }
+        invoke("handleLongPress")
+        assertEquals("karton ",conn.getSelectedText(0))
+        invoke("handleSelectionDeleteRepeat")
+        assertEquals("olej mleko ",text)
+        invoke("handleSelectionDeleteRepeat")
+        assertEquals("mleko ",conn.getSelectedText(0))
+        invoke("handleSelectionDeleteRepeat")
+        assertEquals("olej ",text)
+        pointers.onTouchUp(1)
+        assertEquals("olej ",text)
+        verify(exactly = 2) { conn.commitText("",1) }
+        verify(exactly = 0) { host.onPointerUp(any(),any()) }
+    }
     @Test fun cancelRestoresCaretWithoutDeleting() {
         assertTrue(handler.beginBackspaceHold()); assertTrue(handler.stepBackspaceHold(-1))
         handler.finishBackspaceHold(false)

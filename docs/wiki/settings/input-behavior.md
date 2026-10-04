@@ -177,16 +177,22 @@ A: Settings > Gesture Tuning > Double-Space to Period > Off.
 
 ## Editing controls in the Polish trial fork (v9)
 
-This trial adds controls; its build and phone acceptance are still pending.
+The maintainer accepted the v9 controls on the phone. The v12 gesture update below
+requires separate build and phone verification.
 In **Gesture Tuning → Backspace**, choose a short-tap action. The default deletes
 one character or space. The optional alternatives undo the last autocorrection or
 delete the last swiped word while it is still the verified token before the cursor.
 
-Hold previews the preceding word. Drag left across the keyboard to extend selection;
+Drag left directly from Backspace to start character selection without waiting.
+Hold without moving to preview and delete successive preceding words. The preview
+lasts 350 ms, followed by a 200 ms gap before the next preview. Lift to stop.
+Moving left during the word cycle switches to character selection.
+Drag left across the keyboard to extend selection;
 a short reverse movement pauses it. Move further from the pause to resume left or
 shrink right. Other keys do not activate during this gesture. Release deletes by
 default; switch **Delete selection on release** off to keep the selected range.
-Disabling **Select word on hold** restores ordinary repeat when Key Repeat is on.
+This release setting does not disable automatic word deletion while holding still.
+Disabling **Drag selection and word deletion** restores ordinary repeat when Key Repeat is on.
 
 | Setting | Initial value |
 |---|---|

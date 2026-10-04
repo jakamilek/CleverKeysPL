@@ -114,7 +114,11 @@ class KeyEventHandler(
         backspaceHold = null
     }
 
-    override fun beginBackspaceHold(): Boolean {
+    override fun beginBackspaceHold(): Boolean = beginBackspaceSelection(previewWord = true)
+
+    override fun beginBackspaceDrag(): Boolean = beginBackspaceSelection(previewWord = false)
+
+    private fun beginBackspaceSelection(previewWord: Boolean): Boolean {
         traceBackspace("begin requested")
         if (recv.isClipboardTagMode() || recv.isClipboardEditMode() || recv.isClipboardSearchMode() ||
             recv.isEmojiPaneOpen() || recv.isGifPaneOpen()) {
@@ -136,7 +140,9 @@ class KeyEventHandler(
             val before = conn.getTextBeforeCursor(4096, 0)?.toString() ?: run { traceBackspace("begin blocked: no preceding text"); return false }
             val base = anchor - before.length
             if (base < 0) { traceBackspace("begin blocked: invalid base=$base"); return false }
-            val start = BackspaceGesture.previousWord(before, base > 0)?.start ?: before.length
+            val start = if (previewWord) {
+                BackspaceGesture.previousWord(before, base > 0)?.start ?: before.length
+            } else before.length
             val session = BackspaceHold(conn, info, before, anchor, base, start)
             session.rememberSelection()
             // Install before issuing the request: a synchronous callback must not be lost.
@@ -216,21 +222,63 @@ class KeyEventHandler(
     }
 
     override fun finishBackspaceHold(commit: Boolean) {
-        val s = backspaceHold ?: run { traceBackspace("release blocked: no session commit=$commit"); return }
+        finishBackspaceSelection(commit, continueWords = false)
+    }
+
+    override fun deleteBackspaceHoldWord(): Boolean =
+        finishBackspaceSelection(commit = true, continueWords = true)
+
+    /** Re-arm only the editor/caret left by our verified deletion, never a new field. */
+    override fun previewPreviousBackspaceWord(): Boolean {
+        val s = backspaceHold ?: return false
+        return try {
+            if (s.cursor != s.before.length || !backspaceHoldStillCurrent(s)) return false
+            if (s.before.isNotEmpty() &&
+                s.connection.getTextBeforeCursor(s.before.length, 0)?.toString() != s.before) return false
+            val before = s.connection.getTextBeforeCursor(4096, 0)?.toString() ?: return false
+            val base = s.anchor - before.length
+            if (base < 0) return false
+            val start = BackspaceGesture.previousWord(before, base > 0)?.start ?: return false
+            val next = BackspaceHold(s.connection, s.info, before, s.anchor, base, start,
+                traceBudget = s.traceBudget)
+            next.rememberSelection()
+            backspaceHold = next // Capture synchronous selection acknowledgements.
+            if (!s.connection.setSelection(next.anchor, base + start)) {
+                backspaceHold = s
+                return false
+            }
+            traceHold(next, "repeat word preview: length=${before.length - start}")
+            true
+        } catch (e: Exception) {
+            traceHold(s, "repeat preview exception=${e.javaClass.simpleName}")
+            false
+        }
+    }
+
+    private fun finishBackspaceSelection(commit: Boolean, continueWords: Boolean): Boolean {
+        val s = backspaceHold ?: run { traceBackspace("release blocked: no session commit=$commit"); return false }
         traceBackspace("release requested: commit=$commit expected=${s.expectedSelection()}")
         backspaceHold = null
         try {
-            if (!backspaceHoldStillCurrent(s)) { traceBackspace("release blocked: validation"); return }
+            if (!backspaceHoldStillCurrent(s)) { traceBackspace("release blocked: validation"); return false }
             if (!commit || s.cursor == s.before.length) {
                 val restored = s.connection.setSelection(s.anchor, s.anchor)
                 traceBackspace("release collapsed: cancel=${!commit} accepted=$restored")
-                return
+                return false
             }
             val rejected = recv.getLastAutoInsertedWord()
             val deleted = s.before.substring(s.cursor)
+            if (continueWords) {
+                val prefix = s.before.take(s.cursor)
+                val nextAnchor = s.base + s.cursor
+                val next = BackspaceHold(s.connection, s.info, prefix, nextAnchor, s.base, prefix.length,
+                    traceBudget = s.traceBudget)
+                next.rememberSelection()
+                backspaceHold = next // Install before commit's synchronous callback.
+            }
             val accepted = s.connection.commitText("", 1)
             traceBackspace("release commitText accepted=$accepted length=${deleted.length}")
-            if (!accepted) return
+            if (!accepted) { backspaceHold = null; return false }
             noteEditorTextMutation(s.connection)
             recv.setLastSpaceAutoInserted(false)
             recv.clearSwipeUndoState()
@@ -240,10 +288,13 @@ class KeyEventHandler(
             }
             recv.handle_backspace()
             autocap.event_sent(KeyEvent.KEYCODE_DEL, 0)
+            return true
         } catch (e: Exception) {
             traceBackspace("release exception=${e.javaClass.simpleName}")
+            backspaceHold = null
             /* Uncooperative editors must not trigger a fallback deletion. */
         }
+        return false
     }
 
     /** A commit's cursor callback is not a user returning to an existing word. */

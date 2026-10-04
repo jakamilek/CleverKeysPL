@@ -109,5 +109,10 @@ options during a Backspace gesture, or resurrect the deprecated undo checkbox re
 Invalid tap-mode values fall back to character deletion. Keep group resets scoped and
 resource-based controls mapped to their actual parent in the search generator.
 
+Backspace v12 distinguishes direct DRAG from stationary WORD_PREVIEW/WORD_GAP.
+Once a drag starts, a pause never restarts word deletion. Cancel and invalidate old
+timer IDs at transitions. Word-repeat continuation must retain editor identity,
+validated caret/text and synchronous callback capture across each commit.
+
 See `docs/wiki/specs/settings/input-behavior-spec.md` for keys and field guards. Dictionary
 add and editor/cursor/prediction consistency guards are unconditional fixes, not toggles.

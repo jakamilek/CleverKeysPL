@@ -2620,11 +2620,11 @@
 
     <!-- Configurable editing behavior (trial v9). -->
     <string name="edit_backspace_tap_mode_title">Short Backspace</string>
-    <string name="edit_backspace_hold_select_title">Select word on hold</string>
+    <string name="edit_backspace_hold_select_title">Drag selection and word deletion</string>
     <string name="edit_backspace_release_delete_title">Delete selection on release</string>
     <string name="edit_backspace_pause_enabled_title">Pause on direction reversal</string>
     <string name="edit_backspace_pause_dp_title">Brake distance</string>
-    <string name="edit_backspace_resume_dp_title">Resume distance</string>
+    <string name="edit_backspace_resume_dp_title">Start or resume distance</string>
     <string name="edit_backspace_speed_percent_title">Selection speed</string>
     <string name="edit_backspace_fast_percent_title">Fast selection speed</string>
     <string name="edit_backspace_accel_percent_title">Acceleration threshold</string>
@@ -2642,11 +2642,10 @@
     <string name="edit_tap_swipe">Delete last swipe, then characters</string>
     <string name="edit_backspace_header">Backspace</string>
     <string name="edit_format_header">Text formatting</string>
-    <string name="edit_backspace_help">Hold selection works across the keyboard. Disable it for ordinary repeat, which requires Key Repeat. Tap alternatives apply immediately after a suggestion.</string>
-    <string name="edit_pause_help">A short reversal pauses. A longer movement from the pause position resumes.</string>
+    <string name="edit_backspace_help">Drag left from Backspace to select characters. Hold still to preview and delete successive words. Delete on release applies to the current selection; holding still continues automatic word deletion. Disable these gestures for ordinary repeat, which requires Key Repeat. Tap alternatives apply after a suggestion.</string>
+    <string name="edit_pause_help">This distance starts selection when dragging left from Backspace and resumes it after a pause. A short reversal pauses selection.</string>
     <string name="edit_speed_help" formatted="false">Relative to the previous gesture speed: 80% is slower, 100% is unchanged.</string>
     <string name="edit_fast_help">Fast mode starts after traveling further than this percentage of screen width. Reversing resets the travel distance.</string>
     <string name="edit_format_help">Passwords and technical fields never use automatic formatting. Punctuation options require Smart Punctuation; numeric capitals require Auto-Capitalization.</string>
     <string name="edit_fallback_header">Legacy two-axis selection fallback</string>
 </resources>
-

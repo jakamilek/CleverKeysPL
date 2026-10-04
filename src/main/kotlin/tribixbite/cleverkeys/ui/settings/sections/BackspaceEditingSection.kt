@@ -70,7 +70,7 @@ internal fun SettingsActivity.BackspaceEditingControls() {
         description = stringResource(R.string.edit_pause_help),
         value = editBehavior.resumeDp.toFloat(),
         valueRange = EditBehaviorRanges.BACKSPACE_RESUME_DP.first.toFloat()..EditBehaviorRanges.BACKSPACE_RESUME_DP.last.toFloat(),
-        steps = 35, enabled = editBehavior.holdSelect && editBehavior.pauseEnabled,
+        steps = 35, enabled = editBehavior.holdSelect,
         onValueChange = {
             val value = it.toInt().coerceIn(EditBehaviorRanges.BACKSPACE_RESUME_DP)
             editBehavior = editBehavior.copy(resumeDp = value)
