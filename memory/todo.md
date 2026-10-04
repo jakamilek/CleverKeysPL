@@ -1,24 +1,25 @@
 # Current work queue
 
-## Polish contextual SI FP32 benchmark preparation (2026-10-04)
+## Polish SI verified FP32 package and diagnostic APK (2026-10-04)
 
-- Previous passive core Android run 37227497872: compile, 2901 tests, debug/vital lint PASS.
-- Previous export: FP32 PASS; INT8 preservation FAIL (22 rank changes, 7 top-1 regressions,
-  1 top-3 regression). Do not weaken its gate or claim mobile quality from host results.
-- New frozen producer stage reproduces exact FP32 SHA and derives original Char-BPE tables,
-  probing pinned Rust Unicode behaviour and exhaustive scalar-block/reference conformance.
-- Runtime prepared portable tokenizer, authenticated/bounded private import, mapped-file scorer,
-  real-token/feed/score conformance runner and explicit Polish benchmark screen in Playground.
-  Single worker owns native session/staging; metrics use only prepared examples, not editor text.
-- Import trust deliberately unset until all seven producer file hashes/provenance are verified.
-  No APK or live-IME activation yet. Fifteen new unit tests plus one optional real-fixture test;
-  compile/lint/new tests and real Kotlin tokenizer/JNI parity remain pending this stage's CI.
-- Next: inspect producer/runtime run results; pin verified identities, provide real metadata to
-  JVM tests, prepare trial APK; Nubia load/timing/PSS/pair benchmark; independent slates/contexts.
-  Then decide opt-in live dispatcher/settings. Canonical spec docs/specs/polish-context-ai.md.
-- First live scope remains same-key case-pair order; preserve both forms and geometric scores.
-  No model/editor text backups/network fallback, no guessed phone speed or metadata meanings.
-- Max 60 seconds TOTAL Actions monitoring per build. No merge/release/version bump/subagents.
+- Producer 37230171787 at d831e17: SUCCESS, byte-identical FP32, zero archived rank changes;
+  2471 token vectors and 4352 exhaustive scalar-block portable reference comparisons PASS.
+  Metadata artifact 11312569320 fully locally verified; model ZIP 11312693984 external.
+- Runtime 37230173951 at 63524ecd: compile, JUnitCore OK(2834) +83 focused tests passed;
+  real-fixture test still assumption-skipped then. Debug lint failed on 19 untranslated
+  trial-only strings; release vital lint/assembly skipped. No APK from that run.
+- Current changes: pin seven trusted file hashes; mandatory real 2471-token/232-batch JVM test,
+  compressed test-only original fixtures; local trial resource MissingTranslation ignore
+  with other-locale backlog, global lint unchanged. Context default 32 words, max 64/4096 UTF16;
+  explicit 32/64 benchmark timing comparison. New test covers default vs cap/short text.
+- Workflow will assemble and publish ARM64 diagnostic debug APK only after required gates;
+  checks that FP32 weights and test fixtures are absent. No version bump or live IME changes.
+- Pending: new compile/real conformance/regressions/debug+vital lint/assembly; then install
+  on Nubia, import external ZIP, check native scores/ranks and compare warm/cold timings/PSS.
+  No current phone/JNI/independent accuracy claim. No editor history, logging or network.
+- Further: independent slates/contexts; opt-in live dispatcher/settings. Preserve both forms,
+  geometric scores and single SuggestionHandler commit pipeline. BS timing controls backlog.
+- Max 60 seconds TOTAL Actions monitoring/build. No merge/release/version bump/subagents.
 
 
 ## New-word suggestion viewport v15 (2026-10-04)

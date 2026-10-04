@@ -148,8 +148,17 @@ including probed Unicode classifications, not Android Character categories. Real
 and five-input feed equality are required in addition to native score/rank parity.
 
 HerbertBenchmarkActivity uses prepared fixtures only and never enables live SI. Import requires
-all seven file hashes from verified CI provenance; HerbertBenchmarkTrial.trust is null until then.
+all seven file hashes from verified CI provenance; HerbertBenchmarkTrial now pins seven verified identities from producer run 37230171787.
 Never construct trusted identities from an imported manifest. Keep all operations on its worker,
 private noBackup staging, mapped model lifetime, cancellation between calls and deletion serialized.
 No model/editor-text backup, logging/network or activation changes. PSS samples are whole process,
 not exact peak/model memory; timing fixtures and host conversions are not independent quality tests.
+
+Context window default is 32 words with a 64-word safety maximum and 4096 UTF-16 units.
+The explicit benchmark compares both limits using alternating order and prepared examples,
+not live editor history. Real JVM conformance is mandatory via compressed original test
+fixtures; verify fixture hashes against compiled trust and never include them in APK.
+APK workflow requires the exact real-conformance PASS marker plus existing lint/editor gates.
+Other-locale missing trial-screen translations are deferred per maintainer, documented in
+LOCALIZATION_BACKLOG_POLISH_AI.md, with a local-only MissingTranslation ignore on the new
+resource file. Do not weaken global lint or claim JNI/mobile accuracy from host/pure tests.

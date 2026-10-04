@@ -18,7 +18,7 @@ This is a diagnostic result for known keys, not independent production evidence.
 
 1. First visible scope: order only the case pair of geometric rank 1. Keep both choices and all
    other keys, engine scores, languages, exact-case markers, source and swipe provenance.
-2. Use live case/punctuation-preserving preceding editor text (<=64 words, <=4096 UTF-16 units).
+2. Use live case/punctuation-preserving preceding editor text (<=32 words by default (64 maximum), <=4096 UTF-16 units).
    Read before swipe insertion. Existing PredictionContextTracker's two-word lowercase n-gram
    history is unchanged and is not the model context. If bounded capture may cut the first word,
    read a boundary lookbehind and drop the partial word; do not invent a leading token fragment.
@@ -123,41 +123,60 @@ No merge/release/tag/version bump. Actions monitoring <=60 seconds TOTAL/build t
 completion. Previous results/protocols immutable. Significant stages checkpointed in both repo mains,
 documentation only. Gemini/PAL requirement waived; no subagents without explicit instruction.
 
-## FP32 benchmark preparation v1 (2026-10-04)
+## Verified FP32 package and phone benchmark trial (2026-10-04)
 
-Previous Android run 37227497872 succeeded at b1c829cf: compilation, 2818 pure tests,
-83 focused integration tests (2901 total), debug lint and release vital lint. No APK/model.
-The previous producer export passed FP32 but failed INT8 preservation; do not reclassify it.
+Producer run 37230171787 at d831e17b6cb99590d6ba036e92a72b6c3fd0cc7c succeeded.
+Byte-identical FP32: 651798883 bytes, SHA256
+f851436ba9ca35d0c7313ff873cd869b744b295a8a16fc95b4571d5e11b299f2.
+All 232 archived rankings unchanged, <=0.001 score drift; independent portable reference
+matches original fast tokenizer on 2471 saved vectors and 4352 exhaustive scalar blocks.
+Metadata ZIP 11312569320/hash and every non-model member checked locally. Full FP32 comparison
+recomputed exactly from saved score vectors. Model ZIP 11312693984 stays external (expires Oct 18);
+its complete download was not locally verified. CI asserted model identity before upload.
 
-New producer experiment/herbert-fp32-benchmark-v1 reproduces the exact verified FP32 graph,
-keeps archived score/ranking gates, derives portable original Char-BPE vocabulary/merge/Unicode
-classification tables, and checks its independent interpreter against the pinned fast tokenizer.
-All Unicode scalar blocks, range boundaries, seeded random inputs, special-token edges and archived
-contexts/surfaces are checked. This does not replace or hand-build the language dictionary.
+HerbertBenchmarkTrial now pins all seven SHA/byte identities including the manifest itself
+(667bd4fee413a13ca8edca75f5b7defff2c58d0450d8d87ab8e9ccef948026b0, 1243 bytes).
+Import authenticates against these compiled constants, never a downloaded manifest's own hashes.
+Private noBackup staging rejects unknown/duplicate/unsafe names, excessive bytes, invalid UTF-8/JSON,
+missing files and wrong checksums. Failure/cancel removes staging. A mapped read-only model file
+avoids giant Java byte-array copies; owner never edits it. One worker serializes native session
+lifetime and staging replacement/deletion. Interrupted process staging is cleared on reopening.
 
-Runtime HerbertTokenizer implements those tables with a leftmost/rank priority queue, no persistent
-text cache, strict Unicode/scalar bounds, original added tokens, and whole-target masking. Model
-input over budget drops oldest complete words. HerbertConformance requires original token vectors,
-all five archived feeds on 232 requests, actual ONNX mean/sum score tolerance 0.001 and unchanged
-rankings. An optional JVM real-fixture test is explicitly skipped until producer metadata is supplied;
-synthetic tests alone never establish real tokenizer parity.
+HerbertTokenizer uses original Char-BPE tables, ranked leftmost linked merges, whole-target masking
+and probed Unicode ranges rather than Android categories. No persistent editor-string cache.
+Context DEFAULT_WORDS=32, MAX_WORDS=64, MAX_UNITS=4096; retain/prepare accept a bounded word limit.
+Future IME context comes from before-cursor text in the current field, preserving original case and
+punctuation, not an accumulated typing history. No live dispatcher/editor reading is implemented yet.
+Archived contexts contain <=13 words, so parity cannot establish relative 32/64 accuracy.
 
-HerbertBundleImport authenticates all seven members against externally trusted trial identities,
-not the imported manifest. Strict names/duplicates/size/hash/UTF-8/JSON checks and private staging
-protect imports; failures/cancellation remove staging. Imported model is never backed up. Scorer
-maps and rehashes a private immutable model file read-only, avoiding giant Java byte-array copies.
-One worker serializes loading, native inference/close, import replacement and file deletion.
+JVM test resources include deterministic-gzip original portable tables plus original token/score vectors.
+HerbertRealConformanceTest now always runs and validates byte size/SHA then all 2471 token examples
+and all five feeds across 232 requests/532 candidates. No Assume-based skip. Test fixtures and model
+weights are excluded from APK. Actual Kotlin real conformance in the new run is still pending.
 
-HerbertBenchmarkActivity is a non-exported screen entered from Swipe Playground. Polish/base
-resources cover import, testing, cancellation, removal and license/attribution. Only archived or
-synthetic text is used; no editor or network access. Report includes device/Android/ABI, parity,
-model load (including rehash), balanced warmed two-form timing (three context lengths, 90 samples),
-separate tokenization/feed and inference and end-to-end p50/p95. Maximum sampled whole-process PSS
-is sampled between calls and is not an exact peak or model-only figure. Clipboard report contains
-metrics/device identity only. On close native session/staging are removed by the worker; process-death
-staging is cleaned on the next benchmark opening. Closing/backgrounding cancels between native calls.
+Previous runtime 37230173951 (63524ecd): actual Kotlin compile, JUnitCore OK(2834) and 83 focused tests
+passed. The real-fixture test was an assumption skip, so do not count it as real conformance success.
+Debug lint failed solely on 19 MissingTranslation issues for the new base/Polish-only screen;
+release-vital lint/assembly were skipped. Missing other locales are documented in
+LOCALIZATION_BACKLOG_POLISH_AI.md; only this experimental resource file has a local ignore.
+Global lint gates remain intact. New runtime run must pass real fixtures/debug+vital lint and assembly.
 
-HerbertBenchmarkTrial.trust is deliberately null until the producer bundle and metadata are verified.
-Do not create trust from a user ZIP. Import remains unavailable; no APK is published in this phase.
-Next: verify completed producer/runtime CI, pin all seven hashes, run real JVM fixtures, build trial APK,
-then measure on Nubia. No live IME changes, opt-in settings, accuracy or phone-speed claim yet.
+HerbertBenchmarkActivity is non-exported and entered from Swipe Playground via Test polskiej SI.
+Import/remove/cancel/license/report controls use Polish/base strings; no SharedPreferences/live SI.
+Only prepared synthetic/archived contexts are read. Import now enabled with pinned trust. Diagnostics
+check real token/feed/native mean+sum parity and unchanged score rankings, then measure two-form feeds
+for three context lengths at each word limit (32/64). Three warmups per context/limit, 30 timed repeats;
+window order alternates, 90 samples/window, 180 total. Separate token/feed, inference and total p50/p95
+are reported per window as well as pooled measurements. This is speed comparison, not accuracy.
+
+Report contains phone/Android/ABI, model load including rehash, conformance, latency and sampled
+maximum whole-process PSS. Samples taken between calls at least 250 ms apart are not exact peak or
+model-only memory and not an energy/thermal result. Clipboard report contains metrics/device identity
+only. Background/close cancels between native calls; native calls are not interrupted by main-thread
+session close. Imported model is removed on screen destruction, never backed up or bundled in APK.
+
+Workflow assembles ARM64 debug trial only after mandatory test/lint gates and inspects its ZIP for
+FP32 weights/test fixtures. APK artifact includes SHA256/identity JSON, retains existing app version,
+no release or merge. Next: inspect completed new CI, install diagnostic APK on Nubia, import model ZIP
+and run repeated metrics. Actual Android JNI, phone performance and independent prediction quality
+remain unverified. Live IME remains unchanged and requires later opt-in dispatcher/settings gates.

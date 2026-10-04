@@ -54,8 +54,7 @@ class HerbertBenchmarkActivity : Activity() {
         }
         text(R.string.herbert_benchmark_title).textSize = 22f
         text(R.string.herbert_benchmark_explanation)
-        status = text(if (HerbertBenchmarkTrial.trust() == null) R.string.herbert_benchmark_pending
-            else R.string.herbert_benchmark_no_model)
+        status = text(R.string.herbert_benchmark_no_model)
         importButton = button(R.string.herbert_benchmark_import) {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
@@ -102,7 +101,7 @@ class HerbertBenchmarkActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != IMPORT_REQUEST || resultCode != RESULT_OK) return
         val uri = data?.data ?: return
-        val trust = HerbertBenchmarkTrial.trust() ?: return
+        val trust = HerbertBenchmarkTrial.trust()
         cancelled.set(false)
         busy(true)
         status.setText(R.string.herbert_benchmark_importing)
@@ -143,11 +142,16 @@ class HerbertBenchmarkActivity : Activity() {
                 val bundle = imported ?: error("Missing model")
                 val result = HerbertConformance.benchmark(bundle, { cancelled.get() || destroyed.get() }, ::sample)
                 val identity = "${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE}; ${Build.SUPPORTED_ABIS.firstOrNull()}"
+                val windowReport = result.windows.joinToString("\n") { window ->
+                    getString(R.string.herbert_benchmark_window_report, window.words, window.total.samples,
+                        window.feed.p50Ms, window.feed.p95Ms, window.inference.p50Ms, window.inference.p95Ms,
+                        window.total.p50Ms, window.total.p95Ms)
+                }
                 val value = getString(R.string.herbert_benchmark_report, identity,
                     result.tokenizerVectors, result.scoreVectors, result.maxAbsoluteError.toDouble(),
                     result.loadMs, result.total.samples, result.feed.p50Ms, result.feed.p95Ms,
                     result.inference.p50Ms, result.inference.p95Ms, result.total.p50Ms, result.total.p95Ms,
-                    maximumSampledPss / 1024.0)
+                    maximumSampledPss / 1024.0, windowReport)
                 ui { report = value; output.text = value; status.setText(R.string.herbert_benchmark_passed) }
             } catch (_: CancellationException) {
                 ui { status.setText(R.string.herbert_benchmark_cancelled) }
@@ -158,7 +162,7 @@ class HerbertBenchmarkActivity : Activity() {
     }
 
     private fun busy(value: Boolean) {
-        importButton.isEnabled = !value && HerbertBenchmarkTrial.trust() != null
+        importButton.isEnabled = !value
         runButton.isEnabled = !value && hasBundle
         removeButton.isEnabled = !value && hasBundle
         noticeButton.isEnabled = !value && hasBundle

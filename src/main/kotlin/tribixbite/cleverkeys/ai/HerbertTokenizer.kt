@@ -131,11 +131,12 @@ internal class HerbertTokenizer internal constructor(
     }
 
     /** Truncate only the oldest complete context words when the graph budget requires it. */
-    fun prepare(context: String, surfaces: List<String>): HerbertPreparedBatch {
+    fun prepare(context: String, surfaces: List<String>,
+                contextWords: Int = HerbertContextWindow.DEFAULT_WORDS): HerbertPreparedBatch {
         require(surfaces.size in 1..HerbertPreparedBatch.MAX_CANDIDATES)
         val targets = surfaces.map { encode(it) }
         require(targets.all { it.size in 1..HerbertPreparedBatch.MAX_TARGETS && special.unk !in it })
-        var left = HerbertContextWindow.retain(context)
+        var left = HerbertContextWindow.retain(context, contextWords)
         var ids = encode(left)
         val maximumTarget = targets.maxOf { it.size }
         while (ids.size + maximumTarget + 2 > HerbertPreparedBatch.MAX_SEQUENCE) {

@@ -1,4 +1,4 @@
-name: Polish SI FP32 benchmark preparation v1
+name: Polish SI FP32 phone benchmark v1
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/main/kotlin/tribixbite/cleverkeys/ai/**'
       - 'src/test/kotlin/tribixbite/cleverkeys/ai/**'
+      - 'src/test/resources/herbert-fp32-benchmark-v1/**'
       - 'build.gradle'
       - 'src/main/kotlin/tribixbite/cleverkeys/activities/HerbertBenchmarkActivity.kt'
       - 'src/main/kotlin/tribixbite/cleverkeys/activities/SwipeDebugActivity.kt'
@@ -32,7 +33,9 @@ jobs:
       - name: Compile actual Android sources
         run: bash scripts/gradle-guard.sh compileDebugKotlin --stacktrace
       - name: Run registered pure regression suites
-        run: bash scripts/gradle-guard.sh runPureTests --stacktrace
+        run: |
+          bash scripts/gradle-guard.sh runPureTests --stacktrace | tee build/herbert-benchmark-pure-tests.txt
+          rg -F 'HerBERT original conformance: 2471 token vectors; 232 batches / 532 candidates / five inputs PASS' build/herbert-benchmark-pure-tests.txt
       - name: Preserve editor and source-variant integration
         timeout-minutes: 15
         run: |
@@ -45,6 +48,41 @@ jobs:
         run: bash scripts/gradle-guard.sh lintDebug --stacktrace
       - name: Release vital lint
         run: bash scripts/gradle-guard.sh lintVitalRelease --stacktrace
+      - name: Assemble diagnostic APK after required gates
+        run: bash scripts/gradle-guard.sh assembleDebug --stacktrace
+      - name: Verify ARM64 trial contains no FP32 weights or test fixtures
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, zipfile
+          from pathlib import Path
+          apks = list(Path('build/outputs/apk/debug').glob('*arm64-v8a*.apk'))
+          assert len(apks) == 1, 'Expected exactly one ARM64 APK'
+          apk = apks[0]
+          with zipfile.ZipFile(apk) as archive:
+              for member in archive.infolist():
+                  assert 'herbert-fp32-benchmark-v1/' not in member.filename
+                  assert not any(n in member.filename for n in ['portable-tokenizer.json', 'tokenizer-conformance.json', 'android-score-vectors.json'])
+                  assert member.file_size < 128 * 1024 * 1024, 'Unexpected giant bundled asset'
+          digest = hashlib.sha256(apk.read_bytes()).hexdigest()
+          Path('build/outputs/apk/debug/herbert-benchmark-apk.sha256').write_text(digest+'  '+apk.name+'\n')
+          identity = dict(codeCommit=os.environ['GITHUB_SHA'], apk=apk.name, bytes=apk.stat().st_size,
+                          sha256=digest, diagnosticOnly=True, liveAI=False,
+                          producerCommit='d831e17b6cb99590d6ba036e92a72b6c3fd0cc7c',
+                          producerRun=37230171787, modelArtifact=11312693984,
+                          contextDefaultWords=32, comparedWordLimits=[32,64])
+          Path('build/outputs/apk/debug/herbert-benchmark-apk.json').write_text(json.dumps(identity,indent=2)+'\n')
+          print(json.dumps(identity,indent=2))
+          PY
+      - name: Preserve ARM64 diagnostic APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cleverkeys-herbert-fp32-benchmark-trial-arm64
+          path: |
+            build/outputs/apk/debug/*arm64-v8a*.apk
+            build/outputs/apk/debug/herbert-benchmark-apk.sha256
+            build/outputs/apk/debug/herbert-benchmark-apk.json
+          compression-level: 0
+          retention-days: 14
       - name: Preserve reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -54,4 +92,5 @@ jobs:
             build/reports/tests/
             build/test-results/
             build/reports/lint-results*.xml
+            build/herbert-benchmark-pure-tests.txt
           retention-days: 14

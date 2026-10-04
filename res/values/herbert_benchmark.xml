@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- Trial screen: Polish/base complete. Other locales tracked in docs/LOCALIZATION_BACKLOG_POLISH_AI.md. -->
     <string name="herbert_benchmark_title">Polish AI test</string>
     <string name="herbert_benchmark_explanation">Test HerBERT FP32 on prepared examples. This does not change keyboard suggestions or read text from other apps. The external model uses about 622 MiB of storage. Imported files are removed when this screen closes.</string>
     <string name="herbert_benchmark_pending">The benchmark package is awaiting verified CI results. Import is unavailable until its complete identity is pinned.</string>
@@ -18,5 +19,6 @@
     <string name="herbert_benchmark_passed">Conformance tests passed. The report contains measurements from this phone.</string>
     <string name="herbert_benchmark_cancelled">Test stopped.</string>
     <string name="herbert_benchmark_test_failed">Test failed. Tokenization or model score conformance has not been confirmed.</string>
-    <string name="herbert_benchmark_report">HerBERT FP32 benchmark v1\n%1$s\nTokenizer: %2$d examples; scores: %3$d batches\nMaximum score error: %4$.6f\nModel load including hash check: %5$.1f ms\nTimed samples: %6$d (two forms, three context lengths)\nTokenization and feed p50/p95: %7$.1f / %8$.1f ms\nInference p50/p95: %9$.1f / %10$.1f ms\nTotal p50/p95: %11$.1f / %12$.1f ms\nMaximum sampled whole-process PSS: %13$.1f MiB\nPSS is sampled between calls, not an exact peak or model-only memory. Prepared examples only; no independent accuracy claim or live AI activation.</string>
+    <string name="herbert_benchmark_report">HerBERT FP32 benchmark v1\n%1$s\nTokenizer: %2$d examples; scores: %3$d batches\nMaximum score error: %4$.6f\nModel load including hash check: %5$.1f ms\nTimed samples: %6$d (two forms, three context lengths)\nTokenization and feed p50/p95: %7$.1f / %8$.1f ms\nInference p50/p95: %9$.1f / %10$.1f ms\nTotal p50/p95: %11$.1f / %12$.1f ms\nMaximum sampled whole-process PSS: %13$.1f MiB\n%14$s\nPSS is sampled between calls, not an exact peak or model-only memory. Prepared examples only; no independent accuracy claim or live AI activation.</string>
+    <string name="herbert_benchmark_window_report">Limit %1$d words — %2$d samples\nTokenization/feed p50/p95: %3$.1f / %4$.1f ms\nInference p50/p95: %5$.1f / %6$.1f ms\nTotal p50/p95: %7$.1f / %8$.1f ms</string>
 </resources>

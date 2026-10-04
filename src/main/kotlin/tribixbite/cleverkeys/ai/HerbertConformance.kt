@@ -8,8 +8,10 @@ import java.util.concurrent.CancellationException
 internal object HerbertConformance {
     data class ScoreVector(val id: String, val batch: HerbertPreparedBatch, val expected: Map<String, Float>)
     data class Timing(val samples: Int, val p50Ms: Double, val p95Ms: Double)
+    data class WindowTiming(val words: Int, val feed: Timing, val inference: Timing, val total: Timing)
     data class Result(val tokenizerVectors: Int, val scoreVectors: Int, val maxAbsoluteError: Float,
-                      val loadMs: Double, val feed: Timing, val inference: Timing, val total: Timing)
+                      val loadMs: Double, val feed: Timing, val inference: Timing, val total: Timing,
+                      val windows: List<WindowTiming>)
 
     fun tokens(tokenizer: HerbertTokenizer, reader: Reader): Int {
         val root = IntelligenceJson.document(reader)
@@ -80,32 +82,48 @@ internal object HerbertConformance {
                 require(rank(actual) == rank(vector.expected)) { "Android FP32 ranking differs" }
             }
             // Separate current intended live workload: exactly two forms, three synthetic
-            // context lengths. Three warmups each, then balanced 30 timed trials each.
+            // context lengths. Compare limits 32/64; three warmups each, then 30
+            // timed trials per context/window. This measures speed, not accuracy.
             val contexts = listOf("Płyniemy przez jezioro i czeka na nas ",
                 "Podczas podróży zwiedziliśmy kilka miast. Następnym miejscem będzie ",
                 ("Podczas tej podróży poznaliśmy nowe miejsca i wiele osób. ".repeat(5)) + "Jedziemy teraz do ")
             val pairs = listOf(listOf("łódź", "Łódź"), listOf("malina", "Malina"), listOf("łodzi", "Łodzi"))
-            for (i in contexts.indices) repeat(3) {
-                checkActive(); scorer.score(bundle.tokenizer.prepare(contexts[i], pairs[i]))
-            }
             val feed = ArrayList<Double>()
             val inference = ArrayList<Double>()
             val total = ArrayList<Double>()
-            repeat(30) {
-                for (i in contexts.indices) {
-                    checkActive()
-                    val began = System.nanoTime()
-                    val batch = bundle.tokenizer.prepare(contexts[i], pairs[i])
-                    val ready = System.nanoTime()
-                    scorer.score(batch)
-                    val done = System.nanoTime()
-                    checkpoint()
-                    feed.add((ready - began) / 1_000_000.0)
-                    inference.add((done - ready) / 1_000_000.0)
-                    total.add((done - began) / 1_000_000.0)
+            val windows = ArrayList<WindowTiming>()
+            val windowFeed = listOf(ArrayList<Double>(), ArrayList<Double>())
+            val windowInference = listOf(ArrayList<Double>(), ArrayList<Double>())
+            val windowTotal = listOf(ArrayList<Double>(), ArrayList<Double>())
+            val wordLimits = listOf(32, 64)
+            for (words in wordLimits) {
+                for (i in contexts.indices) repeat(3) {
+                    checkActive(); scorer.score(bundle.tokenizer.prepare(contexts[i], pairs[i], words))
                 }
             }
-            return Result(tokenCount, vectors.size, error, loadMs, timing(feed), timing(inference), timing(total))
+            repeat(30) { trial ->
+                // Alternate which window is first to reduce systematic warm/thermal order bias.
+                val order = if (trial % 2 == 0) listOf(0, 1) else listOf(1, 0)
+                for (i in contexts.indices) {
+                    for (w in order) {
+                        checkActive()
+                        val began = System.nanoTime()
+                        val batch = bundle.tokenizer.prepare(contexts[i], pairs[i], wordLimits[w])
+                        val ready = System.nanoTime()
+                        scorer.score(batch)
+                        val done = System.nanoTime()
+                        checkpoint()
+                        windowFeed[w].add((ready - began) / 1_000_000.0)
+                        windowInference[w].add((done - ready) / 1_000_000.0)
+                        windowTotal[w].add((done - began) / 1_000_000.0)
+                    }
+                }
+            }
+            for (w in wordLimits.indices) {
+                windows.add(WindowTiming(wordLimits[w], timing(windowFeed[w]), timing(windowInference[w]), timing(windowTotal[w])))
+                feed.addAll(windowFeed[w]); inference.addAll(windowInference[w]); total.addAll(windowTotal[w])
+            }
+            return Result(tokenCount, vectors.size, error, loadMs, timing(feed), timing(inference), timing(total), windows)
         }
     }
 
