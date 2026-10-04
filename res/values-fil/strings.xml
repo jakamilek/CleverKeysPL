@@ -2232,7 +2232,7 @@
 
     <!-- Configurable editing behavior (trial v9). -->
     <string name="edit_backspace_tap_mode_title">Maikling Backspace</string>
-    <string name="edit_backspace_hold_select_title">Pumili ng salita sa pagpindot nang matagal</string>
+    <string name="edit_backspace_hold_select_title">Piliin ang salita sa matagal na pindot</string>
     <string name="edit_backspace_release_delete_title">Burahin ang pinili sa pagbitaw</string>
     <string name="edit_backspace_pause_enabled_title">I-pause kapag nagbago ang direksiyon</string>
     <string name="edit_backspace_pause_dp_title">Layo para huminto</string>
