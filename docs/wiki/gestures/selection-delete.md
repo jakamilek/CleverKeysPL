@@ -8,37 +8,34 @@ related_spec: ../specs/gestures/selection-delete-spec.md
 
 # Selection Delete
 
-## Polish trial v12 (2026-10-04)
+## Polish trial v13 (2026-10-04)
 
 | Action | Result |
 |---|---|
-| Tap Backspace | Use the selected tap action; the default deletes one character or space |
-| Drag left from Backspace without waiting | Start selecting characters from the caret |
-| Hold without moving | Preview the previous word, then delete it after a short pause |
-| Keep holding | Preview and delete successive previous words |
+| Tap Backspace | Use the selected tap action; default: delete one character or space |
+| Drag left from Backspace without waiting | Select characters with the same movement response as the space cursor slider |
+| Move slowly / quickly | Select precisely / accelerate selection |
+| Stop your finger | Stop selection immediately |
+| Move right | Shrink the selection; it cannot pass the original caret |
+| Hold without dragging | Preview and delete successive previous words |
 | Release after a word was deleted | Stop; the next word stays untouched |
-| Move left during a word preview or between words | Switch to character selection |
-| Make a small reverse movement during selection | Pause; move farther to extend or shrink the selection |
-| Release during a preview or drag | Delete the current selection, or keep it when Delete selection on release is off |
+| Drag left during the word cycle | Switch to character selection until release |
+| Release during a preview or drag | Delete the selection, or keep it when Delete selection on release is off |
 
-The first word appears after the configured long-press timeout. Its visible preview
-lasts 350 ms; a 200 ms gap follows deletion before the next word is selected.
-The space before the deleted word remains. The next deletion also consumes any
-spaces following that word. Releasing or cancelling ends the cycle. Cancellation
-does not delete a pending preview and cannot restore words already deleted.
+Space and Backspace share sensitivity, finger-speed response and maximum acceleration.
+**Input Behavior → Space and Backspace Slider Sensitivity** controls distance per
+character. Lower values require less travel. **Gesture Tuning → Cursor and Selection
+Sliding** controls speed response and maximum acceleration. There is no automatic
+edge scrolling, reversal brake or resume distance. A stopped drag never resumes word
+deletion. Other keys do not activate when the finger crosses the keyboard.
 
-Character selection starts after a deliberate left movement, without a long press.
-**Start or resume distance** controls that movement (24 dp by default), as well as
-resuming after a pause. Diagonal subkey flicks retain their existing route. Once
-selection starts, the finger can cross other keyboard keys without activating them.
-The existing pause, speed and acceleration settings continue to control dragging.
-Holding still after pausing a drag does not switch back to word deletion.
-
-**Drag selection and word deletion** enables both gestures. Turning it off restores
-the earlier key-repeat fallback. **Delete selection on release** only controls the
-pending selection when the finger lifts; stationary holding still deletes successive
-words automatically. Passwords, terminals and unsupported editors retain their fallback.
-This implementation requires CI and phone verification; it is not a released change.
+A stationary hold still uses the long-press timeout, followed by a 350 ms word preview
+and a 200 ms gap after deletion. The preceding separator remains. Lifting stops the
+cycle; cancellation leaves the pending preview undeleted and cannot restore earlier
+deletions. **Delete selection on release** does not disable timed deletion while held.
+**Drag selection and word deletion** gates both gestures. Passwords, terminals and
+unsupported editors retain their fallback. V12 passed CI and was accepted on the phone;
+this new movement response needs its own CI and phone check. No released change.
 
 ## Historical Polish trial v8 (2026-10-03)
 

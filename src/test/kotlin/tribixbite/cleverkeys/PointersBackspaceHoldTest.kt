@@ -24,11 +24,12 @@ class PointersBackspaceHoldTest {
         handler = mockk(relaxed = true); timers = mockk(relaxed = true)
         every { handler.beginBackspaceHold() } returns true
         every { handler.beginBackspaceDrag() } returns true
+        every { handler.stepBackspaceHold(any()) } returns true
         every { handler.backspaceKeyboardWidth() } returns 1000f
         val key = KeyValue.keyeventKey(0xE003, KeyEvent.KEYCODE_DEL, 0)
         ptr = Pointers.Pointer(1, KeyboardData.Key.EMPTY.withKeyValue(0,key), key, 900f, 100f,
             Pointers.Modifiers.EMPTY, Pointers.FLAG_P_DEFERRED_DOWN,
-            testConfigSnapshot(swipe_typing_enabled = false, keyrepeat_enabled = false))
+            testConfigSnapshot(swipe_typing_enabled = false, keyrepeat_enabled = false, slider_speed_max = 1f))
         pointers = ObjenesisStd().newInstance(Pointers::class.java)
         field("_handler", handler); field("_ptrs", ptrs); field("_longpress_handler", timers)
         ptrs.add(ptr)
@@ -44,13 +45,13 @@ class PointersBackspaceHoldTest {
     @Test fun diagnosticsDistinguishHoldMoveReversalAndRelease() {
         val trace = mutableListOf<String>()
         every { handler.traceBackspace(any()) } answers { trace.add(firstArg()); Unit }
-        hold(); pointers.onTouchMove(100f,200f,1); pointers.onTouchMove(103f,200f,1)
-        pointers.onTouchMove(130f,200f,1)
+        hold(); pointers.onTouchMove(870f,200f,1); pointers.onTouchMove(873f,200f,1)
+        pointers.onTouchMove(900f,200f,1)
         pointers.onTouchUp(1)
         assertTrue(trace.any { it.contains("hold started=true") })
         assertEquals(1,trace.count { it.contains("move observed") })
         assertTrue(trace.any { it.contains("move direction=-1") })
-        assertTrue(trace.any { it.contains("move direction=0") })
+        assertEquals(2, trace.count { it.contains("move direction=") })
         assertTrue(trace.any { it.contains("move direction=1") })
         assertTrue(trace.last().contains("up pointer=1 owned=true"))
         verify(exactly = 1) { handler.finishBackspaceHold(true) }
@@ -65,7 +66,7 @@ class PointersBackspaceHoldTest {
     }
     @Test fun diagnosticFailureDoesNotLoseHoldMoveOrRelease() {
         every { handler.traceBackspace(any()) } throws IllegalStateException("sink failure")
-        hold(); pointers.onTouchMove(100f,200f,1); pointers.onTouchUp(1)
+        hold(); pointers.onTouchMove(870f,200f,1); pointers.onTouchUp(1)
         verify(exactly = 1) { handler.stepBackspaceHold(-1) }
         verify(exactly = 1) { handler.finishBackspaceHold(true) }
     }
@@ -76,15 +77,15 @@ class PointersBackspaceHoldTest {
         verify(exactly = 0) { handler.finishBackspaceHold(any()) }
     }
     @Test fun movingAcrossOtherKeysNeverActivatesTheirKeys() {
-        hold(); pointers.onTouchMove(100f,200f,1)
+        hold(); pointers.onTouchMove(870f,200f,1)
         verify(exactly = 1) { handler.stepBackspaceHold(-1) }
         verify(exactly = 0) { handler.onPointerDown(any(),any()) }
         verify(exactly = 0) { handler.onPointerUp(any(),any()) }
         assertTrue(pointers.isSliding())
     }
     @Test fun movingRightInLeftHalfShrinksSelection() {
-        hold(); pointers.onTouchMove(100f,200f,1); pointers.onTouchMove(103f,300f,1)
-        pointers.onTouchMove(130f,300f,1)
+        hold(); pointers.onTouchMove(870f,200f,1); pointers.onTouchMove(873f,300f,1)
+        pointers.onTouchMove(900f,300f,1)
         verify(exactly = 1) { handler.stepBackspaceHold(-1) }
         verify(exactly = 1) { handler.stepBackspaceHold(1) }
     }
@@ -108,12 +109,12 @@ class PointersBackspaceHoldTest {
         verify(exactly = 0) { handler.onPointerDown(any(),any()) }
     }
 
-    private fun configured(options: EditBehaviorOptions) {
+    private fun configured(options: EditBehaviorOptions, stepPx: Float = 30f) {
         val key = ptr.value!!
         ptrs.clear()
         ptr = Pointers.Pointer(1, ptr.key, key, 900f, 100f,
             Pointers.Modifiers.EMPTY, Pointers.FLAG_P_DEFERRED_DOWN,
-            testConfigSnapshot(swipe_typing_enabled = false, edit_behavior = options))
+            testConfigSnapshot(swipe_typing_enabled = false, edit_behavior = options, slide_step_px = stepPx, slider_speed_max = 1f))
         ptrs.add(ptr)
     }
     @Test fun releaseOptionKeepsTheSelectionWithoutDeleteDispatch() {
@@ -123,14 +124,16 @@ class PointersBackspaceHoldTest {
         verify(exactly = 0) { handler.finishBackspaceHold(any()) }
         verify(exactly = 0) { handler.onPointerUp(any(), any()) }
     }
-    @Test fun configuredDistancesAreScaledByDensityAndKeepPauseFreeOfTimers() {
-        configured(EditBehaviorOptions(pauseDp = 6, resumeDp = 24))
+    @Test fun capturedSpaceSensitivitySetsActivationDistance() {
+        configured(EditBehaviorOptions(), stepPx = 60f)
         every { handler.backspaceDensity() } returns 2f
-        hold(); pointers.onTouchMove(100f, 200f, 1)
-        pointers.onTouchMove(111f, 200f, 1); assertEquals(-1, ptr.backspaceDrag!!.direction)
-        pointers.onTouchMove(112f, 200f, 1); assertEquals(0, ptr.backspaceDrag!!.direction)
-        pointers.onTouchMove(159f, 200f, 1); assertEquals(0, ptr.backspaceDrag!!.direction)
-        pointers.onTouchMove(160f, 200f, 1); assertEquals(1, ptr.backspaceDrag!!.direction)
+        pointers.onTouchMove(841f,100f,1)
+        verify(exactly = 0) { handler.beginBackspaceDrag() }
+        pointers.onTouchMove(840f,100f,1)
+        verify(exactly = 1) { handler.beginBackspaceDrag() }
+        verify(exactly = 1) { handler.stepBackspaceHold(-1) }
+        assertEquals(-1,ptr.selectionDeleteWhat)
+        verify(exactly = 0) { timers.sendEmptyMessageDelayed(any(),any()) }
     }
     @Test fun holdSelectionCanBeDisabled() {
         configured(EditBehaviorOptions(holdSelect = false))
@@ -158,10 +161,9 @@ class PointersBackspaceHoldTest {
         verify(exactly = 0) { handler.onPointerDown(any(),any()) }
         verify(exactly = 0) { handler.onPointerUp(any(),any()) }
     }
-    @Test fun immediateDragUsesDensityAndCapturedDistanceBeforeTheHoldTimeout() {
-        configured(EditBehaviorOptions(resumeDp = 24))
-        every { handler.backspaceDensity() } returns 2f
-        // 48 px is exactly the captured 24 dp threshold at density 2.
+    @Test fun activationUsesSpacePixelsWithoutScalingThemAgainByDensity() {
+        configured(EditBehaviorOptions(), stepPx = 48f)
+        every { handler.backspaceDensity() } returns 3f
         pointers.onTouchMove(852f,100f,1)
         verify(exactly = 1) { handler.beginBackspaceDrag() }
         verify(exactly = 1) { handler.stepBackspaceHold(-1) }
@@ -196,15 +198,15 @@ class PointersBackspaceHoldTest {
         verify(exactly = 0) { handler.previewPreviousBackspaceWord() }
         verify(exactly = 1) { handler.finishBackspaceHold(true) }
     }
-    @Test fun draggingDuringWordPreviewCancelsAutomaticWordCycleEvenAfterBraking() {
+    @Test fun draggingDuringWordPreviewCancelsAutomaticWordCycleEvenWhenStopped() {
         hold()
         val oldMessage = ptr.selectionDeleteWhat
-        pointers.onTouchMove(100f,100f,1)
+        pointers.onTouchMove(870f,100f,1)
         assertEquals(BackspaceGesture.Mode.DRAG, ptr.backspaceMode)
         val stale = org.objenesis.ObjenesisStd().newInstance(android.os.Message::class.java)
         stale.what = oldMessage
         assertFalse(pointers.handleMessage(stale))
-        pointers.onTouchMove(103f,100f,1)
+        pointers.onTouchMove(873f,100f,1)
         repeat(3) { tick() }
         verify(exactly = 0) { handler.deleteBackspaceHoldWord() }
         verify(exactly = 0) { handler.previewPreviousBackspaceWord() }
@@ -219,33 +221,79 @@ class PointersBackspaceHoldTest {
         verify(exactly = 0) { handler.onPointerHold(any(),any()) }
         verify(exactly = 0) { handler.previewPreviousBackspaceWord() }
     }
-    @Test fun brakeStopsPendingRepeatUntilFurtherRightMotion() {
-        hold(); pointers.onTouchMove(100f,200f,1)
-        val activeTimer = ptr.selectionDeleteWhat
-        pointers.onTouchMove(103f,200f,1)
-        assertEquals(0,ptr.backspaceDrag!!.direction)
-        verify { timers.removeMessages(activeTimer) }
-        repeat(5) { tick() }
-        pointers.onTouchMove(110f,200f,1)
+    @Test fun stationaryDragHasNoRepeatAndReversesWithFingerMovement() {
+        hold(); pointers.onTouchMove(870f,200f,1)
+        repeat(5) { tick(); pointers.onTouchMove(870f,200f,1) }
         verify(exactly = 1) { handler.stepBackspaceHold(-1) }
         verify(exactly = 0) { handler.stepBackspaceHold(1) }
-        // Initial hold timer and first active step only; the pause adds no timer.
-        verify(exactly = 2) { timers.sendEmptyMessageDelayed(any(),any()) }
-        pointers.onTouchMove(118f,200f,1)
+        assertEquals(-1,ptr.selectionDeleteWhat)
+        pointers.onTouchMove(900f,200f,1)
         verify(exactly = 1) { handler.stepBackspaceHold(1) }
-        tick()
-        verify(exactly = 2) { handler.stepBackspaceHold(1) }
+        verify(exactly = 1) { timers.sendEmptyMessageDelayed(any(),any()) }
     }
-    @Test fun brakeCanResumeLeftAndReleaseStillCommitsSelection() {
-        hold(); pointers.onTouchMove(100f,200f,1)
-        pointers.onTouchMove(103f,200f,1); tick()
-        pointers.onTouchMove(88f,200f,1)
-        verify(exactly = 2) { handler.stepBackspaceHold(-1) }
-        pointers.onTouchMove(91f,200f,1); tick()
+    @Test fun reversibleMotionStillCommitsExactlyOnceOnRelease() {
+        hold(); pointers.onTouchMove(870f,200f,1)
+        pointers.onTouchMove(900f,200f,1)
+        pointers.onTouchMove(840f,200f,1)
         pointers.onTouchUp(1)
-        verify(exactly = 2) { handler.stepBackspaceHold(-1) }
-        verify(exactly = 0) { handler.stepBackspaceHold(1) }
+        verify(exactly = 1) { handler.stepBackspaceHold(-1) }
+        verify(exactly = 1) { handler.stepBackspaceHold(-2) }
+        verify(exactly = 1) { handler.stepBackspaceHold(1) }
         verify(exactly = 1) { handler.finishBackspaceHold(true) }
         verify(exactly = 0) { handler.onPointerUp(any(),any()) }
+    }
+    @Test fun oneFingerMoveCanSelectSeveralCharactersWithNoDragTimer() {
+        pointers.onTouchMove(810f,100f,1)
+        verify(exactly = 1) { handler.stepBackspaceHold(-3) }
+        verify(exactly = 0) { timers.sendEmptyMessageDelayed(any(),any()) }
+        repeat(5) { tick(); pointers.onTouchMove(810f,100f,1) }
+        verify(exactly = 1) { handler.stepBackspaceHold(-3) }
+    }
+    @Test fun rejectedEditorStepStopsTheRestOfThatMove() {
+        every { handler.stepBackspaceHold(any()) } returns false
+        pointers.onTouchMove(600f,100f,1)
+        verify(exactly = 1) { handler.stepBackspaceHold(-10) }
+        verify(exactly = 0) { handler.onPointerUp(any(),any()) }
+    }
+    @Test fun movingDuringWordGapCancelsNextPreviewPermanently() {
+        every { handler.deleteBackspaceHoldWord() } returns true
+        hold(); tick()
+        val message = ptr.selectionDeleteWhat
+        pointers.onTouchMove(870f,100f,1)
+        val stale = org.objenesis.ObjenesisStd().newInstance(android.os.Message::class.java)
+        stale.what = message
+        assertFalse(pointers.handleMessage(stale))
+        repeat(5) { tick() }
+        verify(exactly = 1) { handler.deleteBackspaceHoldWord() }
+        verify(exactly = 0) { handler.previewPreviousBackspaceWord() }
+        verify(exactly = 1) { handler.stepBackspaceHold(-1) }
+    }
+    @Test fun verticalMovementDuringDragDoesNotAccelerateHorizontalSelection() {
+        pointers.onTouchMove(870f,100f,1)
+        pointers.onTouchMove(870f,500f,1)
+        verify(exactly = 1) { handler.stepBackspaceHold(-1) }
+        verify(exactly = 0) { handler.stepBackspaceHold(1) }
+    }
+    @Test fun diagonalFlickAndInitialRightwardMotionDoNotClaimBackspace() {
+        pointers.onTouchMove(870f,70f,1)
+        pointers.onTouchMove(930f,100f,1)
+        verify(exactly = 0) { handler.beginBackspaceDrag() }
+    }
+    @Test fun actualSpaceSliderAndBackspaceConsumeTheSameMovementCounts() {
+        val emitted = mutableListOf<Int>()
+        every { handler.onPointerHold(any(),any()) } answers {
+            emitted.add(firstArg<KeyValue>().getSliderRepeat()); Unit
+        }
+        val slide = pointers.Sliding(900f,100f,1,0,KeyValue.Slider.Cursor_right,ptr.snap)
+        for (x in listOf(810f,840f,840f,900f)) {
+            slide.onTouchMove(ptr,x,100f)
+            pointers.onTouchMove(x,100f,1)
+        }
+        assertEquals(listOf(-3,1,2),emitted)
+        verifyOrder {
+            handler.stepBackspaceHold(-3)
+            handler.stepBackspaceHold(1)
+            handler.stepBackspaceHold(2)
+        }
     }
 }

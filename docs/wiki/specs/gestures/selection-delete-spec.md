@@ -8,7 +8,43 @@ version: v1.4.0
 
 # Selection Delete Technical Specification
 
-## Polish trial v12 — direct drag and repeated words
+## Polish trial v13 — shared space-slider motion
+
+`SliderMotion.move` is shared by `Pointers.Sliding` and the modern Backspace DRAG.
+Both capture slide_step_px, slider_speed_smoothing and slider_speed_max at pointer-down.
+Distance accumulates a signed fractional character remainder; finger velocity updates
+an exponential speed blend after each event, matching the space-slider calculation.
+Elapsed time is at least 1 ms. Invalid coordinates are ignored; parameters are bounded
+and each event emits at most 256 characters. A stationary event emits zero.
+
+Backspace activation uses the space slider step in physical pixels (already scaled),
+with the existing leftward horizontal-to-vertical ratio >2:1 before hold. After hold,
+a deliberate left movement of one step switches permanently to DRAG. Vertical motion
+is ignored by modern Backspace and does not accelerate its horizontal movement.
+Each movement applies one signed Unicode code-point count through stepBackspaceHold:
+one live editor validation and one setSelection per event. The buffer and initial
+caret bound both directions. The same editor identity, text and acknowledgement guards
+used in v12 remain mandatory; refusal never sends an unchecked DEL.
+
+DRAG has no repeat timer. Stopping the finger stops selection without a special brake;
+right movement shrinks it immediately once the accumulated character distance is met.
+The WORD_PREVIEW / WORD_GAP timer cycle retains 350 / 200 ms and release/cancel behavior.
+Transitioning to DRAG invalidates any queued word-cycle message permanently for that
+pointer. Crossing other keys does not activate them.
+
+The six old backspace_pause_enabled / pause_dp / resume_dp / speed_percent /
+fast_percent / accel_percent keys are no longer read or shown and are classified as
+DEPRECATED_KEYS: omitted from export and ignored by import. Reset clears the old keys
+only within the Backspace group; it does not change shared Space settings. Shared
+slider keys retain their existing backup types and ranges. Polish/base English copy
+is updated; other locales are recorded for later translation in memory/todo.md.
+
+V12 CI passed 3044 tests and both lint checks (run 37189695279); the maintainer accepted
+its phone behavior. V13 has separate pure motion, real space/BS pointer comparisons,
+stationary/word-cycle cancellation, batched Unicode/editor and backup regressions.
+Execution and phone acceptance for v13 remain pending.
+
+## Historical Polish trial v12 — direct drag and repeated words
 
 The ordinary-text path now starts horizontal selection in `Pointers.onTouchMove`,
 before the long-press timeout. It requires the captured holdSelect option, a deferred

@@ -16,7 +16,7 @@ import tribixbite.cleverkeys.prefs.ConfigSnapshot
  * fixture at compile time and forces a decision about what tests should see.
  */
 internal fun testConfigSnapshot(
-    edit_behavior: EditBehaviorOptions = EditBehaviorOptions(pauseDp = 3, resumeDp = 15, speedPercent = 100, fastPercent = 100),
+    edit_behavior: EditBehaviorOptions = EditBehaviorOptions(),
     circle_sensitivity: Int = 3,
     tap_duration_threshold: Long = 150L,
     double_tap_lock_shift: Boolean = false,

@@ -186,19 +186,19 @@ class BackspaceHoldTest {
         val key = KeyValue.keyeventKey(0xE003,KeyEvent.KEYCODE_DEL,0)
         val ptr = Pointers.Pointer(1, KeyboardData.Key.EMPTY.withKeyValue(0,key), key,900f,100f,
             Pointers.Modifiers.EMPTY,Pointers.FLAG_P_DEFERRED_DOWN,
-            testConfigSnapshot(swipe_typing_enabled = false))
+            testConfigSnapshot(swipe_typing_enabled = false, slider_speed_max = 1f))
         field("_handler",host); field("_ptrs",arrayListOf(ptr))
         field("_longpress_handler",mockk<Handler>(relaxed = true))
         Pointers::class.java.getDeclaredMethod("handleLongPress",Pointers.Pointer::class.java)
             .apply { isAccessible = true }.invoke(pointers,ptr)
         reportedSelection = 11 to 11
         acknowledgeSelection()
-        pointers.onTouchMove(100f,200f,1)
+        pointers.onTouchMove(870f,200f,1)
         assertEquals(" mleko ",conn.getSelectedText(0))
         acknowledgeSelection()
-        pointers.onTouchMove(103f,200f,1)
+        pointers.onTouchMove(873f,200f,1)
         assertEquals(" mleko ",conn.getSelectedText(0))
-        pointers.onTouchMove(130f,200f,1)
+        pointers.onTouchMove(900f,200f,1)
         assertEquals("mleko ",conn.getSelectedText(0))
         acknowledgeSelection()
         pointers.onTouchUp(1)
@@ -450,5 +450,27 @@ class BackspaceHoldTest {
         verify(exactly = 0) { conn.deleteSurroundingText(any(),any()) }
         verify(exactly = 2) { recv.clearSwipeUndoState() }
         verify(exactly = 2) { recv.clearAutocorrectUndoState() }
+    }
+    @Test fun batchedDragUpdatesSelectionOnceAndPreservesUnicodeOnRelease() {
+        text = "a🙂b🙂c"; caret(text.length)
+        assertTrue(handler.beginBackspaceDrag())
+        assertTrue(handler.stepBackspaceHold(-4))
+        assertEquals("🙂b🙂c",conn.getSelectedText(0))
+        assertTrue(handler.stepBackspaceHold(2))
+        assertEquals("🙂c",conn.getSelectedText(0))
+        verify(exactly = 3) { conn.setSelection(any(),any()) } // Activation + two touch events.
+        handler.finishBackspaceHold(true)
+        assertEquals("a🙂b",text)
+    }
+    @Test fun changedTextBlocksABatchedDragWithoutPartialSelectionOrDeletion() {
+        assertTrue(handler.beginBackspaceDrag())
+        assertTrue(handler.stepBackspaceHold(-4))
+        val selection = a to b
+        text = "olej soki  "
+        assertFalse(handler.stepBackspaceHold(-100))
+        assertEquals(selection,a to b)
+        handler.finishBackspaceHold(true)
+        assertEquals("olej soki  ",text)
+        verify(exactly = 0) { conn.commitText(any(),any()) }
     }
 }

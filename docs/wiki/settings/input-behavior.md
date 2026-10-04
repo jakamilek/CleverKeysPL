@@ -187,20 +187,18 @@ Drag left directly from Backspace to start character selection without waiting.
 Hold without moving to preview and delete successive preceding words. The preview
 lasts 350 ms, followed by a 200 ms gap before the next preview. Lift to stop.
 Moving left during the word cycle switches to character selection.
-Drag left across the keyboard to extend selection;
-a short reverse movement pauses it. Move further from the pause to resume left or
-shrink right. Other keys do not activate during this gesture. Release deletes by
-default; switch **Delete selection on release** off to keep the selected range.
-This release setting does not disable automatic word deletion while holding still.
-Disabling **Drag selection and word deletion** restores ordinary repeat when Key Repeat is on.
+Drag left across the keyboard to extend selection, or right to shrink it. Stop your
+finger to stop selection; slow motion gives precision and quick motion accelerates.
+Other keys do not activate. Release deletes by default; switch **Delete selection on
+release** off to keep the selected range. This does not disable automatic word deletion
+while holding still. Disabling **Drag selection and word deletion** restores ordinary
+repeat when Key Repeat is on.
 
-| Setting | Initial value |
-|---|---|
-| Pause on reversal | On |
-| Brake / resume distance | 6 / 24 dp |
-| Selection speed | 80% of the previous gesture rate |
-| Fast selection speed | 200% of the previous gesture rate |
-| Acceleration threshold | More than half the screen width travelled in one direction |
+Space and Backspace share **Space and Backspace Slider Sensitivity** in Input Behavior
+and speed response / maximum acceleration in **Gesture Tuning → Cursor and Selection
+Sliding**. Lower sensitivity values mean less travel per character. The former
+Backspace brake, resume, edge speed and travel acceleration controls are retired;
+old backup values are ignored. Resetting Backspace does not reset shared Space settings.
 
 The older vertical controls belong to the fallback gesture for unsupported editors.
 Each editing group has its own reset button, and the options are searchable and

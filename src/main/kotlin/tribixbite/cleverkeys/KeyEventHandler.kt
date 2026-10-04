@@ -193,7 +193,7 @@ class KeyEventHandler(
         val s = backspaceHold ?: return false
         return try {
             // A pending/lagging editor read is not a cancelled physical gesture. The
-            // pointer timer will retry; release still requires a verified live selection.
+            // next movement can retry; release still requires a verified live selection.
             if (!backspaceHoldStillCurrent(s)) return false
             val previous = s.cursor
             val next = BackspaceGesture.step(s.before, previous, direction)

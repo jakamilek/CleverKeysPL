@@ -32,71 +32,72 @@ class BackspaceGestureTest {
         assertEquals(0, BackspaceGesture.step("abc", 0, -1))
         assertEquals(3, BackspaceGesture.step("abc", 3, 1))
     }
-    @Test fun leftEdgeAcceleratesSelectionAndRightEdgeAcceleratesShrinking() {
-        assertEquals(30L, BackspaceGesture.repeatDelay(0f, 1000f, -1))
-        assertEquals(30L, BackspaceGesture.repeatDelay(1000f, 1000f, 1))
-        assertTrue(BackspaceGesture.repeatDelay(100f, 1000f, -1) <
-            BackspaceGesture.repeatDelay(800f, 1000f, -1))
-        assertTrue(BackspaceGesture.repeatDelay(900f, 1000f, 1) <
-            BackspaceGesture.repeatDelay(200f, 1000f, 1))
-    }
-    @Test fun invalidGeometryKeepsASafeRepeatDelay() {
-        assertEquals(200L, BackspaceGesture.repeatDelay(Float.NaN, 1000f, -1))
-        assertEquals(200L, BackspaceGesture.repeatDelay(10f, 0f, 1))
-        assertEquals(30L, BackspaceGesture.repeatDelay(-100f, 1000f, -1))
-    }
-    @Test fun firstRightwardMoveDoesNotActivateSelection() {
-        val drag = BackspaceGesture.Drag(900f)
-        assertFalse(drag.move(950f)); assertEquals(0, drag.direction)
-        assertFalse(drag.move(890f)); assertEquals(0, drag.direction)
-        assertTrue(drag.move(880f)); assertEquals(-1, drag.direction)
-    }
-    @Test fun rightwardReversalShrinksEvenInTheLeftHalf() {
-        val drag = BackspaceGesture.Drag(900f)
-        assertTrue(drag.move(100f)); assertEquals(-1, drag.direction)
-        assertTrue(drag.move(103f)); assertEquals(0, drag.direction)
-        assertTrue(drag.move(130f)); assertEquals(1, drag.direction)
-        assertFalse(drag.move(135f)); assertEquals(1, drag.direction)
-        assertTrue(drag.move(132f)); assertEquals(0, drag.direction)
-        assertTrue(drag.move(100f)); assertEquals(-1, drag.direction)
-    }
+    private fun motion(step: Float = 10f, maximum: Float = 1f) =
+        SliderMotion(100f, 0f, step, 0.6f, maximum)
 
-    @Test fun smallReversalBrakesWithoutImmediatelyShrinking() {
-        val drag = BackspaceGesture.Drag(900f)
-        assertTrue(drag.move(100f))
-        assertTrue(drag.move(103f)); assertEquals(0, drag.direction)
-        repeat(20) { assertFalse(drag.move(103f)); assertEquals(0, drag.direction) }
-        assertFalse(drag.move(110f)); assertEquals(0, drag.direction)
+    @Test fun stationaryFingerNeverMovesEvenAfterALongWait() {
+        val m = motion()
+        assertEquals(-2, m.move(80f, 0f, 100))
+        repeat(20) { assertEquals(0, m.move(80f, 0f, 10000L + it)) }
     }
-    @Test fun pausedGestureCanResumeLeftFromItsPausePosition() {
-        val drag = BackspaceGesture.Drag(900f)
-        drag.move(100f); drag.move(103f)
-        assertFalse(drag.move(89f)); assertEquals(0, drag.direction)
-        assertTrue(drag.move(88f)); assertEquals(-1, drag.direction)
+    @Test fun slowMovementAccumulatesFractionsIntoCharacters() {
+        val m = motion()
+        assertEquals(0, m.move(91f, 0f, 100))
+        assertEquals(-1, m.move(90f, 0f, 200))
+        assertEquals(0, m.move(86f, 0f, 300))
+        assertEquals(-1, m.move(80f, 0f, 400))
     }
-    @Test fun pausedGestureCanResumeRightAndBrakeAgain() {
-        val drag = BackspaceGesture.Drag(900f)
-        drag.move(100f); drag.move(103f)
-        assertFalse(drag.move(117f)); assertEquals(0, drag.direction)
-        assertTrue(drag.move(118f)); assertEquals(1, drag.direction)
-        assertTrue(drag.move(115f)); assertEquals(0, drag.direction)
-        assertTrue(drag.move(130f)); assertEquals(1, drag.direction)
+    @Test fun reverseMovementShrinksWithoutABrakeOrResumeDistance() {
+        val m = motion()
+        assertEquals(-3, m.move(70f, 0f, 100))
+        assertEquals(1, m.move(80f, 0f, 200))
+        assertEquals(-1, m.move(70f, 0f, 300))
     }
-    @Test fun brakeFollowsLatestExtremeAndIgnoresSubThresholdJitter() {
-        val drag = BackspaceGesture.Drag(900f)
-        drag.move(100f); assertFalse(drag.move(50f))
-        assertFalse(drag.move(52f)); assertEquals(-1, drag.direction)
-        assertTrue(drag.move(53f)); assertEquals(0, drag.direction)
-        assertFalse(drag.move(54f)); assertFalse(drag.move(52f))
-        assertFalse(drag.move(67f)); assertEquals(0, drag.direction)
-        assertTrue(drag.move(68f)); assertEquals(1, drag.direction)
+    @Test fun fasterFingerAcceleratesMoreThanSlowerFinger() {
+        val slow = motion(maximum = 6f); val fast = motion(maximum = 6f)
+        slow.move(90f, 0f, 100); fast.move(90f, 0f, 100)
+        slow.move(80f, 0f, 1100); fast.move(80f, 0f, 101)
+        assertTrue(kotlin.math.abs(fast.move(60f, 0f, 102)) >
+            kotlin.math.abs(slow.move(60f, 0f, 2100)))
     }
-    @Test fun nonFiniteMotionCannotBrakeOrResume() {
-        val drag = BackspaceGesture.Drag(900f)
-        drag.move(100f)
-        assertFalse(drag.move(Float.NaN)); assertEquals(-1, drag.direction)
-        drag.move(103f)
-        assertFalse(drag.move(Float.POSITIVE_INFINITY)); assertEquals(0, drag.direction)
-        assertTrue(drag.move(118f)); assertEquals(1, drag.direction)
+    @Test fun sharedSensitivityChangesDistancePerCharacter() {
+        assertEquals(-4, motion(step = 5f).move(80f, 0f, 100))
+        assertEquals(-1, motion(step = 20f).move(80f, 0f, 100))
+    }
+    @Test fun speedDependsOnMotionNotAbsoluteScreenPosition() {
+        val a = motion(maximum = 6f)
+        val b = SliderMotion(900f, 0f, 10f, 0.6f, 6f)
+        for ((i, x) in listOf(90f, 70f, 75f, 95f).withIndex()) {
+            assertEquals(a.move(x, 0f, 100L + i * 30), b.move(x + 800f, 0f, 100L + i * 30))
+        }
+    }
+    @Test fun sameTimestampAndInvalidInputCannotPoisonMotion() {
+        val m = motion(maximum = 6f)
+        assertEquals(0, m.move(Float.NaN, 0f, 100))
+        assertEquals(0, m.move(90f, Float.POSITIVE_INFINITY, 100))
+        assertEquals(-1, m.move(90f, 0f, 100))
+        assertTrue(m.move(80f, 0f, 100) < 0)
+        assertTrue(m.move(70f, 0f, 99) < 0)
+    }
+    @Test fun corruptSliderOptionsHaveFiniteUsableFallbacks() {
+        val m = SliderMotion(100f, 0f, 0f, Float.NaN, Float.NaN)
+        assertEquals(-1, m.move(70f, 0f, 100))
+        assertEquals(0, m.move(70f, 0f, 100))
+    }
+    @Test fun hugeEventIsBoundedAndCannotContinueAfterFingerStops() {
+        val m = motion()
+        assertEquals(-256, m.move(-10000f, 0f, 100))
+        assertEquals(0, m.move(-10000f, 0f, 10000))
+    }
+    @Test fun verticalSpaceSliderRetainsItsAxisAndMultiplier() {
+        val m = SliderMotion(0f, 100f, 10f, 0.6f, 1f, 0, -1, 0.5f)
+        assertEquals(1, m.move(0f, 80f, 100))
+        assertEquals(-1, m.move(0f, 100f, 200))
+    }
+    @Test fun multipleCharacterStepsStayWithinAnchorAndPreserveUnicode() {
+        assertEquals(1, BackspaceGesture.step("a🙂b🙂c", 6, -3))
+        assertEquals(6, BackspaceGesture.step("a🙂b🙂c", 1, 3))
+        assertEquals(0, BackspaceGesture.step("a🙂b", 4, Int.MIN_VALUE))
+        assertEquals(4, BackspaceGesture.step("a🙂b", 0, Int.MAX_VALUE))
     }
 }

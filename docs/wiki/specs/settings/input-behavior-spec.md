@@ -202,13 +202,13 @@ Tuning** section. See [Short Swipes](../gestures/short-swipes-spec.md).
 ## Configurable editing behavior (Polish fork trial v9)
 
 The maintainer accepted v9 controls on the phone; runtime 5200 CI passed 3031 tests
-and both lint gates. The subsequent v12 Backspace gesture requires separate CI and
-phone verification. No application version or release promotion changes here.
+and both lint gates. V12 CI passed 3044 tests and both lint checks, and the maintainer accepted the phone
+behavior. V13 shares the space slider motion and requires separate CI/phone verification. No application version or release promotion changes here.
 
 Gesture Tuning contains **Backspace**: a tap deletes one character/space by default;
 an explicit mode can instead undo the immediately preceding autocorrection or remove
 the verified last swiped word. Dragging left starts character selection immediately,
-without waiting for a hold, after the configured start/resume distance. A stationary
+without waiting for a hold, after the shared space-slider step. A stationary
 hold previews the preceding word while retaining its preceding separator; after
 350 ms it deletes the word, waits 200 ms, then previews the next word while held.
 Moving left switches permanently to character dragging for that pointer.
@@ -218,14 +218,12 @@ the selection for a later edit. The release option does not disable timed word
 deletion. Cancellation deletes no pending selection; earlier committed deletions
 remain. See [the gesture specification](../gestures/selection-delete-spec.md#polish-trial-v12--direct-drag-and-repeated-words).
 
-A reversal brakes after 6 dp by default. While paused, no repeat timer runs. A later
-movement of 24 dp from the pause position resumes in either direction. Jitter does
-not drift that reference. Disabling pause allows a direct reversal. The normal rate
-is 80% of the v8 edge-dependent rate; after travelling strictly more than 50% of the
-screen width it uses 200% of that rate, including a 15 ms fastest default repeat.
-These two rates are relative to v8, not relative to each other. Resuming in the same
-direction retains travel; reversing resets its origin. Screen travel and dp values
-remain distinct. Nonfinite coordinates are ignored.
+V13 supersedes the automatic drag repeat with SliderMotion, shared with Space.
+Captured slide_step_px sets activation and character distance; slider_speed_smoothing
+and slider_speed_max control response to finger speed. Stopping movement stops selection,
+and reversing shrinks it without a pause/resume state. Character counts are batched into
+one validated editor update per touch event. The stationary word timer remains unchanged.
+See [the current specification](../gestures/selection-delete-spec.md#polish-trial-v13--shared-space-slider-motion).
 
 Turning off drag selection and word deletion uses ordinary character repeat when Key Repeat is enabled.
 The older vertical selection-delete sliders describe only the two-axis fallback when
@@ -248,14 +246,8 @@ storage-only action, and asynchronous editor/cursor guards remain unconditional.
 | Control | Key | Default | Range |
 |---|---|---|---|
 | Short Backspace action | `backspace_tap_mode` | 0 | 0–2 |
-| Word preview on hold | `backspace_hold_select` | true | on/off |
+| Drag selection and word deletion | `backspace_hold_select` | true | on/off |
 | Delete on release | `backspace_release_delete` | true | on/off |
-| Pause on reversal | `backspace_pause_enabled` | true | on/off |
-| Brake distance | `backspace_pause_dp` | 6 dp | 3–12 dp |
-| Resume distance | `backspace_resume_dp` | 24 dp | 12–48 dp |
-| Normal speed | `backspace_speed_percent` | 80% | 40–150% |
-| Fast speed | `backspace_fast_percent` | 200% | 100–300% |
-| Acceleration distance | `backspace_accel_percent` | 50% | 30–80% |
 | Remove preceding punctuation space | `punctuation_remove_space` | true | on/off |
 | Add following punctuation space | `punctuation_add_space` | true | on/off |
 | Format search fields | `format_search_fields` | false | on/off |
@@ -270,18 +262,18 @@ Defaults live in `Defaults`; `readEditBehaviorPreferences` uses safe bounded rea
 An invalid tap-mode enum falls back to character deletion. The immutable
 `EditBehaviorOptions` is captured in `ConfigSnapshot` at pointer-down. The Compose
 controls use `saveSetting`, preference notifications and `loadCurrentSettings`;
-search is generated from their localized resource titles. All new copy is present
-in the 22 resource sets. Scoped reset removes only its own group's preference keys.
+search is generated from their localized resource titles. Polish and base English shared-slider descriptions are current; changed semantics
+in other locales are tracked for later translation. Scoped reset removes only its own group's preference keys.
 
 `SETTINGS_DEFAULTS` and `SettingsValidation` include the new typed keys. Historical
 `backspace_undo_swipe` / `backspace_undo_autocorrect` are deprecated, omitted from
 exports and ignored on import. Their old true/true values do not select an undo mode.
 The Config symbols remain solely to preserve historical RELEASE_RECORD anchors.
 
-`EditingSettingsPolicyTest` covers speed/travel/pausing, punctuation switches and
-backup boundaries. `EditingSettingsReadTest` covers defaults, old keys, clamping and
+`BackspaceGestureTest` covers shared motion, acceleration and Unicode counts.
+`EditingSettingsPolicyTest` covers punctuation switches and backup boundaries. `EditingSettingsReadTest` covers defaults, old keys, clamping and
 immutable reads. Existing pointer, editor, Shift and capitalization suites include
-option-specific cases. Their execution is pending the v9 Actions run.
+option-specific cases. V13 execution is pending its Actions run.
 
 ## Configuration
 
@@ -308,7 +300,7 @@ validator (`backup/SettingsValidation.kt`) accepts a wider band, both are shown.
 |---------|-----|---------|-------|
 | **Swipe Distance Threshold** | `swipe_dist` | `"23"` | slider 5-30 (stored as a string; scaled to px at `Config.kt:774`) |
 | **Circle Gesture Sensitivity** | `circle_sensitivity` | `"2"` | 1-5 (string) |
-| **Space Slider Sensitivity** | `slider_sensitivity` | `"30"` | 1-100% (`SettingsRanges.SLIDER_SENSITIVITY_PERCENT`; string). Floor is 1, not 0 — F-3 |
+| **Space and Backspace Slider Sensitivity** | `slider_sensitivity` | `"30"` | 1-100% (`SettingsRanges.SLIDER_SENSITIVITY_PERCENT`; string). Floor is 1, not 0 — F-3 |
 | **Long-Press Timeout** | `longpress_timeout` | 600 | slider 200-1000 ms; validator 50-2000 |
 | **Key-Repeat Interval** | `longpress_interval` | 25 | 25-200 ms (`SettingsRanges.LONGPRESS_INTERVAL`) |
 | **Key Repeat** | `keyrepeat_enabled` | true | bool |

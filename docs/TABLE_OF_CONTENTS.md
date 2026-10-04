@@ -163,3 +163,7 @@ Only in-force audit records live here; everything superseded is under `docs/hist
 - [Immutable settings architecture](wiki/specs/settings/settings-system-architecture-spec.md#immutable-editing-options-polish-fork-trial-v9)
 
 V9 build and phone acceptance are pending; this is not a release.
+
+### Polish Backspace trial v13 (2026-10-04)
+
+Space and Backspace share motion-driven sliding: see [Selection Delete](wiki/gestures/selection-delete.md) and its [specification](wiki/specs/gestures/selection-delete-spec.md). Stationary word deletion remains as accepted in v12.

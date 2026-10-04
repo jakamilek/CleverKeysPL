@@ -686,9 +686,9 @@
     <string name="gesture_high_velocity_title">High Velocity Threshold</string>
     <string name="gesture_high_velocity_desc">Velocity for fast swipe detection (px/sec). Higher allows faster swipes.</string>
     <string name="gesture_speed_smoothing_title">Speed Smoothing</string>
-    <string name="gesture_speed_smoothing_desc">Smoothing factor for slider movement. Higher is smoother but less responsive.</string>
+    <string name="gesture_speed_smoothing_desc">Response to finger speed, shared by Space and Backspace. Higher values follow speed changes more quickly.</string>
     <string name="gesture_max_speed_multiplier_title">Maximum Speed Multiplier</string>
-    <string name="gesture_max_speed_multiplier_desc">Maximum slider acceleration. Higher allows faster sliding.</string>
+    <string name="gesture_max_speed_multiplier_desc">Maximum acceleration for fast finger movement on Space and Backspace.</string>
 
     <!-- GifPanelSection -->
     <string name="gif_enable_title">Enable GIF Panel</string>
@@ -737,8 +737,8 @@
     <string name="input_swipe_distance_threshold_desc">Distance (device-scaled units) to activate slider/event subkeys mid-swipe (e.g. spacebar cursor slider). Also caps the short-swipe minimum on wide keys like backspace so their flicks stay easy.</string>
     <string name="input_circle_gesture_title">Circle Gesture Sensitivity</string>
     <string name="input_circle_gesture_desc">Sensitivity for loop/circle gestures</string>
-    <string name="input_space_slider_title">Space Bar Slider Sensitivity</string>
-    <string name="input_space_slider_desc">Sensitivity for cursor movement via space bar horizontal swipe</string>
+    <string name="input_space_slider_title">Space and Backspace Slider Sensitivity</string>
+    <string name="input_space_slider_desc">Shared cursor and selection sensitivity. Lower values require less finger travel per character.</string>
     <string name="input_long_press_timeout_title">Long Press Timeout</string>
     <string name="input_long_press_timeout_desc">Duration to trigger long press (milliseconds)</string>
     <string name="input_long_press_interval_title">Long Press Interval</string>
@@ -1130,7 +1130,7 @@
     <string name="gesture_selection_delete_desc">Short swipe + hold on backspace to select text, then release to delete.</string>
     <string name="gesture_tap_typing_header">Tap and Typing</string>
     <string name="gesture_swipe_recognition_header">Swipe Recognition</string>
-    <string name="gesture_slider_key_header">Slider Key Behavior</string>
+    <string name="gesture_slider_key_header">Cursor and Selection Sliding</string>
     <string name="gesture_tuning_tip">If gestures feel laggy, reduce dwell time and noise threshold. If taps register as swipes, increase tap duration.</string>
 
     <!-- IntentEditorDialog.kt — build a custom Android intent for a short-swipe action.
@@ -2642,7 +2642,7 @@
     <string name="edit_tap_swipe">Delete last swipe, then characters</string>
     <string name="edit_backspace_header">Backspace</string>
     <string name="edit_format_header">Text formatting</string>
-    <string name="edit_backspace_help">Drag left from Backspace to select characters. Hold still to preview and delete successive words. Delete on release applies to the current selection; holding still continues automatic word deletion. Disable these gestures for ordinary repeat, which requires Key Repeat. Tap alternatives apply after a suggestion.</string>
+    <string name="edit_backspace_help">Drag left from Backspace to select, or right to shrink selection. Stop your finger to stop selection. Sensitivity is shared with Space in Input Behavior; acceleration is in Gesture Tuning. Hold still to preview and delete successive words. Delete on release controls the pending selection only; holding still continues timed word deletion. With gestures off, ordinary deletion requires Key Repeat.</string>
     <string name="edit_pause_help">This distance starts selection when dragging left from Backspace and resumes it after a pause. A short reversal pauses selection.</string>
     <string name="edit_speed_help" formatted="false">Relative to the previous gesture speed: 80% is slower, 100% is unchanged.</string>
     <string name="edit_fast_help">Fast mode starts after traveling further than this percentage of screen width. Reversing resets the travel distance.</string>

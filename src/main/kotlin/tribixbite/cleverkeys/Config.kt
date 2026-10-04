@@ -20,12 +20,6 @@ object Defaults {
     const val BACKSPACE_TAP_MODE = 0
     const val BACKSPACE_HOLD_SELECT = true
     const val BACKSPACE_RELEASE_DELETE = true
-    const val BACKSPACE_PAUSE_ENABLED = true
-    const val BACKSPACE_PAUSE_DP = 6
-    const val BACKSPACE_RESUME_DP = 24
-    const val BACKSPACE_SPEED_PERCENT = 80
-    const val BACKSPACE_FAST_PERCENT = 200
-    const val BACKSPACE_ACCEL_PERCENT = 50
     const val PUNCTUATION_REMOVE_SPACE = true
     const val PUNCTUATION_ADD_SPACE = true
     const val FORMAT_SEARCH_FIELDS = false
@@ -1415,6 +1409,7 @@ class Config private constructor(
         fun beginBackspaceDrag(): Boolean = false
         fun deleteBackspaceHoldWord(): Boolean = false
         fun previewPreviousBackspaceWord(): Boolean = false
+        /** Signed Unicode character count; one validated update per movement. */
         fun stepBackspaceHold(direction: Int): Boolean = false
         fun finishBackspaceHold(commit: Boolean) {}
         fun keepBackspaceHoldSelection() {}
@@ -1931,12 +1926,6 @@ internal fun readEditBehaviorPreferences(prefs: SharedPreferences): EditBehavior
         .takeIf { it in EditBehaviorRanges.BACKSPACE_TAP_MODE } ?: Defaults.BACKSPACE_TAP_MODE,
     holdSelect = Config.safeGetBoolean(prefs, "backspace_hold_select", Defaults.BACKSPACE_HOLD_SELECT),
     releaseDelete = Config.safeGetBoolean(prefs, "backspace_release_delete", Defaults.BACKSPACE_RELEASE_DELETE),
-    pauseEnabled = Config.safeGetBoolean(prefs, "backspace_pause_enabled", Defaults.BACKSPACE_PAUSE_ENABLED),
-    pauseDp = Config.safeGetInt(prefs, "backspace_pause_dp", Defaults.BACKSPACE_PAUSE_DP).coerceIn(EditBehaviorRanges.BACKSPACE_PAUSE_DP),
-    resumeDp = Config.safeGetInt(prefs, "backspace_resume_dp", Defaults.BACKSPACE_RESUME_DP).coerceIn(EditBehaviorRanges.BACKSPACE_RESUME_DP),
-    speedPercent = Config.safeGetInt(prefs, "backspace_speed_percent", Defaults.BACKSPACE_SPEED_PERCENT).coerceIn(EditBehaviorRanges.BACKSPACE_SPEED_PERCENT),
-    fastPercent = Config.safeGetInt(prefs, "backspace_fast_percent", Defaults.BACKSPACE_FAST_PERCENT).coerceIn(EditBehaviorRanges.BACKSPACE_FAST_PERCENT),
-    accelPercent = Config.safeGetInt(prefs, "backspace_accel_percent", Defaults.BACKSPACE_ACCEL_PERCENT).coerceIn(EditBehaviorRanges.BACKSPACE_ACCEL_PERCENT),
     punctuationRemoveSpace = Config.safeGetBoolean(prefs, "punctuation_remove_space", Defaults.PUNCTUATION_REMOVE_SPACE),
     punctuationAddSpace = Config.safeGetBoolean(prefs, "punctuation_add_space", Defaults.PUNCTUATION_ADD_SPACE),
     formatSearchFields = Config.safeGetBoolean(prefs, "format_search_fields", Defaults.FORMAT_SEARCH_FIELDS),

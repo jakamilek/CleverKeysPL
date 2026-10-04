@@ -25,7 +25,7 @@ import tribixbite.cleverkeys.ui.settings.io.refreshInstalledLanguagePacks
  * The override in [SettingsActivity] delegates here with identical parameters.
  */
 internal fun SettingsActivity.handlePreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
-        if (key in setOf("backspace_tap_mode", "backspace_hold_select", "backspace_release_delete", "backspace_pause_enabled", "backspace_pause_dp", "backspace_resume_dp", "backspace_speed_percent", "backspace_fast_percent", "backspace_accel_percent", "punctuation_remove_space", "punctuation_add_space", "format_search_fields", "numeric_period_caps", "shift_word_case", "shift_word_end", "show_case_variants", "exact_add_first", "reset_suggestions_on_delete")) {
+        if (key in setOf("backspace_tap_mode", "backspace_hold_select", "backspace_release_delete", "punctuation_remove_space", "punctuation_add_space", "format_search_fields", "numeric_period_caps", "shift_word_case", "shift_word_end", "show_case_variants", "exact_add_first", "reset_suggestions_on_delete")) {
             editBehavior = readEditBehaviorPreferences(prefs)
         }
         // Handle preference changes for reactive updates

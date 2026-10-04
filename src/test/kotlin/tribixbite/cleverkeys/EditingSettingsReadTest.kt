@@ -17,10 +17,6 @@ class EditingSettingsReadTest {
         val options = readEditBehaviorPreferences(prefs())
         assertEquals(EditBehaviorOptions(), options)
         assertEquals(0, options.tapMode)
-        assertEquals(6, options.pauseDp)
-        assertEquals(24, options.resumeDp)
-        assertEquals(80, options.speedPercent)
-        assertEquals(200, options.fastPercent)
         assertFalse(options.formatSearchFields)
     }
 
@@ -34,9 +30,7 @@ class EditingSettingsReadTest {
             "backspace_tap_mode" to 99, "backspace_pause_dp" to -1,
             "backspace_resume_dp" to 999, "backspace_speed_percent" to 0,
             "backspace_fast_percent" to 999, "backspace_accel_percent" to -1)))
-        assertEquals(0, options.tapMode); assertEquals(3, options.pauseDp)
-        assertEquals(48, options.resumeDp); assertEquals(40, options.speedPercent)
-        assertEquals(300, options.fastPercent); assertEquals(30, options.accelPercent)
+        assertEquals(EditBehaviorOptions(), options) // Old drag tuning is ignored.
     }
 
     @Test fun changedPreferencesProduceANewImmutableReadModel() {
@@ -47,7 +41,7 @@ class EditingSettingsReadTest {
         values["backspace_speed_percent"] = 120
         values["backspace_release_delete"] = true
         val refreshed = readEditBehaviorPreferences(p)
-        assertEquals(60, captured.speedPercent); assertFalse(captured.releaseDelete)
-        assertEquals(120, refreshed.speedPercent); assertTrue(refreshed.releaseDelete)
+        assertFalse(captured.releaseDelete)
+        assertTrue(refreshed.releaseDelete)
     }
 }

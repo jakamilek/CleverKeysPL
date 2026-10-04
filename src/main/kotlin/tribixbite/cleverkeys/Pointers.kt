@@ -949,9 +949,8 @@ class Pointers(
         // flicks retain their existing path; once claimed, all keys belong to this pointer.
         if (x.isFinite() && y.isFinite() && !ptr.backspaceWordHold && snap.edit_behavior.holdSelect &&
             ptr.hasFlagsAny(FLAG_P_DEFERRED_DOWN) && isBackspaceKey(ptr.key.keys[0])) {
-            val density = _handler.backspaceDensity().takeIf { it.isFinite() && it > 0f } ?: 1f
             val dx = x - ptr.downX
-            if (dx <= -snap.edit_behavior.resumeDp * density && abs(dx) > 2f * abs(y - ptr.downY)) {
+            if (dx <= -snap.slide_step_px && abs(dx) > 2f * abs(y - ptr.downY)) {
                 beginBackspacePointer(ptr, drag = true)
             }
         }
@@ -961,11 +960,18 @@ class Pointers(
                 ptr.backspaceMoveObserved = true
                 traceBackspace(ptr, "move observed pointer=$pointerId")
             }
-            if (ptr.backspaceDrag?.move(x) == true) {
+            if (!x.isFinite() || !y.isFinite()) return
+            if (ptr.backspaceMode != BackspaceGesture.Mode.DRAG &&
+                x - ptr.downX <= -snap.slide_step_px) {
                 ptr.backspaceMode = BackspaceGesture.Mode.DRAG
-                traceBackspace(ptr, "move direction=${ptr.backspaceDrag?.direction} pointer=$pointerId")
                 stopSelectionDeleteRepeat(ptr)
-                handleSelectionDeleteRepeat(ptr)
+            }
+            if (ptr.backspaceMode == BackspaceGesture.Mode.DRAG) {
+                val steps = ptr.backspaceMotion?.move(x, ptr.downY, System.currentTimeMillis()) ?: 0
+                val direction = steps.compareTo(0)
+                if (steps != 0) traceBackspace(ptr, "move direction=$direction steps=${abs(steps)} pointer=$pointerId")
+                // One validated editor selection per touch event, even for a fast long drag.
+                if (steps != 0) _handler.stepBackspaceHold(steps)
             }
             return
         }
@@ -1273,10 +1279,8 @@ class Pointers(
         ptr.flags = ptr.flags and FLAG_P_DEFERRED_DOWN.inv()
         ptr.backspaceWordHold = true
         ptr.backspaceMode = if (drag) BackspaceGesture.Mode.DRAG else BackspaceGesture.Mode.WORD_PREVIEW
-        val density = _handler.backspaceDensity().takeIf { it.isFinite() && it > 0f } ?: 1f
-        ptr.backspaceDrag = BackspaceGesture.Drag(ptr.downX,
-            ptr.snap.edit_behavior.resumeDp * density, ptr.snap.edit_behavior.pauseDp * density,
-            ptr.snap.edit_behavior.pauseEnabled)
+        ptr.backspaceMotion = SliderMotion(ptr.downX, ptr.downY, ptr.snap.slide_step_px,
+            ptr.snap.slider_speed_smoothing, ptr.snap.slider_speed_max)
         _handler.onPointerFlagsChanged(HapticEvent.TRACKPOINT_ACTIVATE)
         if (!drag) scheduleBackspaceRepeat(ptr, BackspaceGesture.WORD_PREVIEW_MS)
         return true
@@ -1302,18 +1306,7 @@ class Pointers(
                 } else stopSelectionDeleteRepeat(ptr)
                 return
             }
-            val direction = ptr.backspaceDrag?.direction ?: 0
-            // A brake has no polling timer. A later deliberate move starts it again.
-            if (direction == 0) return
-            val accepted = _handler.stepBackspaceHold(direction)
-            traceBackspace(ptr, "repeat direction=$direction accepted=$accepted")
-            val what = uniqueTimeoutWhat++
-            ptr.selectionDeleteWhat = what
-            _longpress_handler.sendEmptyMessageDelayed(what, BackspaceGesture.repeatDelay(
-                ptr.lastX, _handler.backspaceKeyboardWidth(), direction,
-                ptr.backspaceDrag?.travel(ptr.lastX) ?: 0f,
-                _handler.backspaceScreenWidth().takeIf { it.isFinite() && it > 0f }
-                    ?: _handler.backspaceKeyboardWidth(), ptr.snap.edit_behavior))
+            // Dragging is driven exclusively by touch movement, never by a repeat timer.
             return
         }
         if (!ptr.hasFlagsAny(FLAG_P_SELECTION_DELETE_MODE)) {
@@ -1990,7 +1983,7 @@ class Pointers(
         var backspaceMode: BackspaceGesture.Mode = BackspaceGesture.Mode.WORD_PREVIEW
         var backspaceMoveObserved: Boolean = false
         var backspaceTraceBudget: Int = 24
-        var backspaceDrag: BackspaceGesture.Drag? = null
+        var backspaceMotion: SliderMotion? = null
 
         /** [null] when not in sliding mode. */
         var sliding: Sliding? = null
@@ -2021,42 +2014,14 @@ class Pointers(
         /** The owning pointer's captured configuration — a slide is one gesture. */
         val snap: ConfigSnapshot
     ) {
-        /** Accumulated distance since last event. */
-        var d = 0f
-
-        /** The slider speed changes depending on the pointer speed. */
-        var speed = 1.0f  // Start at full speed for responsive cursor movement
-
-        /** Coordinate of the last move. */
-        var last_x = x
-        var last_y = y
-
-        /**
-         * [System.currentTimeMillis()] at the time of the last move. Equals to
-         * [-1] when the sliding hasn't started yet.
-         */
-        var last_move_ms: Long = -1
+        private val motion = SliderMotion(x, y, snap.slide_step_px,
+            snap.slider_speed_smoothing, snap.slider_speed_max,
+            direction_x, direction_y, SLIDING_SPEED_VERTICAL_MULT)
 
         internal fun onTouchMove(ptr: Pointer, x: Float, y: Float) {
-            // Start sliding after minimal travel distance for responsive cursor control.
-            // Using just slide_step_px (not swipe_dist_px + slide_step_px) makes it
-            // much easier to initiate cursor movement.
-            val travelled = abs(x - last_x) + abs(y - last_y)
-            if (last_move_ms == -1L) {
-                if (travelled < snap.slide_step_px) {
-                    return
-                }
-                last_move_ms = System.currentTimeMillis()
-            }
-            d += ((x - last_x) * speed * direction_x +
-                (y - last_y) * speed * SLIDING_SPEED_VERTICAL_MULT * direction_y) /
-                snap.slide_step_px
-            update_speed(travelled, x, y)
-            // Send an event when [abs(d)] exceeds [1].
-            val d_ = d.toInt()
-            if (d_ != 0) {
-                d -= d_
-                _handler.onPointerHold(KeyValue.sliderKey(slider, d_), ptr.modifiers)
+            val steps = motion.move(x, y, System.currentTimeMillis())
+            if (steps != 0) {
+                _handler.onPointerHold(KeyValue.sliderKey(slider, steps), ptr.modifiers)
             }
         }
 
@@ -2068,20 +2033,6 @@ class Pointers(
         internal fun onTouchUp(ptr: Pointer) {
             removePtr(ptr)
             _handler.onPointerFlagsChanged(null)
-        }
-
-        /**
-         * [speed] is computed from the elapsed time and distance traveled
-         * between two move events. Exponential smoothing is used to smooth out
-         * the noise. Sets [last_move_ms] and [last_pos].
-         */
-        private fun update_speed(travelled: Float, x: Float, y: Float) {
-            val now = System.currentTimeMillis()
-            val instant_speed = min(snap.slider_speed_max, travelled / (now - last_move_ms) + 1f)
-            speed = speed + (instant_speed - speed) * snap.slider_speed_smoothing
-            last_move_ms = now
-            last_x = x
-            last_y = y
         }
     }
 
@@ -2235,6 +2186,7 @@ class Pointers(
         fun beginBackspaceDrag(): Boolean = false
         fun deleteBackspaceHoldWord(): Boolean = false
         fun previewPreviousBackspaceWord(): Boolean = false
+        /** Signed Unicode character count; one validated update per movement. */
         fun stepBackspaceHold(direction: Int): Boolean = false
         fun finishBackspaceHold(commit: Boolean) {}
         fun keepBackspaceHoldSelection() {}

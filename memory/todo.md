@@ -1,5 +1,21 @@
 # Current work queue
 
+## Backspace space-slider motion v13 (2026-10-04)
+
+- Implemented: SliderMotion shared by Space and modern Backspace; distance/finger-speed
+  controls selection, stationary finger emits nothing, one batched Unicode-safe selection
+  update per move. Stationary word previews/deletion keep v12 timing and guards.
+- Retired six old Backspace repeat/brake controls; ignored at runtime/import, omitted
+  from export. Shared slider preferences and scoped resets retain existing types.
+- Polish/base English shared sensitivity, speed help, group and Backspace descriptions
+  updated. Deferred in cs de es fa fil fr hu in it ja ko lv nl pt ro ru tr uk vi zh-rCN:
+  input_space_slider_title/desc, gesture_slider_key_header, gesture_speed_smoothing_desc,
+  gesture_max_speed_multiplier_desc and edit_backspace_help still describe Space alone
+  or the old motion. Evidence: values-*/strings.xml vs shared SliderMotion consumers.
+- V12 CI run 37189695279 passed 3044 tests + both lint; maintainer accepts v12 on phone.
+- V13 compile/test/lint and phone acceptance pending; no local Android/Kotlin toolchain.
+- Preserve max 60 seconds TOTAL monitoring per build; no merge/tag/release/version bump.
+
 ## Backspace direct drag and repeated words v12 (2026-10-04)
 
 - Implemented: direct left drag selects characters from caret without holding;
@@ -8,9 +24,8 @@
 - Added 13 regressions in the existing registered pointer/editor suites, including
   real pointer/timer-to-editor integration, Unicode, synchronous callbacks, stale
   timers, release during gap, mutation/connection guards and rejected commits.
-- Pending: guarded Android compile/tests/lint in Actions, then phone checks for
-  direct drag, uninterrupted repeated words, release between words, drag after
-  preview and brake/resume. No local Android/Kotlin toolchain; no test PASS claim.
+- Verified: Actions 37189695279 passed 3044 tests, assembly and both lint checks.
+  Maintainer accepts v12 phone behavior and requests Space-like movement in v13.
 - Polish and baseline English four titles/help strings updated; no new preference
   keys or backup changes. Other 20 resource locale sets deferred: cs de es fa fil fr hu
   in it ja ko lv nl pt ro ru tr uk vi zh-rCN. Keys edit_backspace_hold_select_title,
