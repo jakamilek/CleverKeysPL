@@ -18,7 +18,11 @@
   2471-token/232-batch/532-candidate five-input conformance PASS. Workflow then failed
   solely because rg marker-check command was absent (exit 127); later gates skipped.
 - Replaced marker search with Python stdlib assertion, preserving all gates and source.
-- Pending: repaired workflow regression/lint/assembly; then install
+- Repaired run 37232458354 at 73627fa SUCCESS: compile, JUnitCore OK(2835), real
+  original tokenizer/feed conformance, 83 focused tests, debug/vital lint, assembly
+  and APK audit/upload PASS. ARM64 artifact 11314463703; steps/hashes in
+  docs/HERBERT_FP32_PHONE_TRIAL_V1.md. Raw APK not locally verified; CI evidence only.
+- Pending: install
   on Nubia, import external ZIP, check native scores/ranks and compare warm/cold timings/PSS.
   No current phone/JNI/independent accuracy claim. No editor history, logging or network.
 - Further: independent slates/contexts; opt-in live dispatcher/settings. Preserve both forms,

@@ -195,3 +195,21 @@ its exact assertion and all other required gates. Do not remove/skip the conform
 The new build must complete editor regressions/debug+vital lint/assembly before APK upload.
 No Kotlin/fixtures/weights/context settings changes in this repair. Native scores and
 phone timing remain pending; do not report APK success from compile/unit success.
+
+## Diagnostic APK available (2026-10-04)
+
+Run 37232458354 at 73627fae758bcdf845ed8696be821b7052e326ff SUCCESS:
+actual compile, JUnitCore OK(2835), mandatory 2471-token/232-batch/532-candidate
+five-input original conformance, 83 focused regressions, debug/vital lint,
+assembly, absent-FP32/test-fixture ZIP audit and ARM64 artifact upload all PASS.
+APK artifact 11314463703, raw APK SHA256
+70c3e0e94f10e0a6e7ec4f9b6e043767cd9e41e7e21f14f21586958b07e07958.
+
+See docs/HERBERT_FP32_PHONE_TRIAL_V1.md for stable artifact links, hashes and Polish
+phone steps. APK raw bytes were not locally downloaded/verified (direct URL HTTP403;
+authorized download_file supports <=32 MiB). CI logs/metadata establish publisher
+identity and APK audit; no local malware-scan claim. Model ZIP is separate, with
+seven compiled file hashes checked again by the importer.
+
+Next is device native-score/rank parity and repeated 32/64 timing/PSS on Nubia.
+No live integration/editor context dispatch/accuracy or phone performance claim yet.
