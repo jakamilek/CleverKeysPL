@@ -147,7 +147,10 @@ class KeyEventHandler(
             session.rememberSelection()
             // Install before issuing the request: a synchronous callback must not be lost.
             backspaceHold = session
-            if (!conn.setSelection(anchor, base + start)) {
+            // Some state-driven editors normalize selection ranges and rebuild the input
+            // connection for reversed endpoints. Keep our fixed anchor in the session;
+            // send an ordered range to the editor for every preview and drag update.
+            if (!conn.setSelection(base + start, anchor)) {
                 traceBackspace("begin blocked: setSelection refused"); backspaceHold = null; return false
             }
             traceBackspace("begin accepted: anchor=$anchor start=${base + start} length=${before.length - start}")
@@ -199,7 +202,7 @@ class KeyEventHandler(
             val next = BackspaceGesture.step(s.before, previous, direction)
             if (next == previous) { traceHold(s, "step boundary: direction=$direction"); return false }
             s.cursor = next
-            if (!s.connection.setSelection(s.anchor, s.base + next)) {
+            if (!s.connection.setSelection(s.base + next, s.anchor)) {
                 s.cursor = previous
                 traceHold(s, "step blocked: setSelection refused")
                 return false
@@ -243,7 +246,7 @@ class KeyEventHandler(
                 traceBudget = s.traceBudget)
             next.rememberSelection()
             backspaceHold = next // Capture synchronous selection acknowledgements.
-            if (!s.connection.setSelection(next.anchor, base + start)) {
+            if (!s.connection.setSelection(base + start, next.anchor)) {
                 backspaceHold = s
                 return false
             }

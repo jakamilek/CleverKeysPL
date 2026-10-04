@@ -8,6 +8,13 @@ related_spec: ../specs/gestures/selection-delete-spec.md
 
 # Selection Delete
 
+## Polish trial v14 compatibility follow-up (2026-10-04)
+
+V13 movement is accepted on the phone, with a reported exception in SimpleX where
+selection stops at a space before a word. V14 sends ordered selection ranges to
+editors while retaining the same finger control, word deletion and field guards.
+CI and a SimpleX retest are required; this is not yet a confirmed device fix.
+
 ## Polish trial v13 (2026-10-04)
 
 | Action | Result |
@@ -35,7 +42,8 @@ cycle; cancellation leaves the pending preview undeleted and cannot restore earl
 deletions. **Delete selection on release** does not disable timed deletion while held.
 **Drag selection and word deletion** gates both gestures. Passwords, terminals and
 unsupported editors retain their fallback. V12 passed CI and was accepted on the phone;
-this new movement response needs its own CI and phone check. No released change.
+v13 passed 3049 CI tests and both lint checks and was accepted on the phone outside
+the SimpleX exception above. No released change.
 
 ## Historical Polish trial v8 (2026-10-03)
 

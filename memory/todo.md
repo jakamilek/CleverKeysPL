@@ -1,5 +1,20 @@
 # Current work queue
 
+## Backspace ordered editor ranges v14 (2026-10-04)
+
+- Maintainer accepts v13 generally; SimpleX freezes selection at a space before a word.
+- Source-backed compatibility hypothesis: SimpleX normalizes selection endpoints in its
+  Compose state and can resync/rebuild when live reversed endpoints differ. Our three
+  Backspace selection requests were reversed; now send ascending start/end and retain
+  the fixed anchor in the session. No weaker text/identity/deletion guards.
+- Three registered editor regressions model resync on reversed ranges and cover hold,
+  direct drag across word separators/reversal and successive word previews.
+- CI compile/test/lint and SimpleX phone retest pending. The source/model does not prove
+  the exact device failure; if the retest fails, collect lifecycle/selection diagnostics.
+- Source: SimpleX stable 479548ee53ffb73db73841e77acbeee5a78dbbd5,
+  PlatformTextField.android.kt; details in the canonical selection-delete spec.
+- Preserve max 60 seconds TOTAL monitoring per build. No merge/tag/release/version bump.
+
 ## Backspace space-slider motion v13 (2026-10-04)
 
 - Implemented: SliderMotion shared by Space and modern Backspace; distance/finger-speed
@@ -13,7 +28,8 @@
   gesture_max_speed_multiplier_desc and edit_backspace_help still describe Space alone
   or the old motion. Evidence: values-*/strings.xml vs shared SliderMotion consumers.
 - V12 CI run 37189695279 passed 3044 tests + both lint; maintainer accepts v12 on phone.
-- V13 compile/test/lint and phone acceptance pending; no local Android/Kotlin toolchain.
+- V13 CI run 37192552115 passed 3049 tests + both lint; general phone acceptance
+  received, SimpleX-specific selection freeze tracked in v14. No local Android toolchain.
 - Preserve max 60 seconds TOTAL monitoring per build; no merge/tag/release/version bump.
 
 ## Backspace direct drag and repeated words v12 (2026-10-04)

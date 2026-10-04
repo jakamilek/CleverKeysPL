@@ -114,7 +114,9 @@ DRAG updates only on movement, using a signed Unicode character count per editor
 There is no modern drag timer. Stationary WORD_PREVIEW/WORD_GAP retains v12 word deletion.
 Once a drag starts, stopping the finger never restarts word deletion. Cancel and invalidate old
 timer IDs at transitions. Word-repeat continuation must retain editor identity,
-validated caret/text and synchronous callback capture across each commit.
+validated caret/text and synchronous callback capture across each commit. Pass ordered
+(start <= end) Backspace selection ranges to editors; keep the fixed drag anchor only
+in the session. Reversed endpoint requests can trigger state-driven editor resyncs.
 
 See `docs/wiki/specs/settings/input-behavior-spec.md` for keys and field guards. Dictionary
 add and editor/cursor/prediction consistency guards are unconditional fixes, not toggles.

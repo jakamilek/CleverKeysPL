@@ -8,6 +8,29 @@ version: v1.4.0
 
 # Selection Delete Technical Specification
 
+## Polish trial v14 — ordered editor selection ranges
+
+The maintainer accepts v13 movement in ordinary editors but reports SimpleX stopping
+when a drag reaches a space before a word. The inspected SimpleX Android text field
+normalizes onSelectionChanged endpoints before writing ComposeState; its AndroidView
+update compares that normalized state to the live EditText endpoints and can run
+setText/setSelection when they differ. Source inspected at SimpleX stable commit
+479548ee53ffb73db73841e77acbeee5a78dbbd5:
+[PlatformTextField.android.kt](https://github.com/simplex-chat/simplex-chat/blob/479548ee53ffb73db73841e77acbeee5a78dbbd5/apps/multiplatform/common/src/androidMain/kotlin/chat/simplex/common/platform/PlatformTextField.android.kt).
+
+The keyboard previously passed anchor before the left endpoint, i.e. reversed ranges.
+V14 passes ascending start/end for initial word preview, each drag update and repeated
+word re-arm. The fixed anchor remains in BackspaceHold; gesture direction, finger-speed
+response, boundaries and word-cycle timing are unchanged. Identity, live selection/text
+validation, cancellation and commit guards remain mandatory. No app-specific bypass or
+unchecked deletion is added.
+
+Three BackspaceHoldTest regressions model a state bridge that recreates the input
+connection when reversed endpoints diverge from its normalized state. They cover word
+preview/extension/reversal, direct drag across trailing and preceding spaces, and repeated
+word re-arm. This is a compatibility model derived from the source, not evidence that the
+device failure has that exact cause. V14 requires CI and a SimpleX phone retest.
+
 ## Polish trial v13 — shared space-slider motion
 
 `SliderMotion.move` is shared by `Pointers.Sliding` and the modern Backspace DRAG.
@@ -42,7 +65,8 @@ is updated; other locales are recorded for later translation in memory/todo.md.
 V12 CI passed 3044 tests and both lint checks (run 37189695279); the maintainer accepted
 its phone behavior. V13 has separate pure motion, real space/BS pointer comparisons,
 stationary/word-cycle cancellation, batched Unicode/editor and backup regressions.
-Execution and phone acceptance for v13 remain pending.
+V13 CI run 37192552115 passed 3049 tests and both lint checks; the maintainer accepts
+its general phone behavior. The reported SimpleX exception is tracked above.
 
 ## Historical Polish trial v12 — direct drag and repeated words
 

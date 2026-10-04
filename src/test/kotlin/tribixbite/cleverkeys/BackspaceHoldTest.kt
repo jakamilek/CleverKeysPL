@@ -473,4 +473,73 @@ class BackspaceHoldTest {
         assertEquals("olej soki  ",text)
         verify(exactly = 0) { conn.commitText(any(),any()) }
     }
+    /**
+     * Model the SimpleX-style state bridge: it stores ascending selection endpoints
+     * and recreates its input connection when the view receives a reversed range.
+     * This is a compatibility regression model, not a real SimpleX device test.
+     */
+    private fun normalizingEditor(): MutableList<Pair<Int, Int>> {
+        val requests = mutableListOf<Pair<Int, Int>>()
+        every { conn.setSelection(any(), any()) } answers {
+            a = firstArg(); b = secondArg()
+            requests.add(a to b)
+            acknowledgeSelection()
+            if (a > b) {
+                // Recomposition can rebuild the field after reversed endpoints diverge
+                // from its normalized state. Future validation must reject that connection.
+                every { recv.getCurrentInputConnection() } returns mockk(relaxed = true)
+            }
+            true
+        }
+        return requests
+    }
+
+    @Test fun orderedWordPreviewAndDragDoNotRestartANormalizingEditor() {
+        val requests = normalizingEditor()
+        assertTrue(handler.beginBackspaceHold())
+        assertTrue(handler.stepBackspaceHold(-1))
+        assertEquals(" mleko ", conn.getSelectedText(0))
+        assertTrue(handler.stepBackspaceHold(-2))
+        assertTrue(handler.stepBackspaceHold(3))
+        assertEquals("mleko ", conn.getSelectedText(0))
+        handler.finishBackspaceHold(true)
+        assertEquals("olej ", text)
+        assertTrue(requests.all { it.first <= it.second })
+        verify(exactly = 1) { conn.commitText("", 1) }
+    }
+
+    @Test fun orderedDirectDragPassesSpacesBeforeAndAfterWordsAndReverses() {
+        val requests = normalizingEditor()
+        assertTrue(handler.beginBackspaceDrag())
+        assertTrue(handler.stepBackspaceHold(-1))
+        assertEquals(" ", conn.getSelectedText(0))
+        assertTrue(handler.stepBackspaceHold(-5))
+        assertEquals("mleko ", conn.getSelectedText(0))
+        assertTrue(handler.stepBackspaceHold(-1))
+        assertEquals(" mleko ", conn.getSelectedText(0))
+        assertTrue(handler.stepBackspaceHold(1))
+        assertEquals("mleko ", conn.getSelectedText(0))
+        handler.finishBackspaceHold(true)
+        assertEquals("olej ", text)
+        assertTrue(requests.all { it.first <= it.second })
+        verify(exactly = 1) { conn.commitText("", 1) }
+    }
+
+    @Test fun orderedWordCycleKeepsTheConnectionThroughSuccessivePreviews() {
+        text = "olej mleko karton "; caret(text.length)
+        val requests = normalizingEditor()
+        assertTrue(handler.beginBackspaceHold())
+        assertTrue(handler.deleteBackspaceHoldWord())
+        assertEquals("olej mleko ", text)
+        assertTrue(handler.previewPreviousBackspaceWord())
+        assertTrue(handler.deleteBackspaceHoldWord())
+        assertEquals("olej ", text)
+        assertTrue(handler.previewPreviousBackspaceWord())
+        assertTrue(handler.deleteBackspaceHoldWord())
+        assertEquals("", text)
+        handler.finishBackspaceHold(true)
+        assertTrue(requests.all { it.first <= it.second })
+        verify(exactly = 3) { conn.commitText("", 1) }
+    }
+
 }
