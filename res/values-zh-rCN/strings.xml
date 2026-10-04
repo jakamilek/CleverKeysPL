@@ -471,9 +471,9 @@
     <string name="input_suggestion_bar_opacity_title">候选栏不透明度</string>
     <string name="input_suggestion_bar_opacity_desc">候选栏的透明度。</string>
     <string name="input_auto_space_after_title">选词后自动空格</string>
-    <string name="input_auto_space_after_desc">选择候选词时在末尾添加空格。</string>
+    <string name="input_auto_space_after_desc">选择候选词时在末尾添加空格。 适用于滑行输入和点击建议的词语。</string>
     <string name="input_auto_space_before_title">候选词前自动空格</string>
-    <string name="input_auto_space_before_desc">点击候选词前插入前置空格（滑动始终添加空格）。</string>
+    <string name="input_auto_space_before_desc">点击候选词前插入前置空格（滑动始终添加空格）。 适用于滑行输入和点击建议的词语。</string>
     <string name="input_backspace_undo_swipe_title">退格撤销滑动</string>
     <string name="input_backspace_undo_swipe_desc">滑动输入后立即点击退格键，删除整个单词。</string>
     <string name="input_show_exact_typed_title">显示精确输入的单词</string>
@@ -2174,4 +2174,36 @@
     <string name="cmd_timestamp_iso_desc">插入 ISO 8601 时间戳（YYYY-MM-DDTHH:mm:ss）</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">位于 %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">短按Backspace</string>
+    <string name="edit_backspace_hold_select_title">长按选择词语</string>
+    <string name="edit_backspace_release_delete_title">松手删除选区</string>
+    <string name="edit_backspace_pause_enabled_title">反向移动时暂停</string>
+    <string name="edit_backspace_pause_dp_title">停止距离</string>
+    <string name="edit_backspace_resume_dp_title">恢复距离</string>
+    <string name="edit_backspace_speed_percent_title">选择速度</string>
+    <string name="edit_backspace_fast_percent_title">快速选择速度</string>
+    <string name="edit_backspace_accel_percent_title">加速阈值</string>
+    <string name="edit_punctuation_remove_space_title">删除标点前的空格</string>
+    <string name="edit_punctuation_add_space_title">添加标点后的空格</string>
+    <string name="edit_format_search_fields_title">搜索框自动格式化</string>
+    <string name="edit_numeric_period_caps_title">数字和句点后大写</string>
+    <string name="edit_shift_word_case_title">Shift更改单词首字母</string>
+    <string name="edit_shift_word_end_title">Shift也适用于词尾</string>
+    <string name="edit_show_case_variants_title">显示词典的大小写形式</string>
+    <string name="edit_exact_add_first_title">添加词语显示在首个建议</string>
+    <string name="edit_reset_suggestions_on_delete_title">Backspace后回到建议开头</string>
+    <string name="edit_tap_character">删除字符或空格</string>
+    <string name="edit_tap_autocorrect">撤销自动更正，再删除字符</string>
+    <string name="edit_tap_swipe">删除最后的滑行词，再删除字符</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">文本格式</string>
+    <string name="edit_backspace_help">长按选择可在整个键盘上操作。关闭后，普通删除需要按键重复功能。短按的其他操作仅在输入建议后立即生效。</string>
+    <string name="edit_pause_help">短暂反向移动会暂停。从暂停位置移动更远可恢复。</string>
+    <string name="edit_speed_help" formatted="false">相对于之前的手势速度：80%更慢，100%不变。</string>
+    <string name="edit_fast_help">移动超过屏幕宽度的此比例后进入快速模式。改变方向会重置移动距离。</string>
+    <string name="edit_format_help">密码和技术输入框从不自动格式化。标点选项需要智能标点，数字后大写需要自动大写。</string>
+    <string name="edit_fallback_header">旧版双轴选择</string>
 </resources>
+

@@ -1,5 +1,25 @@
 # CleverKeys Documentation - Table of Contents
 
+Trial v15: [New-word suggestion viewport](wiki/specs/settings/input-behavior-spec.md#polish-trial-v15--new-word-suggestion-viewport).
+Runtime now resets the strip at new swipe/typed-word boundaries; compile/tests and phone
+validation pending. Ale/Lub correction is in a separate pack v4, not delivered by APK
+updates: producer run 37188544526 passed; maintainer reports only updating the APK.
+
+Trial v14: [Ordered Backspace editor ranges](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v14--ordered-editor-selection-ranges).
+V13 passed 3049 CI tests and both lint and was accepted generally on phone; SimpleX
+selection freeze requires this separate compatibility trial and retest.
+
+Historical v12: [Immediate Backspace drag and repeated word deletion](wiki/specs/gestures/selection-delete-spec.md#historical-polish-trial-v12--direct-drag-and-repeated-words). V12 passed CI and phone validation.
+
+Trial v8: [Backspace brake and resume](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v8--brake-and-resume). V7 accepted on phone; v8 adds a small reversal to pause, then deliberate motion to resume. Debug build and 3006 checks PASS (run 37154899155); phone checks pending.
+
+Trial v7: [Backspace phone diagnostics](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v7--phone-diagnostics-issue-unresolved). V6 phone retest failed; v7 debug build and 2999 checks PASS (run 37153176431); phone trace received and tested hold/drag/release accepted by maintainer.
+
+Trial v6: Backspace editor-acknowledgement follow-up; debug build and 2992 CI checks PASS; subsequent v6 phone retest failed. V5 phone accepts tap/caps/Shift but rejects hold drag/release.
+
+Trial v5: [Backspace hold and reversible selection](wiki/gestures/selection-delete.md), [technical changes](wiki/specs/gestures/selection-delete-spec.md). Debug build and 2985 CI checks PASS; v5 phone accepted tap/caps/Shift but rejected hold drag/release (2026-10-03).
+
+
 **Last Updated**: 2026-08-15
 **Review Status**: Files 251 of 251 (100% complete) ✅
 
@@ -73,6 +93,8 @@
 | `geometric-swipe-engine.md` | Layout-agnostic geometric swipe decoder (standalone) | ✅ Implemented |
 | `context-learning-and-next-word.md` | **NEW 2026-08-06** Persistent context LM, master learning privacy gate, opt-in next-word prediction, suggestion provenance, learned-data manager | ✅ Implemented |
 | `ctc-swipe-engine.md` | **UPDATED 2026-08-15** CTC trie-beam swipe engine — WIRED opt-in `ctc` mode (2026-08-08): CleverKeys-trained ONNX encoder, router/adapter/settings/provenance As-Built | ✅ Implemented |
+| `editor-spacing.md` | Field-aware swipe/tap spaces and punctuation; build/tests pass, device verification pending | 🚧 In progress |
+| `cursor-word-capitalization.md` | Shift toggles a parked word's first letter; build/tests pass, device verification pending | 🚧 In progress |
 | `cursor-aware-predictions.md` | Cursor sync + cursor-park next-word integration | ✅ Implemented |
 | `architectural-decisions.md` | Architectural Decision Records | ✅ Active |
 
@@ -138,3 +160,18 @@ Only in-force audit records live here; everything superseded is under `docs/hist
 2. Check: `cat memory/todo.md` (current tasks)
 3. Check: `cat docs/TABLE_OF_CONTENTS.md` (navigation)
 4. Check relevant spec: `cat docs/specs/[feature].md`
+
+- [Editor prediction integrity — Polish trial regression](specs/editor-prediction-integrity.md)
+
+
+## Polish fork editing settings trial
+
+- [Input Behavior guide](wiki/settings/input-behavior.md#editing-controls-in-the-polish-trial-fork-v9)
+- [Editing preference keys and guards](wiki/specs/settings/input-behavior-spec.md#configurable-editing-behavior-polish-fork-trial-v9)
+- [Immutable settings architecture](wiki/specs/settings/settings-system-architecture-spec.md#immutable-editing-options-polish-fork-trial-v9)
+
+V9 build and phone acceptance are pending; this is not a release.
+
+### Polish Backspace trial v13 (2026-10-04)
+
+Space and Backspace share motion-driven sliding: see [Selection Delete](wiki/gestures/selection-delete.md) and its [specification](wiki/specs/gestures/selection-delete-spec.md). Stationary word deletion remains as accepted in v12.

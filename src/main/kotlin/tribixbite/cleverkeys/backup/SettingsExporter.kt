@@ -30,7 +30,7 @@ object SettingsExporter {
         val obj = JsonObject()
         var count = 0
         for ((key, value) in prefsAll) {
-            if (key in internalKeys) continue
+            if (key in internalKeys || key in SettingsValidation.DEPRECATED_KEYS) continue
             when (value) {
                 is Boolean -> obj.addProperty(key, value)
                 is Int -> obj.addProperty(key, value)

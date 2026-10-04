@@ -525,6 +525,15 @@ class SuggestionBar : LinearLayout {
      */
     fun contentGeneration(): Int = contentGeneration
 
+    /** Reveal the first candidate when input moves to a new word, not on every prefix update. */
+    fun resetScrollPosition() {
+        val scroller = parent as? HorizontalScrollView ?: return
+        scroller.post {
+            // A theme/view replacement must not scroll a detached strip's old owner.
+            if (parent === scroller) scroller.scrollTo(0, 0)
+        }
+    }
+
     override fun onDetachedFromWindow() {
         dismissProvenancePopup()
         super.onDetachedFromWindow()

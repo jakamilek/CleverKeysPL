@@ -165,7 +165,7 @@ class SuggestionTapPartialReplaceTest {
         assertWithMessage(
             "gh #151: the typed partial must be scanned out of the editor and deleted, and " +
                 "no leading auto-space may corrupt the URL"
-        ).that(editorText.toString()).isEqualTo("https://example ")
+        ).that(editorText.toString()).isEqualTo("https://example")
     }
 
     @Test
@@ -231,6 +231,63 @@ class SuggestionTapPartialReplaceTest {
         assertThat(editorText.toString()).isEqualTo("go to example ")
     }
 
+    @Test fun searchTapReplacesThePartialWithoutAutomaticSpaces() {
+        editorText.append("szukam hel")
+        val info = editorInfo(plainField).apply { imeOptions = EditorInfo.IME_ACTION_SEARCH }
+        handler().onSuggestionSelected("helikopter", ic, info, resources, isManualSelection = true)
+        assertThat(editorText.toString()).isEqualTo("szukam helikopter")
+        verify(exactly = 0) { contextTracker.markTrailingSpaceWatch(any(), any()) }
+    }
+
+    @Test fun passwordSwipeAndAlternateDoNotDeleteThePrecedingCharacter() {
+        val info = editorInfo(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        editorText.append("X")
+        every { contextTracker.wasLastInputSwipe() } returns true
+        handler().onSuggestionSelected("łódź", ic, info, resources, isManualSelection = false)
+        assertThat(editorText.toString()).isEqualTo("Xłódź")
+        every { contextTracker.wasLastInputSwipe() } returns false
+        every { contextTracker.getLastCommitSource() } returns PredictionSource.SWIPE
+        every { contextTracker.getLastAutoInsertedWord() } returns "łódź"
+        handler().onSuggestionSelected("Łódź", ic, info, resources, isManualSelection = true)
+        assertThat(editorText.toString()).isEqualTo("XŁódź")
+    }
+
+    @Test fun beforePreferenceAlsoAppliesToSwipe() {
+        config.auto_space_before_suggestion = false
+        editorText.append("A")
+        every { contextTracker.wasLastInputSwipe() } returns true
+        handler().onSuggestionSelected("malina", ic, editorInfo(plainField), resources, isManualSelection = false)
+        assertThat(editorText.toString()).isEqualTo("Amalina ")
+    }
+
+    @Test fun normalSwipeAndItsAlternateKeepOneSeparator() {
+        editorText.append("A")
+        every { contextTracker.wasLastInputSwipe() } returns true
+        handler().onSuggestionSelected("malina", ic, editorInfo(plainField), resources, isManualSelection = false)
+        assertThat(editorText.toString()).isEqualTo("A malina ")
+        every { contextTracker.wasLastInputSwipe() } returns false
+        every { contextTracker.getLastCommitSource() } returns PredictionSource.SWIPE
+        every { contextTracker.getLastAutoInsertedWord() } returns "malina"
+        handler().onSuggestionSelected("Malina", ic, editorInfo(plainField), resources, isManualSelection = true)
+        assertThat(editorText.toString()).isEqualTo("A Malina ")
+    }
+
+    @Test fun replacementBeforeCommaDoesNotInsertASpaceBeforeIt() {
+        editorText.append("hel")
+        every { ic.getTextAfterCursor(any(), any()) } returns ", dalej"
+        handler().onSuggestionSelected("hello", ic, editorInfo(plainField), resources, isManualSelection = true)
+        assertThat(editorText.toString()).isEqualTo("hello")
+    }
+
+    @Test fun alternateWithAutoSpaceOffPreservesThePreviousWordAndSeparator() {
+        config.auto_space_after_suggestion = false
+        editorText.append("A malina")
+        every { contextTracker.getLastCommitSource() } returns PredictionSource.SWIPE
+        every { contextTracker.getLastAutoInsertedWord() } returns "malina"
+        handler().onSuggestionSelected("Malina", ic, editorInfo(plainField), resources, isManualSelection = true)
+        assertThat(editorText.toString()).isEqualTo("A Malina")
+    }
+
     // ------------------------------------------------------------------ reflection
 
     private fun Any.setField(name: String, value: Any?) {
@@ -243,3 +300,4 @@ class SuggestionTapPartialReplaceTest {
         field.set(this, value)
     }
 }
+

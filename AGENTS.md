@@ -98,3 +98,25 @@ The project is optimized for building directly on an Android device via Termux.
 -   `memory/`: Context files for AI agents.
 
 This file should be updated when significant infrastructure changes occur.
+
+
+## Editing preferences in the Polish fork (trial v9)
+
+New editing options share safe bounded reads in `readEditBehaviorPreferences`, product
+constants in `Defaults`, and typed backup defaults/validation. `EditBehaviorOptions` is
+immutable and captured by `ConfigSnapshot` at pointer-down. Never reread mutable edit
+options during a Backspace gesture, or resurrect the deprecated undo checkbox readers.
+Invalid tap-mode values fall back to character deletion. Keep group resets scoped and
+resource-based controls mapped to their actual parent in the search generator.
+
+Backspace v13 shares SliderMotion and captured space-slider settings with Space.
+DRAG updates only on movement, using a signed Unicode character count per editor request.
+There is no modern drag timer. Stationary WORD_PREVIEW/WORD_GAP retains v12 word deletion.
+Once a drag starts, stopping the finger never restarts word deletion. Cancel and invalidate old
+timer IDs at transitions. Word-repeat continuation must retain editor identity,
+validated caret/text and synchronous callback capture across each commit. Pass ordered
+(start <= end) Backspace selection ranges to editors; keep the fixed drag anchor only
+in the session. Reversed endpoint requests can trigger state-driven editor resyncs.
+
+See `docs/wiki/specs/settings/input-behavior-spec.md` for keys and field guards. Dictionary
+add and editor/cursor/prediction consistency guards are unconditional fixes, not toggles.

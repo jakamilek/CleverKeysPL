@@ -478,9 +478,9 @@
     <string name="input_suggestion_bar_opacity_title">Javaslatsor átlátszósága</string>
     <string name="input_suggestion_bar_opacity_desc">A javaslatsor átlátszósága</string>
     <string name="input_auto_space_after_title">Automatikus szóköz javaslat után</string>
-    <string name="input_auto_space_after_desc">Záró szóköz hozzáadása javaslat kiválasztásakor</string>
+    <string name="input_auto_space_after_desc">Záró szóköz hozzáadása javaslat kiválasztásakor Húzással bevitt szavakra és megérintett javaslatokra is.</string>
     <string name="input_auto_space_before_title">Automatikus szóköz javaslat előtt</string>
-    <string name="input_auto_space_before_desc">Vezető szóköz beillesztése érintett javaslat elé (csúsztatás mindig szóközt ad)</string>
+    <string name="input_auto_space_before_desc">Vezető szóköz beillesztése érintett javaslat elé (csúsztatás mindig szóközt ad) Húzással bevitt szavakra és megérintett javaslatokra is.</string>
     <string name="input_backspace_undo_swipe_title">Csúsztatás visszavonása törléssel</string>
     <string name="input_backspace_undo_swipe_desc">A törlőbillentyű megnyomása egy csúsztatott szó után azonnal törli az egész szót</string>
     <string name="input_show_exact_typed_title">Pontosan begépelt szó mutatása</string>
@@ -2223,4 +2223,36 @@
     <string name="cmd_timestamp_iso_desc">ISO 8601 időbélyeg beszúrása (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">Szakasz: %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Rövid Backspace</string>
+    <string name="edit_backspace_hold_select_title">Szó kijelölése nyomva tartással</string>
+    <string name="edit_backspace_release_delete_title">Kijelölés törlése felengedéskor</string>
+    <string name="edit_backspace_pause_enabled_title">Szünet irányváltáskor</string>
+    <string name="edit_backspace_pause_dp_title">Fékezési távolság</string>
+    <string name="edit_backspace_resume_dp_title">Folytatási távolság</string>
+    <string name="edit_backspace_speed_percent_title">Kijelölés sebessége</string>
+    <string name="edit_backspace_fast_percent_title">Gyors kijelölés</string>
+    <string name="edit_backspace_accel_percent_title">Gyorsítási küszöb</string>
+    <string name="edit_punctuation_remove_space_title">Szóköz törlése írásjel előtt</string>
+    <string name="edit_punctuation_add_space_title">Szóköz hozzáadása írásjel után</string>
+    <string name="edit_format_search_fields_title">Automatikus formázás kereséskor</string>
+    <string name="edit_numeric_period_caps_title">Nagybetű szám és pont után</string>
+    <string name="edit_shift_word_case_title">Shift módosítja a szó kezdőbetűjét</string>
+    <string name="edit_shift_word_end_title">Shift a szó végén is</string>
+    <string name="edit_show_case_variants_title">Betűméretváltozatok megjelenítése</string>
+    <string name="edit_exact_add_first_title">Szó hozzáadása az első javaslatban</string>
+    <string name="edit_reset_suggestions_on_delete_title">Javaslatok elejére ugrás Backspace után</string>
+    <string name="edit_tap_character">Karakter vagy szóköz törlése</string>
+    <string name="edit_tap_autocorrect">Javítás visszavonása, majd karakterek</string>
+    <string name="edit_tap_swipe">Utolsó húzott szó törlése, majd karakterek</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Szövegformázás</string>
+    <string name="edit_backspace_help">A nyomva tartásos kijelölés az egész billentyűzeten működik. Kikapcsolva a szokásos törléshez billentyűismétlés szükséges. Más rövid műveletek közvetlenül a javaslat után érvényesek.</string>
+    <string name="edit_pause_help">Rövid ellenirányú mozgás szüneteltet. Hosszabb mozgás a szünet helyétől folytatja.</string>
+    <string name="edit_speed_help" formatted="false">Az előző gesztussebességhez képest: 80% lassabb, 100% változatlan.</string>
+    <string name="edit_fast_help">A gyors mód a képernyőszélesség ezen részének átlépése után indul. Irányváltáskor a távolság nullázódik.</string>
+    <string name="edit_format_help">Jelszavak és technikai mezők soha nem kapnak automatikus formázást. Az írásjelbeállításokhoz intelligens írásjelek, a szám utáni nagybetűhöz automatikus nagybetűsítés kell.</string>
+    <string name="edit_fallback_header">Korábbi kéttengelyes kijelölés</string>
 </resources>
+

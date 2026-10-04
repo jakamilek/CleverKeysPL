@@ -470,9 +470,9 @@
     <string name="gesture_high_velocity_title">Próg wysokiej prędkości</string>
     <string name="gesture_high_velocity_desc">Prędkość do wykrywania szybkiego gestu (px/sek). Wyższy umożliwia szybsze gesty.</string>
     <string name="gesture_speed_smoothing_title">Wygładzanie prędkości</string>
-    <string name="gesture_speed_smoothing_desc">Współczynnik wygładzania ruchu suwaka. Wyższy jest płynniejszy, ale mniej responsywny.</string>
+    <string name="gesture_speed_smoothing_desc">Reakcja szybkości na ruch palca, wspólna dla spacji i Backspace. Wyższa wartość szybciej reaguje na zmianę tempa.</string>
     <string name="gesture_max_speed_multiplier_title">Maksymalny mnożnik prędkości</string>
-    <string name="gesture_max_speed_multiplier_desc">Maksymalne przyspieszenie suwaka. Wyższy umożliwia szybsze przesuwanie.</string>
+    <string name="gesture_max_speed_multiplier_desc">Maksymalne przyspieszenie szybkiego ruchu palca na spacji i Backspace.</string>
     <string name="gif_enable_title">Włącz panel GIF</string>
     <string name="gif_enable_desc">Pokaż klawisz GIF na klawiaturze i włącz wybierak reakcji</string>
     <string name="gif_grid_columns_title">Kolumny siatki</string>
@@ -483,9 +483,9 @@
     <string name="input_suggestion_bar_opacity_title">Krycie paska podpowiedzi</string>
     <string name="input_suggestion_bar_opacity_desc">Przezroczystość paska podpowiedzi</string>
     <string name="input_auto_space_after_title">Automatyczna spacja po podpowiedzi</string>
-    <string name="input_auto_space_after_desc">Dodaj spację po wybraniu podpowiedzi</string>
+    <string name="input_auto_space_after_desc">Dodaj spację po wybraniu podpowiedzi Dotyczy słów wprowadzanych gestem i wybieranych z podpowiedzi.</string>
     <string name="input_auto_space_before_title">Automatyczna spacja przed podpowiedzią</string>
-    <string name="input_auto_space_before_desc">Wstaw spację przed dotkniętą podpowiedzią (gest zawsze dodaje spację)</string>
+    <string name="input_auto_space_before_desc">Wstaw spację przed dotkniętą podpowiedzią (gest zawsze dodaje spację) Dotyczy słów wprowadzanych gestem i wybieranych z podpowiedzi.</string>
     <string name="input_backspace_undo_swipe_title">Backspace cofa słowo gestu</string>
     <string name="input_backspace_undo_swipe_desc">Naciśnięcie Backspace bezpośrednio po słowie gestu usuwa całe słowo</string>
     <string name="input_show_exact_typed_title">Pokazuj dokładnie wpisane słowo</string>
@@ -508,8 +508,8 @@
     <string name="input_swipe_distance_threshold_desc">Odległość (jednostki skalowane urządzenia) do aktywacji suwaka/podklawiszy w trakcie gestu (np. suwak kursora na spacji). Ogranicza też minimum krótkiego gestu na szerokich klawiszach jak Backspace.</string>
     <string name="input_circle_gesture_title">Czułość gestu koła</string>
     <string name="input_circle_gesture_desc">Czułość gestów pętli/koła</string>
-    <string name="input_space_slider_title">Czułość suwaka spacji</string>
-    <string name="input_space_slider_desc">Czułość ruchu kursora przez poziome przesuwanie paska spacji</string>
+    <string name="input_space_slider_title">Czułość gestu spacji i Backspace</string>
+    <string name="input_space_slider_desc">Wspólna czułość przesuwania kursora na spacji i zaznaczenia na Backspace. Mniejsza wartość oznacza krótszy ruch palca na jeden znak.</string>
     <string name="input_long_press_timeout_title">Czas długiego naciśnięcia</string>
     <string name="input_long_press_timeout_desc">Czas do aktywacji długiego naciśnięcia (milisekundy)</string>
     <string name="input_long_press_interval_title">Interwał długiego naciśnięcia</string>
@@ -824,7 +824,7 @@
     <string name="gesture_selection_delete_desc">Krótki gest + przytrzymanie na Backspace zaznacza tekst; puszczenie usuwa.</string>
     <string name="gesture_tap_typing_header">Dotknięcia i pisanie</string>
     <string name="gesture_swipe_recognition_header">Rozpoznawanie gestów</string>
-    <string name="gesture_slider_key_header">Zachowanie klawiszy-suwaków</string>
+    <string name="gesture_slider_key_header">Przesuwanie kursora i zaznaczenia</string>
     <string name="gesture_tuning_tip">Jeśli gesty wydają się opóźnione, zmniejsz czas przebywania i próg szumu. Jeśli dotknięcia są rozpoznawane jako gesty, zwiększ czas dotknięcia.</string>
     <string name="intent_editor_title_create">Utwórz akcję intencji</string>
     <string name="intent_editor_title_edit">Edytuj akcję intencji</string>
@@ -2309,4 +2309,35 @@
     <string name="cmd_timestamp_iso_desc">Wstaw znacznik czasu ISO 8601 (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">w sekcji %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Krótkie naciśnięcie Backspace</string>
+    <string name="edit_backspace_hold_select_title">Przeciąganie i usuwanie słów</string>
+    <string name="edit_backspace_release_delete_title">Usuń zaznaczenie po puszczeniu</string>
+    <string name="edit_backspace_pause_enabled_title">Pauza po zmianie kierunku</string>
+    <string name="edit_backspace_pause_dp_title">Ruch zatrzymujący zaznaczanie</string>
+    <string name="edit_backspace_resume_dp_title">Ruch rozpoczęcia lub wznowienia</string>
+    <string name="edit_backspace_speed_percent_title">Prędkość zaznaczania</string>
+    <string name="edit_backspace_fast_percent_title">Prędkość przyspieszonego zaznaczania</string>
+    <string name="edit_backspace_accel_percent_title">Próg przyspieszenia</string>
+    <string name="edit_punctuation_remove_space_title">Usuń spację przed interpunkcją</string>
+    <string name="edit_punctuation_add_space_title">Dodaj spację po interpunkcji</string>
+    <string name="edit_format_search_fields_title">Automatyczne formatowanie w wyszukiwarkach</string>
+    <string name="edit_numeric_period_caps_title">Wielka litera po liczbie i kropce</string>
+    <string name="edit_shift_word_case_title">Shift zmienia pierwszą literę słowa</string>
+    <string name="edit_shift_word_end_title">Shift działa też na końcu słowa</string>
+    <string name="edit_show_case_variants_title">Pokazuj warianty wielkości liter ze słownika</string>
+    <string name="edit_exact_add_first_title">Dodawanie słowa na początku podpowiedzi</string>
+    <string name="edit_reset_suggestions_on_delete_title">Przewiń podpowiedzi na początek po Backspace</string>
+    <string name="edit_tap_character">Usuń znak lub spację</string>
+    <string name="edit_tap_autocorrect">Cofnij autokorektę, potem usuwaj znaki</string>
+    <string name="edit_tap_swipe">Usuń ostatnie słowo z gestu, potem znaki</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Formatowanie tekstu</string>
+    <string name="edit_backspace_help">Przeciągaj od Backspace w lewo, aby zaznaczać, lub w prawo, aby cofać zaznaczenie. Zatrzymanie palca zatrzymuje zaznaczanie. Czułość jest wspólna ze spacją: ustawisz ją w sekcji Zachowanie wprowadzania, a przyspieszenie w sekcji Dostrajanie gestów. Przytrzymaj bez ruchu, aby kolejno zaznaczać i usuwać słowa. Opcja usuwania po puszczeniu dotyczy bieżącego zaznaczenia; przytrzymanie nadal usuwa słowa automatycznie. Po wyłączeniu gestów zwykłe usuwanie wymaga powtarzania klawiszy.</string>
+    <string name="edit_pause_help">Ta odległość rozpoczyna zaznaczanie po ruchu w lewo od Backspace i wznawia je po pauzie. Mały ruch w przeciwną stronę zatrzymuje zaznaczanie.</string>
+    <string name="edit_speed_help" formatted="false">Względem poprzedniej prędkości gestu: 80% oznacza wolniej, 100% bez zmian.</string>
+    <string name="edit_fast_help">Przyspieszenie włącza się po ruchu większym niż wskazana część szerokości ekranu. Zmiana kierunku zeruje dystans.</string>
+    <string name="edit_format_help">Hasła i pola techniczne zawsze pomijają formatowanie. Opcje interpunkcji wymagają inteligentnej interpunkcji, a wielka litera po liczbie — automatycznej kapitalizacji.</string>
+    <string name="edit_fallback_header">Starszy tryb zaznaczania w dwóch kierunkach</string>
 </resources>

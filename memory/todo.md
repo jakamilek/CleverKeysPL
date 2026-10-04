@@ -1,10 +1,154 @@
 # Current work queue
 
+## New-word suggestion viewport v15 (2026-10-04)
+
+- Maintainer reports only updating the APK, not importing function-word pack v4.
+  Producer run 37188544526 SUCCESS for bb55e87f5bfa2c7ce2a3eb2214cf5a7f3031205f;
+  artifact 11297484236 contains cleverkeys-pl-function-words-trial.zip. Import still
+  requires phone action; existing pack bytes and user case overrides are uninspected.
+  No new hardcoded Ale/Lub exceptions or duplicate dictionary entries.
+- Implemented: strip resets for every nonempty accepted swipe, first typed code point,
+  word separators and Enter/action boundaries; continuing a prefix keeps its viewport.
+  Existing reset_suggestions_on_delete remains scoped to Backspace. No new setting.
+- Three posted-view regressions plus three real tracker/handler transition regressions
+  registered in focused CI, including identical swipe slates and BS-reset disabled.
+- Local Android/Kotlin execution unavailable; runtime CI and phone validation pending.
+  V14 SimpleX retest still pending; v15 includes that change without modifying BS motion.
+- Do not monitor ongoing runtime runs this turn. No merge/release/tag/version bump.
+
+## Backspace ordered editor ranges v14 (2026-10-04)
+
+- Maintainer accepts v13 generally; SimpleX freezes selection at a space before a word.
+- Source-backed compatibility hypothesis: SimpleX normalizes selection endpoints in its
+  Compose state and can resync/rebuild when live reversed endpoints differ. Our three
+  Backspace selection requests were reversed; now send ascending start/end and retain
+  the fixed anchor in the session. No weaker text/identity/deletion guards.
+- Three registered editor regressions model resync on reversed ranges and cover hold,
+  direct drag across word separators/reversal and successive word previews.
+- CI compile/test/lint and SimpleX phone retest pending. The source/model does not prove
+  the exact device failure; if the retest fails, collect lifecycle/selection diagnostics.
+- Source: SimpleX stable 479548ee53ffb73db73841e77acbeee5a78dbbd5,
+  PlatformTextField.android.kt; details in the canonical selection-delete spec.
+- Preserve max 60 seconds TOTAL monitoring per build. No merge/tag/release/version bump.
+
+## Backspace space-slider motion v13 (2026-10-04)
+
+- Implemented: SliderMotion shared by Space and modern Backspace; distance/finger-speed
+  controls selection, stationary finger emits nothing, one batched Unicode-safe selection
+  update per move. Stationary word previews/deletion keep v12 timing and guards.
+- Retired six old Backspace repeat/brake controls; ignored at runtime/import, omitted
+  from export. Shared slider preferences and scoped resets retain existing types.
+- Polish/base English shared sensitivity, speed help, group and Backspace descriptions
+  updated. Deferred in cs de es fa fil fr hu in it ja ko lv nl pt ro ru tr uk vi zh-rCN:
+  input_space_slider_title/desc, gesture_slider_key_header, gesture_speed_smoothing_desc,
+  gesture_max_speed_multiplier_desc and edit_backspace_help still describe Space alone
+  or the old motion. Evidence: values-*/strings.xml vs shared SliderMotion consumers.
+- V12 CI run 37189695279 passed 3044 tests + both lint; maintainer accepts v12 on phone.
+- V13 CI run 37192552115 passed 3049 tests + both lint; general phone acceptance
+  received, SimpleX-specific selection freeze tracked in v14. No local Android toolchain.
+- Preserve max 60 seconds TOTAL monitoring per build; no merge/tag/release/version bump.
+
+## Backspace direct drag and repeated words v12 (2026-10-04)
+
+- Implemented: direct left drag selects characters from caret without holding;
+  stationary hold cycles word preview (350 ms), verified deletion, gap (200 ms),
+  next preview. Release stops; a drag never resumes the stationary cycle after braking.
+- Added 13 regressions in the existing registered pointer/editor suites, including
+  real pointer/timer-to-editor integration, Unicode, synchronous callbacks, stale
+  timers, release during gap, mutation/connection guards and rejected commits.
+- Verified: Actions 37189695279 passed 3044 tests, assembly and both lint checks.
+  Maintainer accepts v12 phone behavior and requests Space-like movement in v13.
+- Polish and baseline English four titles/help strings updated; no new preference
+  keys or backup changes. Other 20 resource locale sets deferred: cs de es fa fil fr hu
+  in it ja ko lv nl pt ro ru tr uk vi zh-rCN. Keys edit_backspace_hold_select_title,
+  edit_backspace_help, edit_backspace_resume_dp_title, edit_pause_help still describe
+  only the old hold/resume gesture. Evidence: values-*/strings.xml at runtime 5200,
+  new direct-start/cycle semantics in Pointers. Translate later per maintainer priority.
+- Preserve max 60 seconds TOTAL Actions monitoring per build. No merge/release/tag.
+
+## Backspace brake/resume v8 (2026-10-03)
+
+- [x] Maintainer accepts v7 on phone; supplied runtime trace confirms preview, left/right steps, deletion on release and empty release. Earlier v5/v6 cause remains unproven.
+- [x] Pause on small opposite movement from active extreme (3 px); resume only after further motion (15 px) from the pause point, left or right.
+- [x] Cancel repeat while paused; preserve current selection for release, edge speed and keyboard-wide pointer ownership.
+- [x] Add five pure and two pointer/timer regressions; retain test names and update lagging-editor integration to assert unchanged selection during brake.
+- [x] V8 debug assembly, 2795 pure + 211 focused mocks PASS (3006), run 37154899155; APK artifact 11285860899. Existing lint/security blockers remain; phone checks pending.
+- [ ] Phone acceptance for backspace-pause-v8: pause, stable hold, both resume directions and release while paused.
+- Accepted tap deletion/casing/editor integrity preserved; producer unchanged. Maximum 60 seconds TOTAL Actions monitoring per build.
+
+## Backspace phone diagnostics v7 (2026-10-03)
+
+- Phone rejects v6 too: word preview works, horizontal extension/reversal and release deletion do not.
+- [x] Add bounded playground-only pointer/editor/lifecycle traces, actual runtime package marker and failure reasons; log offsets/counts only, no editor text.
+- [x] Add seven diagnostic regressions for failure reasons, text exclusion, bounded output, cancellation and sink failures.
+- [x] V7 debug assembly, 2790 pure + 209 focused mocks PASS (2999), run 37153176431; APK artifact 11284274382. Existing lint/security failures remain; v7 phone trace received and accepted below.
+- [x] V7 phone log supplied; maintainer accepts hold/drag/release. Trace confirms tested paths. Proceed with requested brake/resume UX.
+- Cause remains unconfirmed; v7 changes diagnostics, not the editing policy. Preserve accepted tap/casing behavior.
+- Monitoring: maximum 60 seconds TOTAL per build, then maintainer reports completion.
+
+## Backspace acknowledgement follow-up v6 (2026-10-03)
+
+- Phone confirms v5 tap deletion, sentence capitals and Shift at word end.
+- Phone rejects v5 hold drag/release: preview appears, extension and release deletion fail.
+- [x] Retain gesture through temporarily stale reads; use full selection callbacks to confirm own requests while extraction lags; keep exact live-text and editor guards.
+- [x] Add seven editor/pointer regressions for lag, reversal, synchronous callbacks and unrelated changes.
+- [x] V6 debug build, 2790 pure + 202 focused mock checks PASS (2992), run 37150909557; artifact 11284341482.
+- [x] Retest hold/drag/release on phone with backspace-gesture-v6: FAILED, same drag/release symptoms.
+- Existing 2985 passing v5 checks did not establish real editor timing.
+
+## Polish trial v5 (2026-10-03)
+
+- [x] Implement character-only Backspace taps and non-destructive word hold preview.
+- [x] Implement keyboard-wide reversible selection with edge-dependent speed.
+- [x] Restore explicit Shift word-end editing and reset suggestion scroll after deletion.
+- [x] Add live Android sentence-rule fallback after punctuation; preserve search/private exclusions.
+- [x] Register focused regression tests through scripts/gradle-guard.sh.
+- [x] V5 debug assembly, 2790 pure and 195 focused mock checks PASS (2985), CI 37148132597; artifact 11282318484. Existing lint/security failures remain.
+- V5 phone: tap/capitals/Shift accepted; hold drag/release failed. Follow-up tracked under v6 above.
+- Prior editor-sync-v4: 2951 CI checks passed; maintainer says editor behavior works OK.
+
+
 Updated: 2026-09-30. Full execution state and test evidence: [HANDOFF.md](HANDOFF.md).
 Campaign plan: [`docs/plans/2026-08-30-full-backlog-campaign.md`](../docs/plans/2026-08-30-full-backlog-campaign.md).
 
 The September 1 campaign baseline was `5fb58037`; subsequent work through `79f0b464`
 was pushed with maintainer authorization on September 27. Preserve shared-tree work.
+
+## Polish trial — editor integrity regression (2026-10-03)
+
+- Priority: maintainer reports stale/missing typed-word suggestions after edits/cut/paste and text disappearing on dictionary add. Supplied log still identifies v2; the exact phone sequence is not captured.
+- [x] Implement dictionary-only exact add with live token/selection validation; never delete or recommit editor text. Offer it first and use the full token at a mid-word caret.
+- [x] Implement prediction revision guards, immediate invalidation on cursor notifications, live post-key token refresh, prompt dismissal during edits and validation before preserving swipe/undo slates.
+- [x] Add eight real-pipeline regression tests and update dictionary-add tests; register both in guarded CI.
+- [x] 0d7a1744 debug assembly and test compilation PASS; run 37143267946: 2779 pure, 2 failures (stale RELEASE_RECORD test anchor and literal M6 guard matcher). Regression/mock suites skipped, no uploaded APK.
+- [x] Repair test anchor and split the added editor-revision guard from the unchanged bar-generation guard; preserve both protections and the M6 test.
+- [x] 383137f8 debug assembly + 2779 pure + 172 focused mock PASS (2951 total), run 37143960348. New editor regressions 8 and dictionary-add route 12 PASS. APK artifact 11281383313.
+- [ ] Phone validation for editor-sync-v4; whole CI remains blocked by the earlier SubkeyAssignActivity lint and four devalue HIGH findings. No local Android SDK/Gradle toolchain.
+- [ ] Resume latest Shift-at-word-end and short/held Backspace changes after the integrity regression. Resetting scroll and Ale/Lub casing remain pending.
+- Monitoring policy: maximum 60 seconds TOTAL per Actions build, then user reports status; no idle polling loop.
+- Spec: [editor-prediction-integrity.md](../docs/specs/editor-prediction-integrity.md).
+
+## Polish trial — cursor word capitalization (2026-10-03)
+
+- Maintainer reports that the on-device source casing pairs work quite well; this is qualitative feedback, not a complete acceptance checklist.
+- [x] Implement Shift toggling the first letter after returning the caret to an existing word; preserve ordinary typing, pointer modifiers and cursor position.
+- [x] Shift commit d64439ac: debug build, pure and focused mock checks pass (run 37114260076).
+- [x] Latest phone report: edits work selectively. Fixed/tested missing final batch callback before the next cursor move; every interior position must work. That stage excluded the position after the last letter; the latest request re-enables it, pending after the integrity regression.
+- [ ] Validate cursor-caps-v3 before promotion; whole CI still has pre-existing lint/security failures.
+- Spec: [cursor-word-capitalization.md](../docs/specs/cursor-word-capitalization.md).
+
+## Polish trial — field-aware spacing (2026-10-03)
+
+- [x] Agreed shared swipe/tap preferences, search/password/technical field exclusions and punctuation rules.
+- [x] Implement actual-suffix alternate replacement, manual-space punctuation and field guards.
+- [x] b373391c88de57edacd7ad2d0ad4ea8b62e23985: debug build, 2773 pure + 129 focused mock checks PASS (run 37123257770).
+- [x] New phone log identifies debug v2, PL provider and łodzi/Łodzi pair; maintainer reports much better behavior. Previous missing-pair/spacing report not fully reproducible from old logs.
+- [x] Remove unconditional independent pre-swipe space; route whole swipe through shared field/preferences policy. Add five complete-path buffer regressions and trial/EDIT diagnostics.
+- [x] c272f9ec1787310c69b681b8ef7dd0a7fdbfa813: debug build, 2773 pure + 134 focused mock PASS (2907 total), run 37133110865; APK artifact 11277678542.
+- [x] Numeric sentence follow-up: after 3. + next word use shared gated autocap boundary; preserve 3.4 and search/password exclusions. Playground advertises sentence caps. 6122bf9b: debug build, 2779 pure + 152 focused mock PASS (2931 total), run 37140569285, APK 11280003851.
+- [ ] Verify cursor-caps-v3 on phone; no claim that all selective-Shift causes are established or resolved.
+- Typed-prefix completions are working per maintainer; explicitly withdrawn from scope.
+- Spec: [editor-spacing.md](../docs/specs/editor-spacing.md).
 
 ## September 27 follow-through
 
@@ -93,3 +237,33 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 ## Release authority
 
 Do not commit, tag, push, publish, or open external issues without explicit user authorization.
+
+
+## Polish fork editing settings v9 — 2026-10-04
+
+- Implemented: 18 typed controls, larger dp pause/resume band, configurable normal/fast
+  rates and screen-travel threshold, unified tap action, release policy, Shift/formatting/
+  suggestion options; 22 resource sets, backup classification and scoped reset.
+- V9 runtime 897edfa3: debug assembly + 2804 pure + 227 focused tests PASS (3031),
+  run 37183355586; APK 11295888906. Maintainer accepts introduced changes on phone
+  (2026-10-04, qualitative feedback, not an itemized backup/editor checklist).
+  No local Android SDK, Gradle or Kotlin compiler here.
+- Preserve the 60-second TOTAL Actions monitoring cap. No merge/tag/release/version bump.
+- Pack/producer/AI/CTC unchanged. Existing lint/security issues, instrumented/minified/
+  performance checks remain open. Ale/Lub producer correction passed CI; pack v4
+  import on the phone remains pending (see v15).
+
+## CI stabilization after accepted v9 — 2026-10-04
+
+- Prepared: remembered mapping state + keyed LaunchedEffect in SubkeyAssignActivity;
+  devalue 5.9.3 exact override and Bun-generated lockfile (no other package changes).
+- Pending: guarded Android compile/pure/focused/debug lint/release vital lint and
+  unchanged HIGH/CRITICAL security gate in the next Actions run. Do not claim green CI
+  from the earlier 3031 passing tests.
+- Polish UI translation is the priority. Record non-Polish locale defects by key,
+  symptom and evidence for later; native review remains deferred.
+- Local Bun audit no longer reports devalue. It still reports http-cache-semantics
+  GHSA-ch52-4w7c-c8xp (HIGH; advisory lists no patched version), four moderate Svelte
+  findings and one low esbuild finding. These are recorded separately; the unchanged
+  CI gate excludes unfixed findings. A newer npm http-cache-semantics release exists,
+  but its repair of this advisory is not verified here.

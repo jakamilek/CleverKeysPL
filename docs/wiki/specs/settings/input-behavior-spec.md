@@ -1,5 +1,6 @@
 ---
 title: Input Behavior Settings - Technical Specification
+description: Typing, capitalization, spacing, suggestions and configurable Backspace editing in the Polish trial fork.
 user_guide: ../../settings/input-behavior.md
 status: implemented
 version: v1.2.7
@@ -18,7 +19,7 @@ long-press, and the number-row/numpad layout selectors. Its controls live in
 Two neighbouring sections carry closely related keys and are cross-referenced where relevant:
 **Gesture Tuning** (`GestureTuningSection.kt` — short-gesture bounds, double-space-to-period,
 swipe-detection floors, selection-delete) and **Auto-Correction** (`AutoCorrectionSection.kt`
-— including `backspace_undo_autocorrect`).
+— autocorrection thresholds; the unified Backspace action is now in Gesture Tuning).
 
 ## Key Components
 
@@ -198,26 +199,113 @@ if (ptr.key != null && !ptr.hasLeftStartingKey) {
 `short_gesture_max_distance` (default 141%, slider 50-200) are configured in the **Gesture
 Tuning** section. See [Short Swipes](../gestures/short-swipes-spec.md).
 
-## Delete Behavior
+## Configurable editing behavior (Polish fork trial v9)
 
-There is no delete-mode or delete-word-mode preference. Backspace is a single path with two
-opt-out undo behaviors layered on top:
+The maintainer accepted v9 controls on the phone; runtime 5200 CI passed 3031 tests
+and both lint gates. V12 CI passed 3044 tests and both lint checks, and the maintainer accepted the phone
+behavior. V13 shares the space slider motion and requires separate CI/phone verification. No application version or release promotion changes here.
 
-- **`backspace_undo_swipe`** (Input Behavior, default true) — a backspace immediately after a
-  swipe-committed word deletes the whole word plus its trailing auto-space rather than one
-  character. `KeyEventHandler.handleBackspaceUndoSwipe` (`KeyEventHandler.kt:569`) returns
-  false to fall through to normal backspace when the feature is off, when an autocorrect is
-  pending (that handler owns the press instead), or when there is no recorded swiped word.
-  The control is only shown when swipe typing is enabled.
-- **`backspace_undo_autocorrect`** (default true) — reverts an autocorrection to the word the
-  user actually typed. Its switch lives in the **Auto-Correction** section
-  (`AutoCorrectionSection.kt:42-46`); the handler is `KeyEventHandler.kt:613`.
+Gesture Tuning contains **Backspace**: a tap deletes one character/space by default;
+an explicit mode can instead undo the immediately preceding autocorrection or remove
+the verified last swiped word. Dragging left starts character selection immediately,
+without waiting for a hold, after the shared space-slider step. A stationary
+hold previews the preceding word while retaining its preceding separator; after
+350 ms it deletes the word, waits 200 ms, then previews the next word while held.
+Moving left switches permanently to character dragging for that pointer.
+Movement owns the pointer across the whole keyboard.
+Release deletes the verified selection by default; switching that option off leaves
+the selection for a later edit. The release option does not disable timed word
+deletion. Cancellation deletes no pending selection; earlier committed deletions
+remain. See [the gesture specification](../gestures/selection-delete-spec.md#polish-trial-v12--direct-drag-and-repeated-words).
 
-Swipe-and-hold on backspace enters a selection-delete mode whose two tunables
-(`selection_delete_vertical_threshold`, `selection_delete_vertical_speed`) are in Gesture
-Tuning and consumed at `Pointers.kt:1227-1295`.
+V13 supersedes the automatic drag repeat with SliderMotion, shared with Space.
+Captured slide_step_px sets activation and character distance; slider_speed_smoothing
+and slider_speed_max control response to finger speed. Stopping movement stops selection,
+and reversing shrinks it without a pause/resume state. Character counts are batched into
+one validated editor update per touch event. The stationary word timer remains unchanged.
+See [the current specification](../gestures/selection-delete-spec.md#polish-trial-v13--shared-space-slider-motion).
+
+Turning off drag selection and word deletion uses ordinary character repeat when Key Repeat is enabled.
+The older vertical selection-delete sliders describe only the two-axis fallback when
+an editor refuses the modern word preview. They do not tune the horizontal gesture.
+
+Input Behavior contains **Text formatting** plus suggestion controls. Existing
+auto-space-before/after options apply to both swipes and selected suggestions.
+Punctuation attachment and following space can be switched independently under
+Smart Punctuation. Search formatting is off by default; passwords, URI/email and
+nontext fields remain excluded even when it is on. The numeric-period capital option
+controls sentence capitals after e.g. `3. `, preserving unfinished decimals and
+explicit editor all-capital hints. Shift word editing requires a user-returned,
+collapsed cursor; its word-end behavior is independently configurable.
+
+Source-backed capitalization surfaces remain attributes of one CKDT entry; this
+toggle does not add duplicate dictionary keys or semantic descriptions. ExactAdd
+can appear first or last with aligned score/provenance arrays. Adding it stays a
+storage-only action, and asynchronous editor/cursor guards remain unconditional.
+
+| Control | Key | Default | Range |
+|---|---|---|---|
+| Short Backspace action | `backspace_tap_mode` | 0 | 0–2 |
+| Drag selection and word deletion | `backspace_hold_select` | true | on/off |
+| Delete on release | `backspace_release_delete` | true | on/off |
+| Remove preceding punctuation space | `punctuation_remove_space` | true | on/off |
+| Add following punctuation space | `punctuation_add_space` | true | on/off |
+| Format search fields | `format_search_fields` | false | on/off |
+| Capital after numeric period | `numeric_period_caps` | true | on/off |
+| Shift edits word initial | `shift_word_case` | true | on/off |
+| Shift at word end | `shift_word_end` | true | on/off |
+| Source case variants | `show_case_variants` | true | on/off |
+| Add-word chip first | `exact_add_first` | true | on/off |
+| Reset strip after Backspace | `reset_suggestions_on_delete` | true | on/off |
+
+Defaults live in `Defaults`; `readEditBehaviorPreferences` uses safe bounded reads.
+An invalid tap-mode enum falls back to character deletion. The immutable
+`EditBehaviorOptions` is captured in `ConfigSnapshot` at pointer-down. The Compose
+controls use `saveSetting`, preference notifications and `loadCurrentSettings`;
+search is generated from their localized resource titles. Polish and base English shared-slider descriptions are current; changed semantics
+in other locales are tracked for later translation. Scoped reset removes only its own group's preference keys.
+
+`SETTINGS_DEFAULTS` and `SettingsValidation` include the new typed keys. Historical
+`backspace_undo_swipe` / `backspace_undo_autocorrect` are deprecated, omitted from
+exports and ignored on import. Their old true/true values do not select an undo mode.
+The Config symbols remain solely to preserve historical RELEASE_RECORD anchors.
+
+`BackspaceGestureTest` covers shared motion, acceleration and Unicode counts.
+`EditingSettingsPolicyTest` covers punctuation switches and backup boundaries. `EditingSettingsReadTest` covers defaults, old keys, clamping and
+immutable reads. Existing pointer, editor, Shift and capitalization suites include
+option-specific cases. V13 passed 3049 tests in run 37192552115; the newer v14/v15
+runtime results and phone checks remain separately pending here.
 
 ## Configuration
+
+### Polish trial v15 — new-word suggestion viewport
+
+`SuggestionBar.resetScrollPosition` posts a reset on its current parent
+`HorizontalScrollView`. The posted callback checks that the parent still owns the bar;
+theme/view replacement cannot scroll an old detached strip.
+`SuggestionHandler` requests it for every nonempty accepted swipe slate, a one-code-point
+typed prefix after live-editor synchronization, a typed word separator, and Enter/action
+word boundaries outside password mode. A repeated swipe slate still resets even when
+the content renderer skips identical suggestions. Longer prefix updates and cursor-sync
+prediction updates preserve the viewport. In-word apostrophe/hyphen joiners retain their
+existing branch. New-word resets are unconditional; `reset_suggestions_on_delete`
+continues to control only the existing Backspace reset.
+
+Three registered `SuggestionStripScrollTest` cases exercise the posted viewport reset,
+repeated content and detached/replaced owners. Three additional
+`LearningFunnelBookkeepingTest` cases drive real tracker/handler word transitions:
+tap → separator → tap, repeated swipe slates, and swipe → tap → Enter. The typed-word
+case disables the Backspace reset preference to verify the scopes stay separate.
+Host execution and phone validation await the next runtime CI; no local Android
+toolchain is available.
+
+The separate Polish function-word correction is language-pack version 4. Installing a
+new APK does not replace an already imported pack. Producer commit
+`bb55e87f5bfa2c7ce2a3eb2214cf5a7f3031205f` passed run `37188544526`; its
+`cleverkeys-pl-function-words-trial` artifact contains the pack ZIP to import.
+It corrects source-backed default spellings (including ale/lub), retaining CKDT keys,
+ranks and the existing variant sidecar. It adds no word-specific runtime exceptions.
+User reports only updating the APK; installed pack bytes remain uninspected.
 
 Every row is a preference key the app actually reads, with the control's own section noted
 where it is not Input Behavior. "Range" gives the Settings slider bound; where the import
@@ -234,8 +322,7 @@ validator (`backup/SettingsValidation.kt`) accepts a wider band, both are shown.
 | **Suggestion Bar Opacity** | `suggestion_bar_opacity` | 80 | 0-100% |
 | **Auto-Space After Suggestion** | `auto_space_after_suggestion` | true | bool (#82) |
 | **Auto-Space Before Suggestion** | `auto_space_before_suggestion` | true | bool |
-| **Show Exact Typed Word** | `show_exact_typed_word` | true | bool — appends the exact typed string (2+ chars, not already a prediction/dictionary/user word) as a tap-to-add `ExactAdd` suggestion (`SuggestionHandler.kt:2345`; switch added 2026-09-08, F-8/#42) |
-| **Backspace Undoes Swipe** | `backspace_undo_swipe` | true | bool — shown only when swipe typing is on (#110) |
+| **Show Exact Typed Word** | `show_exact_typed_word` | true | bool — offers the exact typed string (2+ chars, not already a prediction/dictionary/user word) as a tap-to-add `ExactAdd` suggestion (`SuggestionHandler.kt:2345`; switch added 2026-09-08, F-8/#42) |
 
 ### Touch thresholds
 
@@ -243,7 +330,7 @@ validator (`backup/SettingsValidation.kt`) accepts a wider band, both are shown.
 |---------|-----|---------|-------|
 | **Swipe Distance Threshold** | `swipe_dist` | `"23"` | slider 5-30 (stored as a string; scaled to px at `Config.kt:774`) |
 | **Circle Gesture Sensitivity** | `circle_sensitivity` | `"2"` | 1-5 (string) |
-| **Space Slider Sensitivity** | `slider_sensitivity` | `"30"` | 1-100% (`SettingsRanges.SLIDER_SENSITIVITY_PERCENT`; string). Floor is 1, not 0 — F-3 |
+| **Space and Backspace Slider Sensitivity** | `slider_sensitivity` | `"30"` | 1-100% (`SettingsRanges.SLIDER_SENSITIVITY_PERCENT`; string). Floor is 1, not 0 — F-3 |
 | **Long-Press Timeout** | `longpress_timeout` | 600 | slider 200-1000 ms; validator 50-2000 |
 | **Key-Repeat Interval** | `longpress_interval` | 25 | 25-200 ms (`SettingsRanges.LONGPRESS_INTERVAL`) |
 | **Key Repeat** | `keyrepeat_enabled` | true | bool |

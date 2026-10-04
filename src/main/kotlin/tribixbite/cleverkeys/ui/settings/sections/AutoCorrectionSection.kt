@@ -35,18 +35,7 @@ internal fun SettingsActivity.AutoCorrectionSection() {
                 )
 
                 if (autoCorrectEnabled) {
-                    // #110: Backspace undo autocorrect — revert to original word on immediate backspace
-                    SettingsSwitch(
-                        title = stringResource(R.string.autocorrect_backspace_undo_title),
-                        description = stringResource(R.string.autocorrect_backspace_undo_desc),
-                        checked = backspaceUndoAutocorrect,
-                        highlightId = "backspace_undo_autocorrect",
-                        onCheckedChange = {
-                            backspaceUndoAutocorrect = it
-                            saveSetting("backspace_undo_autocorrect", it)
-                            Config.globalConfig()?.backspace_undo_autocorrect = it
-                        }
-                    )
+
 
                     // Basic Settings
                     Text(
@@ -177,3 +166,4 @@ internal fun SettingsActivity.AutoCorrectionSection() {
                 // resurrect them. CTC exposes ctc_beam_width; geometric has its own knobs.
             }
 }
+

@@ -508,9 +508,9 @@
     <string name="input_suggestion_bar_opacity_title">کدری نوار پیشنهاد</string>
     <string name="input_suggestion_bar_opacity_desc">شفافیت نوار پیشنهاد</string>
     <string name="input_auto_space_after_title">فاصله خودکار پس از پیشنهاد</string>
-    <string name="input_auto_space_after_desc">هنگام انتخاب پیشنهاد، فاصله دنباله اضافه کنید</string>
+    <string name="input_auto_space_after_desc">هنگام انتخاب پیشنهاد، فاصله دنباله اضافه کنید برای واژه‌های کشیده‌شده و پیشنهادهای لمس‌شده.</string>
     <string name="input_auto_space_before_title">فاصله خودکار پیش از پیشنهاد</string>
-    <string name="input_auto_space_before_desc">قبل از پیشنهاد انتخاب‌شده فاصله پیشرو اضافه کنید (کشیدن همیشه فاصله اضافه می‌کند)</string>
+    <string name="input_auto_space_before_desc">قبل از پیشنهاد انتخاب‌شده فاصله پیشرو اضافه کنید (کشیدن همیشه فاصله اضافه می‌کند) برای واژه‌های کشیده‌شده و پیشنهادهای لمس‌شده.</string>
     <string name="input_backspace_undo_swipe_title">واگرد کشیدن با Backspace</string>
     <string name="input_backspace_undo_swipe_desc">فشردن Backspace بلافاصله پس از واژه کشیده‌شده، کل واژه را حذف می‌کند</string>
     <string name="input_show_exact_typed_title">نمایش واژهٔ دقیقاً تایپ‌شده</string>
@@ -2255,4 +2255,36 @@
     <string name="cmd_timestamp_iso_desc">درج برچسب زمانی ISO 8601 (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">در %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Backspace کوتاه</string>
+    <string name="edit_backspace_hold_select_title">انتخاب واژه با نگه داشتن</string>
+    <string name="edit_backspace_release_delete_title">حذف انتخاب پس از رها کردن</string>
+    <string name="edit_backspace_pause_enabled_title">مکث با تغییر جهت</string>
+    <string name="edit_backspace_pause_dp_title">فاصله توقف</string>
+    <string name="edit_backspace_resume_dp_title">فاصله ادامه</string>
+    <string name="edit_backspace_speed_percent_title">سرعت انتخاب</string>
+    <string name="edit_backspace_fast_percent_title">سرعت انتخاب سریع</string>
+    <string name="edit_backspace_accel_percent_title">آستانه شتاب</string>
+    <string name="edit_punctuation_remove_space_title">حذف فاصله پیش از نشانه‌گذاری</string>
+    <string name="edit_punctuation_add_space_title">افزودن فاصله پس از نشانه‌گذاری</string>
+    <string name="edit_format_search_fields_title">قالب‌بندی خودکار در جستجو</string>
+    <string name="edit_numeric_period_caps_title">حرف بزرگ پس از عدد و نقطه</string>
+    <string name="edit_shift_word_case_title">Shift حرف اول واژه را تغییر می‌دهد</string>
+    <string name="edit_shift_word_end_title">Shift در پایان واژه هم عمل می‌کند</string>
+    <string name="edit_show_case_variants_title">نمایش شکل‌های حروف از واژه‌نامه</string>
+    <string name="edit_exact_add_first_title">افزودن واژه در ابتدای پیشنهادها</string>
+    <string name="edit_reset_suggestions_on_delete_title">بازگشت پیشنهادها به ابتدا با Backspace</string>
+    <string name="edit_tap_character">حذف نویسه یا فاصله</string>
+    <string name="edit_tap_autocorrect">لغو اصلاح خودکار، سپس حذف نویسه‌ها</string>
+    <string name="edit_tap_swipe">حذف آخرین واژه با کشیدن، سپس نویسه‌ها</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">قالب‌بندی متن</string>
+    <string name="edit_backspace_help">انتخاب با نگه داشتن در سراسر صفحه‌کلید عمل می‌کند. پس از غیرفعال‌سازی، حذف معمولی به تکرار کلید نیاز دارد. عملکردهای جایگزین لمس درست پس از پیشنهاد اعمال می‌شوند.</string>
+    <string name="edit_pause_help">حرکت کوتاه در جهت مخالف مکث ایجاد می‌کند. حرکت بلندتر از محل مکث ادامه می‌دهد.</string>
+    <string name="edit_speed_help" formatted="false">نسبت به سرعت قبلی حرکت: 80% کندتر و 100% بدون تغییر است.</string>
+    <string name="edit_fast_help">حالت سریع پس از عبور از این سهم عرض صفحه آغاز می‌شود. تغییر جهت فاصله را صفر می‌کند.</string>
+    <string name="edit_format_help">گذرواژه‌ها و فیلدهای فنی هرگز خودکار قالب‌بندی نمی‌شوند. گزینه‌های نشانه‌گذاری به نشانه‌گذاری هوشمند و حروف بزرگ پس از عدد به بزرگ‌نویسی خودکار نیاز دارند.</string>
+    <string name="edit_fallback_header">انتخاب قدیمی دو محوره</string>
 </resources>
+
