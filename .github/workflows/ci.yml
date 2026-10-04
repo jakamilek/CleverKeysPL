@@ -64,6 +64,8 @@ jobs:
         bash scripts/gradle-guard.sh runMockTests -PtestClass=EditorSpacingIntegrationTest --stacktrace
         bash scripts/gradle-guard.sh runMockTests -PtestClass=DoubleSpacePeriodTest --stacktrace
         bash scripts/gradle-guard.sh runMockTests -PtestClass=SuggestionTrailingSpaceRepairTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=LearningFunnelBookkeepingTest --stacktrace
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=SuggestionStripScrollTest --stacktrace
 
     - name: Upload test results
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
