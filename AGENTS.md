@@ -162,3 +162,8 @@ APK workflow requires the exact real-conformance PASS marker plus existing lint/
 Other-locale missing trial-screen translations are deferred per maintainer, documented in
 LOCALIZATION_BACKLOG_POLISH_AI.md, with a local-only MissingTranslation ignore on the new
 resource file. Do not weaken global lint or claim JNI/mobile accuracy from host/pure tests.
+
+CI runner tool inventory is not guaranteed: rg was absent in run 37231774451 after
+real tokenizer tests passed. The mandatory original-conformance log marker is checked
+with Python stdlib (already required for APK audit), not an uninstalled search utility.
+Keep the assertion and all following gates; test/compile success alone is not APK success.

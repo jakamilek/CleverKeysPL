@@ -35,7 +35,12 @@ jobs:
       - name: Run registered pure regression suites
         run: |
           bash scripts/gradle-guard.sh runPureTests --stacktrace | tee build/herbert-benchmark-pure-tests.txt
-          rg -F 'HerBERT original conformance: 2471 token vectors; 232 batches / 532 candidates / five inputs PASS' build/herbert-benchmark-pure-tests.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          marker = 'HerBERT original conformance: 2471 token vectors; 232 batches / 532 candidates / five inputs PASS'
+          assert marker in Path('build/herbert-benchmark-pure-tests.txt').read_text(), 'Missing mandatory original-tokenizer conformance'
+          print(marker)
+          PY
       - name: Preserve editor and source-variant integration
         timeout-minutes: 15
         run: |

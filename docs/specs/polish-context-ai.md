@@ -180,3 +180,18 @@ FP32 weights/test fixtures. APK artifact includes SHA256/identity JSON, retains 
 no release or merge. Next: inspect completed new CI, install diagnostic APK on Nubia, import model ZIP
 and run repeated metrics. Actual Android JNI, phone performance and independent prediction quality
 remain unverified. Live IME remains unchanged and requires later opt-in dispatcher/settings gates.
+
+## Original Kotlin conformance verified; CI tool fix (2026-10-04)
+
+Run 37231774451 at 90615f0c7655ea5597c45db963e40480bfd03484:
+actual Android Kotlin compilation PASS, JUnitCore OK(2835), mandatory original
+conformance PASS: 2471 token vectors and all five feeds across 232 batches/532 candidates.
+The step failed only after Gradle success: workflow's marker search used rg, absent
+on this runner (exit 127). Focused regressions, lint, assembly/upload were skipped;
+no APK/JNI or phone result from this run. This does not invalidate tokenizer evidence.
+
+Replace that extra marker check with already-used Python standard library, retaining
+its exact assertion and all other required gates. Do not remove/skip the conformance check.
+The new build must complete editor regressions/debug+vital lint/assembly before APK upload.
+No Kotlin/fixtures/weights/context settings changes in this repair. Native scores and
+phone timing remain pending; do not report APK success from compile/unit success.
