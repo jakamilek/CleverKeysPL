@@ -21,7 +21,7 @@ Configure how CleverKeys processes your input, including capitalization, punctua
 
 ### Auto-Space After Suggestion
 
-Automatically add a space after tapping a suggestion:
+Automatically add a space after a swiped word or a tapped suggestion:
 
 | Setting | Result |
 |---------|--------|
@@ -173,3 +173,43 @@ A: Settings > Gesture Tuning > Double-Space to Period > Off.
 - [Accessibility](accessibility.md) - Haptic feedback settings
 - [Next-Word Prediction](../typing/next-word-prediction.md) - Next-word suggestions (built-in + learned)
 - [Privacy Settings](privacy.md) - The Learn From My Typing master switch
+
+
+## Editing controls in the Polish trial fork (v9)
+
+This trial adds controls; its build and phone acceptance are still pending.
+In **Gesture Tuning → Backspace**, choose a short-tap action. The default deletes
+one character or space. The optional alternatives undo the last autocorrection or
+delete the last swiped word while it is still the verified token before the cursor.
+
+Hold previews the preceding word. Drag left across the keyboard to extend selection;
+a short reverse movement pauses it. Move further from the pause to resume left or
+shrink right. Other keys do not activate during this gesture. Release deletes by
+default; switch **Delete selection on release** off to keep the selected range.
+Disabling **Select word on hold** restores ordinary repeat when Key Repeat is on.
+
+| Setting | Initial value |
+|---|---|
+| Pause on reversal | On |
+| Brake / resume distance | 6 / 24 dp |
+| Selection speed | 80% of the previous gesture rate |
+| Fast selection speed | 200% of the previous gesture rate |
+| Acceleration threshold | More than half the screen width travelled in one direction |
+
+The older vertical controls belong to the fallback gesture for unsupported editors.
+Each editing group has its own reset button, and the options are searchable and
+included in settings backup/restore.
+
+In **Input Behavior → Text formatting**, independently control spaces before/after
+punctuation, formatting in search boxes (initially off), numeric-period sentence
+capitalization, and Shift changing a word's first letter, including at its end.
+Passwords and technical fields always keep literal input. Shift still needs a cursor
+you returned to an existing word; after whitespace it has its ordinary function.
+
+The prediction group lets you show dictionary case alternatives, place the add-word
+chip first or last, and return the strip to its start after Backspace. **Show Exact
+Typed Word** remains the master for the add-word chip. Adding a word never deletes
+or rewrites the text already in the editor.
+
+See the [technical specification](../specs/settings/input-behavior-spec.md#configurable-editing-behavior-polish-fork-trial-v9)
+for keys, ranges, field guards and the trial's verification status.

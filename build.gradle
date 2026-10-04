@@ -587,6 +587,7 @@ tasks.register('runPureTests', JavaExec) {
 
   def pureTestClasses = [
     'tribixbite.cleverkeys.BackspaceGestureTest',
+    'tribixbite.cleverkeys.EditingSettingsPolicyTest',
     'tribixbite.cleverkeys.PunctuationSpacingTest',
     'tribixbite.cleverkeys.CursorWordCapitalizationTest',
     'tribixbite.cleverkeys.langpack.LanguageIntelligenceTest',
@@ -1138,6 +1139,7 @@ tasks.register('runMockTests', JavaExec) {
 
   def mockTestClasses = [
     'tribixbite.cleverkeys.BackspaceHoldTest',
+    'tribixbite.cleverkeys.EditingSettingsReadTest',
     'tribixbite.cleverkeys.PointersBackspaceHoldTest',
     'tribixbite.cleverkeys.EditorPredictionRegressionTest',
     'tribixbite.cleverkeys.EditorSpacingIntegrationTest',
@@ -1599,3 +1601,4 @@ tasks.configureEach { task ->
         task.finalizedBy("normalizeApkPaths")
     }
 }
+

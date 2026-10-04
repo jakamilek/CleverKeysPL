@@ -463,7 +463,7 @@ class CleverKeysService : InputMethodService(),
                 _keyeventhandler.backspaceTrace = if (enabled) {
                     { message: String -> traceBackspaceGesture("EDITOR $message") }
                 } else null
-                if (enabled) traceBackspaceGesture("RUNTIME backspace-pause-v8 app=${BuildConfig.APPLICATION_ID}")
+                if (enabled) traceBackspaceGesture("RUNTIME editing-settings-v9 app=${BuildConfig.APPLICATION_ID}")
             }
         })
 
@@ -1097,3 +1097,4 @@ class CleverKeysService : InputMethodService(),
 
     // v1.32.341: loadContractionMappings() method removed - functionality moved to ContractionManager class
 }
+

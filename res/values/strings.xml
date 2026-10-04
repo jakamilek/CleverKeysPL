@@ -704,9 +704,9 @@
     <string name="input_suggestion_bar_opacity_title">Suggestion Bar Opacity</string>
     <string name="input_suggestion_bar_opacity_desc">Transparency of the suggestion bar</string>
     <string name="input_auto_space_after_title">Auto-Space After Suggestion</string>
-    <string name="input_auto_space_after_desc">Add trailing space when selecting a suggestion</string>
+    <string name="input_auto_space_after_desc">Add trailing space when selecting a suggestion For both swiped words and tapped suggestions.</string>
     <string name="input_auto_space_before_title">Auto-Space Before Suggestion</string>
-    <string name="input_auto_space_before_desc">Insert leading space before a tapped suggestion (swipe always adds space)</string>
+    <string name="input_auto_space_before_desc">Insert leading space before a tapped suggestion (swipe always adds space) For both swiped words and tapped suggestions.</string>
     <string name="input_backspace_undo_swipe_title">Backspace Undo Swipe</string>
     <string name="input_backspace_undo_swipe_desc">Tapping backspace immediately after a swiped word deletes the entire word</string>
     <string name="input_show_exact_typed_title">Show exact typed word</string>
@@ -2617,4 +2617,36 @@
     <string name="cmd_timestamp_iso_desc">Insert ISO 8601 timestamp (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">in %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Short Backspace</string>
+    <string name="edit_backspace_hold_select_title">Select word on hold</string>
+    <string name="edit_backspace_release_delete_title">Delete selection on release</string>
+    <string name="edit_backspace_pause_enabled_title">Pause on direction reversal</string>
+    <string name="edit_backspace_pause_dp_title">Brake distance</string>
+    <string name="edit_backspace_resume_dp_title">Resume distance</string>
+    <string name="edit_backspace_speed_percent_title">Selection speed</string>
+    <string name="edit_backspace_fast_percent_title">Fast selection speed</string>
+    <string name="edit_backspace_accel_percent_title">Acceleration threshold</string>
+    <string name="edit_punctuation_remove_space_title">Remove space before punctuation</string>
+    <string name="edit_punctuation_add_space_title">Add space after punctuation</string>
+    <string name="edit_format_search_fields_title">Automatic formatting in search</string>
+    <string name="edit_numeric_period_caps_title">Capital after a number and period</string>
+    <string name="edit_shift_word_case_title">Shift changes word initial</string>
+    <string name="edit_shift_word_end_title">Shift also at word end</string>
+    <string name="edit_show_case_variants_title">Show source case variants</string>
+    <string name="edit_exact_add_first_title">Add-word chip first</string>
+    <string name="edit_reset_suggestions_on_delete_title">Reset suggestions on Backspace</string>
+    <string name="edit_tap_character">Delete character or space</string>
+    <string name="edit_tap_autocorrect">Undo autocorrect, then characters</string>
+    <string name="edit_tap_swipe">Delete last swipe, then characters</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Text formatting</string>
+    <string name="edit_backspace_help">Hold selection works across the keyboard. Disable it for ordinary repeat, which requires Key Repeat. Tap alternatives apply immediately after a suggestion.</string>
+    <string name="edit_pause_help">A short reversal pauses. A longer movement from the pause position resumes.</string>
+    <string name="edit_speed_help" formatted="false">Relative to the previous gesture speed: 80% is slower, 100% is unchanged.</string>
+    <string name="edit_fast_help">Fast mode starts after traveling further than this percentage of screen width. Reversing resets the travel distance.</string>
+    <string name="edit_format_help">Passwords and technical fields never use automatic formatting. Punctuation options require Smart Punctuation; numeric capitals require Auto-Capitalization.</string>
+    <string name="edit_fallback_header">Legacy two-axis selection fallback</string>
 </resources>
+

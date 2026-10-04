@@ -587,6 +587,9 @@ class Keyboard2View @JvmOverloads constructor(
         updateFlags()
         invalidate()
     }
+    override fun keepBackspaceHoldSelection() { _config.handler?.keepBackspaceHoldSelection() }
+    override fun backspaceDensity(): Float = resources.displayMetrics.density
+    override fun backspaceScreenWidth(): Float = resources.displayMetrics.widthPixels.toFloat()
     override fun backspaceKeyboardWidth(): Float = width.toFloat()
     override fun traceBackspace(message: String) {
         _keyboard2?.traceBackspaceGesture("POINTER $message")
@@ -2231,3 +2234,4 @@ internal object NavBarAppearance {
         )
     }
 }
+

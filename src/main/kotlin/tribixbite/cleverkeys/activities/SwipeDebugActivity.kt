@@ -200,7 +200,7 @@ class SwipeDebugActivity : Activity() {
         registerPlaygroundReceivers()
 
         appendLog(getString(R.string.swipe_debug_session_intro) + "\n\n")
-        appendLog("TRIAL backspace-pause-v8 app=${BuildConfig.APPLICATION_ID}\n")
+        appendLog("TRIAL editing-settings-v9 app=${BuildConfig.APPLICATION_ID}\n")
         refreshTraceCount()
     }
 
@@ -285,7 +285,7 @@ class SwipeDebugActivity : Activity() {
     private fun clearLogs() {
         logBuffer.setLength(0)
         logOutput.text = getString(R.string.swipe_debug_log_cleared_banner) + "\n"
-        appendLog("TRIAL backspace-pause-v8 app=${BuildConfig.APPLICATION_ID}\n")
+        appendLog("TRIAL editing-settings-v9 app=${BuildConfig.APPLICATION_ID}\n")
         // Re-announce the active IME/package marker after clearing the diagnostic buffer.
         setDebugMode(true)
         Toast.makeText(this, R.string.swipe_debug_toast_logs_cleared, Toast.LENGTH_SHORT).show()
@@ -480,3 +480,4 @@ class SwipeDebugActivity : Activity() {
     /** A failure's message for a toast, or the localized "Unknown error" when it has none. */
     private fun errorDetail(e: Exception): String = e.message ?: getString(R.string.common_unknown_error)
 }
+

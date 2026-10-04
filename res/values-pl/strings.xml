@@ -483,9 +483,9 @@
     <string name="input_suggestion_bar_opacity_title">Krycie paska podpowiedzi</string>
     <string name="input_suggestion_bar_opacity_desc">Przezroczystość paska podpowiedzi</string>
     <string name="input_auto_space_after_title">Automatyczna spacja po podpowiedzi</string>
-    <string name="input_auto_space_after_desc">Dodaj spację po wybraniu podpowiedzi</string>
+    <string name="input_auto_space_after_desc">Dodaj spację po wybraniu podpowiedzi Dotyczy słów wprowadzanych gestem i wybieranych z podpowiedzi.</string>
     <string name="input_auto_space_before_title">Automatyczna spacja przed podpowiedzią</string>
-    <string name="input_auto_space_before_desc">Wstaw spację przed dotkniętą podpowiedzią (gest zawsze dodaje spację)</string>
+    <string name="input_auto_space_before_desc">Wstaw spację przed dotkniętą podpowiedzią (gest zawsze dodaje spację) Dotyczy słów wprowadzanych gestem i wybieranych z podpowiedzi.</string>
     <string name="input_backspace_undo_swipe_title">Backspace cofa słowo gestu</string>
     <string name="input_backspace_undo_swipe_desc">Naciśnięcie Backspace bezpośrednio po słowie gestu usuwa całe słowo</string>
     <string name="input_show_exact_typed_title">Pokazuj dokładnie wpisane słowo</string>
@@ -2309,4 +2309,36 @@
     <string name="cmd_timestamp_iso_desc">Wstaw znacznik czasu ISO 8601 (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">w sekcji %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Krótkie naciśnięcie Backspace</string>
+    <string name="edit_backspace_hold_select_title">Zaznaczanie słowa po przytrzymaniu</string>
+    <string name="edit_backspace_release_delete_title">Usuń zaznaczenie po puszczeniu</string>
+    <string name="edit_backspace_pause_enabled_title">Pauza po zmianie kierunku</string>
+    <string name="edit_backspace_pause_dp_title">Ruch zatrzymujący zaznaczanie</string>
+    <string name="edit_backspace_resume_dp_title">Ruch wznawiający zaznaczanie</string>
+    <string name="edit_backspace_speed_percent_title">Prędkość zaznaczania</string>
+    <string name="edit_backspace_fast_percent_title">Prędkość przyspieszonego zaznaczania</string>
+    <string name="edit_backspace_accel_percent_title">Próg przyspieszenia</string>
+    <string name="edit_punctuation_remove_space_title">Usuń spację przed interpunkcją</string>
+    <string name="edit_punctuation_add_space_title">Dodaj spację po interpunkcji</string>
+    <string name="edit_format_search_fields_title">Automatyczne formatowanie w wyszukiwarkach</string>
+    <string name="edit_numeric_period_caps_title">Wielka litera po liczbie i kropce</string>
+    <string name="edit_shift_word_case_title">Shift zmienia pierwszą literę słowa</string>
+    <string name="edit_shift_word_end_title">Shift działa też na końcu słowa</string>
+    <string name="edit_show_case_variants_title">Pokazuj warianty wielkości liter ze słownika</string>
+    <string name="edit_exact_add_first_title">Dodawanie słowa na początku podpowiedzi</string>
+    <string name="edit_reset_suggestions_on_delete_title">Przewiń podpowiedzi na początek po Backspace</string>
+    <string name="edit_tap_character">Usuń znak lub spację</string>
+    <string name="edit_tap_autocorrect">Cofnij autokorektę, potem usuwaj znaki</string>
+    <string name="edit_tap_swipe">Usuń ostatnie słowo z gestu, potem znaki</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Formatowanie tekstu</string>
+    <string name="edit_backspace_help">Zaznaczanie po przytrzymaniu działa na całej klawiaturze. Po wyłączeniu zwykłe usuwanie wymaga opcji powtarzania klawiszy. Alternatywne krótkie naciśnięcie działa bezpośrednio po podpowiedzi.</string>
+    <string name="edit_pause_help">Mały ruch w przeciwną stronę zatrzymuje zaznaczanie. Większy ruch od miejsca pauzy je wznawia.</string>
+    <string name="edit_speed_help" formatted="false">Względem poprzedniej prędkości gestu: 80% oznacza wolniej, 100% bez zmian.</string>
+    <string name="edit_fast_help">Przyspieszenie włącza się po ruchu większym niż wskazana część szerokości ekranu. Zmiana kierunku zeruje dystans.</string>
+    <string name="edit_format_help">Hasła i pola techniczne zawsze pomijają formatowanie. Opcje interpunkcji wymagają inteligentnej interpunkcji, a wielka litera po liczbie — automatycznej kapitalizacji.</string>
+    <string name="edit_fallback_header">Starszy tryb zaznaczania w dwóch kierunkach</string>
 </resources>
+

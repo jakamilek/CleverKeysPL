@@ -905,7 +905,8 @@ class KeyboardReceiver(
 
     override fun handle_backspace() {
         keyboard2.handleBackspace()
-        scrollView?.post { scrollView?.scrollTo(0, 0) }
+        if ((Config.globalConfig().edit_behavior ?: EditBehaviorOptions()).resetSuggestionsOnDelete)
+            scrollView?.post { scrollView?.scrollTo(0, 0) }
     }
 
     override fun onWordCapitalizationChanged(cursor: Int) {
@@ -1054,3 +1055,4 @@ class KeyboardReceiver(
             )
     }
 }
+

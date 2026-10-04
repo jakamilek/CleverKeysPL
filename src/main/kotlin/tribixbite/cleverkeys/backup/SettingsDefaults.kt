@@ -44,6 +44,24 @@ import tribixbite.cleverkeys.Defaults
  *     stringly-typed values for backwards compat with legacy XML prefs).
  */
 internal val SETTINGS_DEFAULTS: Map<String, PrefValue> = mapOf(
+    "backspace_tap_mode" to PrefValue.IntV(Defaults.BACKSPACE_TAP_MODE),
+    "backspace_hold_select" to PrefValue.Bool(Defaults.BACKSPACE_HOLD_SELECT),
+    "backspace_release_delete" to PrefValue.Bool(Defaults.BACKSPACE_RELEASE_DELETE),
+    "backspace_pause_enabled" to PrefValue.Bool(Defaults.BACKSPACE_PAUSE_ENABLED),
+    "backspace_pause_dp" to PrefValue.IntV(Defaults.BACKSPACE_PAUSE_DP),
+    "backspace_resume_dp" to PrefValue.IntV(Defaults.BACKSPACE_RESUME_DP),
+    "backspace_speed_percent" to PrefValue.IntV(Defaults.BACKSPACE_SPEED_PERCENT),
+    "backspace_fast_percent" to PrefValue.IntV(Defaults.BACKSPACE_FAST_PERCENT),
+    "backspace_accel_percent" to PrefValue.IntV(Defaults.BACKSPACE_ACCEL_PERCENT),
+    "punctuation_remove_space" to PrefValue.Bool(Defaults.PUNCTUATION_REMOVE_SPACE),
+    "punctuation_add_space" to PrefValue.Bool(Defaults.PUNCTUATION_ADD_SPACE),
+    "format_search_fields" to PrefValue.Bool(Defaults.FORMAT_SEARCH_FIELDS),
+    "numeric_period_caps" to PrefValue.Bool(Defaults.NUMERIC_PERIOD_CAPS),
+    "shift_word_case" to PrefValue.Bool(Defaults.SHIFT_WORD_CASE),
+    "shift_word_end" to PrefValue.Bool(Defaults.SHIFT_WORD_END),
+    "show_case_variants" to PrefValue.Bool(Defaults.SHOW_CASE_VARIANTS),
+    "exact_add_first" to PrefValue.Bool(Defaults.EXACT_ADD_FIRST),
+    "reset_suggestions_on_delete" to PrefValue.Bool(Defaults.RESET_SUGGESTIONS_ON_DELETE),
     // ── Appearance ────────────────────────────────────────────────────
     "theme" to PrefValue.Str(Defaults.THEME),
     "keyboard_height" to PrefValue.IntV(Defaults.KEYBOARD_HEIGHT_PORTRAIT),
@@ -151,8 +169,6 @@ internal val SETTINGS_DEFAULTS: Map<String, PrefValue> = mapOf(
     "prediction_frequency_scale" to PrefValue.FloatV(Defaults.PREDICTION_FREQUENCY_SCALE),
     "auto_space_after_suggestion" to PrefValue.Bool(Defaults.AUTO_SPACE_AFTER_SUGGESTION),
     "auto_space_before_suggestion" to PrefValue.Bool(Defaults.AUTO_SPACE_BEFORE_SUGGESTION),
-    "backspace_undo_swipe" to PrefValue.Bool(Defaults.BACKSPACE_UNDO_SWIPE),
-    "backspace_undo_autocorrect" to PrefValue.Bool(Defaults.BACKSPACE_UNDO_AUTOCORRECT),
 
     // ── Autocorrect ──────────────────────────────────────────────────
     "autocorrect_enabled" to PrefValue.Bool(Defaults.AUTOCORRECT_ENABLED),
@@ -290,3 +306,4 @@ internal fun lookupDefault(key: String): PrefValue? = SETTINGS_DEFAULTS[key]
 internal val NON_DEFAULTED_KEYS: Set<String> = setOf(
     "clipboard_custom_rules_uri",      // SAF URI for user-supplied URL rules
 )
+

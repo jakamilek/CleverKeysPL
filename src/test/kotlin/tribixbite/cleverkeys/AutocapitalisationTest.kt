@@ -325,6 +325,14 @@ class AutocapitalisationTest {
         assertThat(Autocapitalisation.shouldCapitalizeAtCursor(mockIc, info, true)).isTrue()
     }
 
+    @Test fun numericPeriodCapitalizationCanBeDisabledEvenWithStaleEditorCaps() {
+        val info = createEditorInfo(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES, 0)
+        every { mockIc.getCursorCapsMode(any()) } returns InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        every { mockIc.getTextBeforeCursor(any(), any()) } returns "Mam 3. "
+        every { mockIc.getTextAfterCursor(any(), any()) } returns ""
+        assertThat(Autocapitalisation.shouldCapitalizeAtCursor(mockIc, info, true,
+            options = EditBehaviorOptions(numericPeriodCaps = false))).isFalse()
+    }
     @Test fun `abbreviation result from Android is respected`() {
         val info = createEditorInfo(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES, 0)
         every { mockIc.getTextBeforeCursor(any(), any()) } returns "np. "

@@ -48,6 +48,7 @@ jobs:
     - name: Run language-pack, casing and spacing integration tests
       timeout-minutes: 15
       run: |
+        bash scripts/gradle-guard.sh runMockTests -PtestClass=EditingSettingsReadTest --stacktrace
         bash scripts/gradle-guard.sh runMockTests -PtestClass=BackspaceHoldTest --stacktrace
         bash scripts/gradle-guard.sh runMockTests -PtestClass=PointersBackspaceHoldTest --stacktrace
         bash scripts/gradle-guard.sh runMockTests -PtestClass=EditorPredictionRegressionTest --stacktrace
@@ -253,3 +254,4 @@ jobs:
         if [ $FAIL -eq 1 ]; then
           echo "::warning::Some APKs exceed size thresholds"
         fi
+

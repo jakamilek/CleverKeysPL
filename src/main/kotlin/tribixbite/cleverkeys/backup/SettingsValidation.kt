@@ -1,6 +1,7 @@
 package tribixbite.cleverkeys.backup
 
 import tribixbite.cleverkeys.SettingsRanges
+import tribixbite.cleverkeys.EditBehaviorRanges
 
 /**
  * Single source of truth for SharedPreferences-backup validation rules.
@@ -75,6 +76,8 @@ object SettingsValidation {
      * — and a few other cases of stale key names that survived migrations.
      */
     val DEPRECATED_KEYS: Set<String> = setOf(
+        "backspace_undo_swipe",
+        "backspace_undo_autocorrect",
         // Duplicates of Config's `pref_*` keys, never read:
         "enable_multilang",
         "primary_language",
@@ -282,6 +285,12 @@ object SettingsValidation {
      * accepted unchanged, matching the legacy validator's `else -> true`.
      */
     private val INT_RANGES: Map<String, IntRange> = buildMap {
+        put("backspace_tap_mode", EditBehaviorRanges.BACKSPACE_TAP_MODE)
+        put("backspace_pause_dp", EditBehaviorRanges.BACKSPACE_PAUSE_DP)
+        put("backspace_resume_dp", EditBehaviorRanges.BACKSPACE_RESUME_DP)
+        put("backspace_speed_percent", EditBehaviorRanges.BACKSPACE_SPEED_PERCENT)
+        put("backspace_fast_percent", EditBehaviorRanges.BACKSPACE_FAST_PERCENT)
+        put("backspace_accel_percent", EditBehaviorRanges.BACKSPACE_ACCEL_PERCENT)
         // CTC beam width. Bounds mirror CtcEngineAdapter's own coerceIn(10, 300) at read
         // time, so a hostile or hand-edited backup cannot smuggle a value the engine will
         // silently clamp anyway — the import preview should reject it visibly instead. This
@@ -473,6 +482,8 @@ object SettingsValidation {
      * type-mismatch detection when a Bool is passed for an int-allowlisted key).
      */
     private fun isIntKey(key: String): Boolean = when (key) {
+        "backspace_tap_mode", "backspace_pause_dp", "backspace_resume_dp",
+        "backspace_speed_percent", "backspace_fast_percent", "backspace_accel_percent" -> true
         "label_brightness", "keyboard_opacity", "key_opacity",
         "key_activated_opacity", "suggestion_bar_opacity",
         "keyboard_height", "keyboard_height_unfolded",

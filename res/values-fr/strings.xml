@@ -478,9 +478,9 @@
     <string name="input_suggestion_bar_opacity_title">Opacité de la barre de suggestions</string>
     <string name="input_suggestion_bar_opacity_desc">Transparence de la barre de suggestions</string>
     <string name="input_auto_space_after_title">Espace automatique après suggestion</string>
-    <string name="input_auto_space_after_desc">Ajouter un espace après la sélection d\'une suggestion</string>
+    <string name="input_auto_space_after_desc">Ajouter un espace après la sélection d\'une suggestion Pour les mots glissés et les suggestions touchées.</string>
     <string name="input_auto_space_before_title">Espace automatique avant suggestion</string>
-    <string name="input_auto_space_before_desc">Insérer un espace avant une suggestion sélectionnée (le glissé ajoute toujours un espace)</string>
+    <string name="input_auto_space_before_desc">Insérer un espace avant une suggestion sélectionnée (le glissé ajoute toujours un espace) Pour les mots glissés et les suggestions touchées.</string>
     <string name="input_backspace_undo_swipe_title">Retour arrière annule le glissé</string>
     <string name="input_backspace_undo_swipe_desc">Appuyer sur Retour arrière immédiatement après un mot saisi par glissé supprime l\'intégralité du mot</string>
     <string name="input_show_exact_typed_title">Afficher le mot exact saisi</string>
@@ -2268,4 +2268,36 @@
     <string name="cmd_timestamp_iso_desc">Insérer un horodatage ISO 8601 (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">dans %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Backspace bref</string>
+    <string name="edit_backspace_hold_select_title">Sélectionner le mot par appui long</string>
+    <string name="edit_backspace_release_delete_title">Supprimer la sélection au relâchement</string>
+    <string name="edit_backspace_pause_enabled_title">Pause au changement de direction</string>
+    <string name="edit_backspace_pause_dp_title">Distance de freinage</string>
+    <string name="edit_backspace_resume_dp_title">Distance de reprise</string>
+    <string name="edit_backspace_speed_percent_title">Vitesse de sélection</string>
+    <string name="edit_backspace_fast_percent_title">Sélection rapide</string>
+    <string name="edit_backspace_accel_percent_title">Seuil d’accélération</string>
+    <string name="edit_punctuation_remove_space_title">Retirer l’espace avant la ponctuation</string>
+    <string name="edit_punctuation_add_space_title">Ajouter un espace après la ponctuation</string>
+    <string name="edit_format_search_fields_title">Format automatique dans la recherche</string>
+    <string name="edit_numeric_period_caps_title">Majuscule après nombre et point</string>
+    <string name="edit_shift_word_case_title">Shift change l’initiale du mot</string>
+    <string name="edit_shift_word_end_title">Shift aussi en fin de mot</string>
+    <string name="edit_show_case_variants_title">Afficher les variantes de casse</string>
+    <string name="edit_exact_add_first_title">Ajout de mot en première suggestion</string>
+    <string name="edit_reset_suggestions_on_delete_title">Revenir au début des suggestions avec Backspace</string>
+    <string name="edit_tap_character">Supprimer un caractère ou espace</string>
+    <string name="edit_tap_autocorrect">Annuler la correction, puis les caractères</string>
+    <string name="edit_tap_swipe">Supprimer le dernier mot glissé, puis les caractères</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Format du texte</string>
+    <string name="edit_backspace_help">La sélection par appui long fonctionne sur tout le clavier. Si elle est désactivée, la suppression ordinaire nécessite la répétition des touches. Les autres actions brèves valent juste après une suggestion.</string>
+    <string name="edit_pause_help">Un bref mouvement inverse met en pause. Un mouvement plus long depuis la pause reprend.</string>
+    <string name="edit_speed_help" formatted="false">Par rapport à la vitesse précédente du geste : 80% est plus lent, 100% est inchangé.</string>
+    <string name="edit_fast_help">Le mode rapide commence au-delà de cette portion de largeur d’écran. Changer de direction remet la distance à zéro.</string>
+    <string name="edit_format_help">Les mots de passe et champs techniques ne sont jamais formatés automatiquement. Les options de ponctuation nécessitent la ponctuation intelligente ; les majuscules numériques, les majuscules automatiques.</string>
+    <string name="edit_fallback_header">Ancienne sélection sur deux axes</string>
 </resources>
+

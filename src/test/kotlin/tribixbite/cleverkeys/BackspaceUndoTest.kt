@@ -252,14 +252,18 @@ class BackspaceUndoTest {
         assertThat(source).contains("private fun handleBackspaceUndoAutocorrect(): Boolean")
     }
 
-    // Latest Polish trial contract: tap is a character deletion; hold owns word deletion.
+    // Historical symbol retained. Character deletion is the default; optional undo
+    // requires an explicit tap-mode choice, never the legacy true/true checkboxes.
     @Test
     fun `backspace tap bypasses legacy undo interceptors`() {
         val source = readSource("KeyEventHandler.kt")
         val body = source.substring(source.indexOf("override fun key_up("),
             source.indexOf("private fun handleBackspaceUndoSwipe"))
-        assertThat(body).doesNotContain("handleBackspaceUndoSwipe()")
-        assertThat(body).doesNotContain("handleBackspaceUndoAutocorrect()")
+        assertThat(Defaults.BACKSPACE_TAP_MODE).isEqualTo(0)
+        assertThat(body).contains(".tapMode)")
+        assertThat(body).contains("else -> false")
+        assertThat(body).doesNotContain(".backspace_undo_swipe")
+        assertThat(body).doesNotContain(".backspace_undo_autocorrect")
         assertThat(body).contains("send_key_down_up(key.getKeyevent())")
         assertThat(body).contains("recv.clearSwipeUndoState()")
         assertThat(body).contains("recv.clearAutocorrectUndoState()")

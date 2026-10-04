@@ -17,6 +17,25 @@ import tribixbite.cleverkeys.prefs.LayoutsPreference
  * Both Config.kt and SettingsActivity.kt should reference these constants.
  */
 object Defaults {
+    const val BACKSPACE_TAP_MODE = 0
+    const val BACKSPACE_HOLD_SELECT = true
+    const val BACKSPACE_RELEASE_DELETE = true
+    const val BACKSPACE_PAUSE_ENABLED = true
+    const val BACKSPACE_PAUSE_DP = 6
+    const val BACKSPACE_RESUME_DP = 24
+    const val BACKSPACE_SPEED_PERCENT = 80
+    const val BACKSPACE_FAST_PERCENT = 200
+    const val BACKSPACE_ACCEL_PERCENT = 50
+    const val PUNCTUATION_REMOVE_SPACE = true
+    const val PUNCTUATION_ADD_SPACE = true
+    const val FORMAT_SEARCH_FIELDS = false
+    const val NUMERIC_PERIOD_CAPS = true
+    const val SHIFT_WORD_CASE = true
+    const val SHIFT_WORD_END = true
+    const val SHOW_CASE_VARIANTS = true
+    const val EXACT_ADD_FIRST = true
+    const val RESET_SUGGESTIONS_ON_DELETE = true
+
     // Appearance
     const val THEME = "cleverkeysdark"
     // 2026-05-15: lowered from 30% to 27% — feels less cramped on most phones
@@ -757,6 +776,9 @@ class Config private constructor(
     @JvmField var termux_mode_enabled = false
     @JvmField var auto_space_after_suggestion = true  // Add trailing space after selecting suggestion
     @JvmField var auto_space_before_suggestion = true  // Add leading space before tapped suggestion
+    @JvmField var edit_behavior: EditBehaviorOptions? = EditBehaviorOptions()
+
+    // Retained field symbols for historical test/API compatibility; no preference reader.
     @JvmField var backspace_undo_swipe = true  // Backspace after swipe deletes entire swiped word
     @JvmField var backspace_undo_autocorrect = true  // #110: Backspace after autocorrect reverts to original word
 
@@ -1066,8 +1088,7 @@ class Config private constructor(
         termux_mode_enabled = _prefs.getBoolean("termux_mode_enabled", Defaults.TERMUX_MODE_ENABLED)
         auto_space_after_suggestion = _prefs.getBoolean("auto_space_after_suggestion", Defaults.AUTO_SPACE_AFTER_SUGGESTION)
         auto_space_before_suggestion = _prefs.getBoolean("auto_space_before_suggestion", Defaults.AUTO_SPACE_BEFORE_SUGGESTION)
-        backspace_undo_swipe = _prefs.getBoolean("backspace_undo_swipe", Defaults.BACKSPACE_UNDO_SWIPE)
-        backspace_undo_autocorrect = _prefs.getBoolean("backspace_undo_autocorrect", Defaults.BACKSPACE_UNDO_AUTOCORRECT)
+        edit_behavior = readEditBehaviorPreferences(_prefs)
         swipe_debug_detailed_logging = _prefs.getBoolean("swipe_debug_detailed_logging", Defaults.SWIPE_DEBUG_DETAILED_LOGGING)
         // L1: canonicalize case at read — an imported/hand-edited "CTC" must drive the
         // router, provenance tagging, and the settings UI exactly like "ctc".
@@ -1141,6 +1162,7 @@ class Config private constructor(
      * fails to compile here rather than silently publishing a placeholder.
      */
     private fun buildSnapshot(): ConfigSnapshot = ConfigSnapshot(
+        edit_behavior = edit_behavior ?: EditBehaviorOptions(),
         circle_sensitivity = circle_sensitivity,
         tap_duration_threshold = tap_duration_threshold,
         double_tap_lock_shift = double_tap_lock_shift,
@@ -1392,6 +1414,7 @@ class Config private constructor(
         fun beginBackspaceHold(): Boolean = false
         fun stepBackspaceHold(direction: Int): Boolean = false
         fun finishBackspaceHold(commit: Boolean) {}
+        fun keepBackspaceHoldSelection() {}
     }
 
     companion object {
@@ -1897,3 +1920,27 @@ class Config private constructor(
         }
     }
 }
+
+
+/** Safe, clamped reads also used by reactive settings after import/reset. */
+internal fun readEditBehaviorPreferences(prefs: SharedPreferences): EditBehaviorOptions = EditBehaviorOptions(
+    tapMode = Config.safeGetInt(prefs, "backspace_tap_mode", Defaults.BACKSPACE_TAP_MODE)
+        .takeIf { it in EditBehaviorRanges.BACKSPACE_TAP_MODE } ?: Defaults.BACKSPACE_TAP_MODE,
+    holdSelect = Config.safeGetBoolean(prefs, "backspace_hold_select", Defaults.BACKSPACE_HOLD_SELECT),
+    releaseDelete = Config.safeGetBoolean(prefs, "backspace_release_delete", Defaults.BACKSPACE_RELEASE_DELETE),
+    pauseEnabled = Config.safeGetBoolean(prefs, "backspace_pause_enabled", Defaults.BACKSPACE_PAUSE_ENABLED),
+    pauseDp = Config.safeGetInt(prefs, "backspace_pause_dp", Defaults.BACKSPACE_PAUSE_DP).coerceIn(EditBehaviorRanges.BACKSPACE_PAUSE_DP),
+    resumeDp = Config.safeGetInt(prefs, "backspace_resume_dp", Defaults.BACKSPACE_RESUME_DP).coerceIn(EditBehaviorRanges.BACKSPACE_RESUME_DP),
+    speedPercent = Config.safeGetInt(prefs, "backspace_speed_percent", Defaults.BACKSPACE_SPEED_PERCENT).coerceIn(EditBehaviorRanges.BACKSPACE_SPEED_PERCENT),
+    fastPercent = Config.safeGetInt(prefs, "backspace_fast_percent", Defaults.BACKSPACE_FAST_PERCENT).coerceIn(EditBehaviorRanges.BACKSPACE_FAST_PERCENT),
+    accelPercent = Config.safeGetInt(prefs, "backspace_accel_percent", Defaults.BACKSPACE_ACCEL_PERCENT).coerceIn(EditBehaviorRanges.BACKSPACE_ACCEL_PERCENT),
+    punctuationRemoveSpace = Config.safeGetBoolean(prefs, "punctuation_remove_space", Defaults.PUNCTUATION_REMOVE_SPACE),
+    punctuationAddSpace = Config.safeGetBoolean(prefs, "punctuation_add_space", Defaults.PUNCTUATION_ADD_SPACE),
+    formatSearchFields = Config.safeGetBoolean(prefs, "format_search_fields", Defaults.FORMAT_SEARCH_FIELDS),
+    numericPeriodCaps = Config.safeGetBoolean(prefs, "numeric_period_caps", Defaults.NUMERIC_PERIOD_CAPS),
+    shiftWordCase = Config.safeGetBoolean(prefs, "shift_word_case", Defaults.SHIFT_WORD_CASE),
+    shiftWordEnd = Config.safeGetBoolean(prefs, "shift_word_end", Defaults.SHIFT_WORD_END),
+    showCaseVariants = Config.safeGetBoolean(prefs, "show_case_variants", Defaults.SHOW_CASE_VARIANTS),
+    exactAddFirst = Config.safeGetBoolean(prefs, "exact_add_first", Defaults.EXACT_ADD_FIRST),
+    resetSuggestionsOnDelete = Config.safeGetBoolean(prefs, "reset_suggestions_on_delete", Defaults.RESET_SUGGESTIONS_ON_DELETE)
+)

@@ -151,3 +151,12 @@ Only in-force audit records live here; everything superseded is under `docs/hist
 4. Check relevant spec: `cat docs/specs/[feature].md`
 
 - [Editor prediction integrity — Polish trial regression](specs/editor-prediction-integrity.md)
+
+
+## Polish fork editing settings trial
+
+- [Input Behavior guide](wiki/settings/input-behavior.md#editing-controls-in-the-polish-trial-fork-v9)
+- [Editing preference keys and guards](wiki/specs/settings/input-behavior-spec.md#configurable-editing-behavior-polish-fork-trial-v9)
+- [Immutable settings architecture](wiki/specs/settings/settings-system-architecture-spec.md#immutable-editing-options-polish-fork-trial-v9)
+
+V9 build and phone acceptance are pending; this is not a release.

@@ -278,6 +278,56 @@ class BackspaceHoldTest {
         assertFalse(handler.beginBackspaceHold())
         verify(exactly = 0) { conn.getTextBeforeCursor(any(), any()) }
     }
+    private fun withTapMode(mode: Int, block: () -> Unit) {
+        mockkObject(Config.Companion)
+        try {
+            val config = mockk<Config>(relaxed = true)
+            config.edit_behavior = EditBehaviorOptions(tapMode = mode)
+            every { Config.globalConfigOrNull() } returns config
+            every { Config.globalConfig() } returns config
+            block()
+        } finally { unmockkObject(Config.Companion) }
+    }
+    private fun tapBackspace() = handler.key_up(
+        KeyValue.keyeventKey(0xE003, KeyEvent.KEYCODE_DEL, 0), Pointers.Modifiers.EMPTY, false)
+    @Test fun explicitlyEnabledSwipeUndoDeletesOnlyTheVerifiedLastToken() = withTapMode(2) {
+        every { recv.getLastAutoInsertedWord() } returns "mleko"
+        every { recv.getLastAutocorrectOriginalWord() } returns null
+        every { conn.deleteSurroundingText(any(), any()) } answers {
+            text = text.dropLast(firstArg<Int>()); caret(text.length); true
+        }
+        tapBackspace()
+        assertEquals("olej ", text)
+        verify(exactly = 0) { handler.send_key_down_up(KeyEvent.KEYCODE_DEL) }
+    }
+    @Test fun explicitlyEnabledAutocorrectUndoUsesOneCommitAndPreservesSpacing() = withTapMode(1) {
+        every { recv.getLastAutoInsertedWord() } returns "mleko"
+        every { recv.getLastAutocorrectOriginalWord() } returns "mlekoo"
+        tapBackspace()
+        assertEquals("olej mlekoo ", text)
+        verify(exactly = 1) { conn.commitText("mlekoo ", 1) }
+        verify(exactly = 0) { conn.deleteSurroundingText(any(), any()) }
+        verify(exactly = 0) { handler.send_key_down_up(KeyEvent.KEYCODE_DEL) }
+    }
+    @Test fun swipeUndoCannotEraseAMatchingSuffixInsideAnotherWord() = withTapMode(2) {
+        text = "olej niemleko "; caret(text.length)
+        every { recv.getLastAutoInsertedWord() } returns "mleko"
+        every { recv.getLastAutocorrectOriginalWord() } returns null
+        every { handler.send_key_down_up(KeyEvent.KEYCODE_DEL) } answers {
+            text = text.dropLast(1); caret(text.length)
+        }
+        tapBackspace(); assertEquals("olej niemleko", text)
+        verify(exactly = 0) { conn.deleteSurroundingText(any(), any()) }
+    }
+    @Test fun keepingThePreviewDoesNotDeleteOrCollapseTheSelection() {
+        assertTrue(handler.beginBackspaceHold())
+        val selected = a to b
+        handler.keepBackspaceHoldSelection()
+        assertEquals("olej mleko ", text)
+        assertEquals(selected, a to b)
+        handler.finishBackspaceHold(true)
+        verify(exactly = 0) { conn.commitText(any(), any()) }
+    }
     @Test fun tapDeletesOneSpaceThenOneCharacterAfterSwipeOrAutocorrection() {
         every { recv.getLastAutoInsertedWord() } returns "mleko"
         every { recv.getLastAutocorrectOriginalWord() } returns "mlekoo"

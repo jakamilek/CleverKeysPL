@@ -5,9 +5,9 @@ import android.view.inputmethod.EditorInfo
 
 /** Automatic prose formatting is independent of prediction/cursor-sync eligibility. */
 object EditorSpacingPolicy {
-    fun allowsAutomaticSpacing(info: EditorInfo?): Boolean {
+    fun allowsAutomaticSpacing(info: EditorInfo?, allowSearch: Boolean = false): Boolean {
         info ?: return false
-        if ((info.imeOptions and EditorInfo.IME_MASK_ACTION) == EditorInfo.IME_ACTION_SEARCH) {
+        if (!allowSearch && (info.imeOptions and EditorInfo.IME_MASK_ACTION) == EditorInfo.IME_ACTION_SEARCH) {
             return false
         }
         if ((info.inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT) {
@@ -24,3 +24,4 @@ object EditorSpacingPolicy {
         }
     }
 }
+

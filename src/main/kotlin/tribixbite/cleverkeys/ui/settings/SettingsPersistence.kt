@@ -8,6 +8,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import kotlinx.coroutines.launch
 import tribixbite.cleverkeys.Config
 import tribixbite.cleverkeys.Defaults
+import tribixbite.cleverkeys.readEditBehaviorPreferences
 import tribixbite.cleverkeys.Logs
 import tribixbite.cleverkeys.PrivateCopyProcessTextActivity
 import tribixbite.cleverkeys.R
@@ -24,6 +25,9 @@ import tribixbite.cleverkeys.ui.settings.io.refreshInstalledLanguagePacks
  * The override in [SettingsActivity] delegates here with identical parameters.
  */
 internal fun SettingsActivity.handlePreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
+        if (key in setOf("backspace_tap_mode", "backspace_hold_select", "backspace_release_delete", "backspace_pause_enabled", "backspace_pause_dp", "backspace_resume_dp", "backspace_speed_percent", "backspace_fast_percent", "backspace_accel_percent", "punctuation_remove_space", "punctuation_add_space", "format_search_fields", "numeric_period_caps", "shift_word_case", "shift_word_end", "show_case_variants", "exact_add_first", "reset_suggestions_on_delete")) {
+            editBehavior = readEditBehaviorPreferences(prefs)
+        }
         // Handle preference changes for reactive updates
         when (key) {
             "swipe_typing_enabled" -> {
@@ -197,6 +201,7 @@ internal fun SettingsActivity.handlePreferenceChanged(sharedPreferences: SharedP
 }
 
 internal fun SettingsActivity.loadCurrentSettings() {
+        editBehavior = readEditBehaviorPreferences(prefs)
         // Swipe typing master switch
         swipeTypingEnabled = prefs.getSafeBoolean("swipe_typing_enabled", Defaults.SWIPE_TYPING_ENABLED)
         swipeOnPasswordFields = prefs.getSafeBoolean("swipe_on_password_fields", Defaults.SWIPE_ON_PASSWORD_FIELDS)
@@ -340,8 +345,6 @@ internal fun SettingsActivity.loadCurrentSettings() {
         autoSpaceAfterSuggestion = prefs.getSafeBoolean("auto_space_after_suggestion", Defaults.AUTO_SPACE_AFTER_SUGGESTION)
         autoSpaceBeforeSuggestion = prefs.getSafeBoolean("auto_space_before_suggestion", Defaults.AUTO_SPACE_BEFORE_SUGGESTION)
         showExactTypedWord = prefs.getSafeBoolean("show_exact_typed_word", Defaults.SHOW_EXACT_TYPED_WORD)
-        backspaceUndoSwipe = prefs.getSafeBoolean("backspace_undo_swipe", Defaults.BACKSPACE_UNDO_SWIPE)
-        backspaceUndoAutocorrect = prefs.getSafeBoolean("backspace_undo_autocorrect", Defaults.BACKSPACE_UNDO_AUTOCORRECT)
         suggestionBarOpacity = Config.safeGetInt(prefs, "suggestion_bar_opacity", Defaults.SUGGESTION_BAR_OPACITY)
         autoCorrectEnabled = prefs.getSafeBoolean("autocorrect_enabled", Defaults.AUTOCORRECT_ENABLED)
         termuxModeEnabled = prefs.getSafeBoolean("termux_mode_enabled", Defaults.TERMUX_MODE_ENABLED)
@@ -489,3 +492,4 @@ internal fun SettingsActivity.updateConfigFromSettings() {
             // change and read by nothing.
         }
 }
+

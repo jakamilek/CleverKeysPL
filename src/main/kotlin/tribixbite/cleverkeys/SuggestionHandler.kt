@@ -925,7 +925,8 @@ class SuggestionHandler(
             ?.applyUserWordCaseToList(predictions) ?: predictions
         val autocapAtCursor = !shiftActive && !shiftLocked &&
             Autocapitalisation.shouldCapitalizeAtCursor(ic, editorInfo, config.autocapitalisation,
-                allowAdjacentNumericPeriod = config.auto_space_before_suggestion)
+                allowAdjacentNumericPeriod = config.auto_space_before_suggestion,
+                options = config.edit_behavior ?: EditBehaviorOptions())
         val transformedPredictions = casedPredictions.map {
             applyShiftTransformation(it, shiftActive || autocapAtCursor, shiftLocked)
         }
@@ -969,7 +970,8 @@ class SuggestionHandler(
             predictionCoordinator.getDictionaryManager()?.getLanguageIntelligenceProvider(it)
         }
         val surfaceSlate = SwipeSurfaceVariants.expand(
-            rescoredPredictions, rescoredScores, rescored.languages, provider,
+            rescoredPredictions, rescoredScores, rescored.languages,
+            provider.takeIf { (config.edit_behavior ?: EditBehaviorOptions()).showCaseVariants },
             shiftActive || autocapAtCursor, shiftLocked,
         )
         val barWords = surfaceSlate.words.toMutableList()
@@ -978,10 +980,10 @@ class SuggestionHandler(
         val barLanguages = surfaceSlate.languages
         // Metadata only: do not add editor text to logs from arbitrary app fields.
         sendDebugLog(
-            "TRIAL backspace-pause-v8 app=${BuildConfig.APPLICATION_ID} " +
+            "TRIAL editing-settings-v9 app=${BuildConfig.APPLICATION_ID} " +
                 "autocap=${config.autocapitalisation} capAtCursor=$autocapAtCursor " +
                 "before=${config.auto_space_before_suggestion} after=${config.auto_space_after_suggestion} " +
-                "format=${!passwordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo)} " +
+                "format=${!passwordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo, (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields)} " +
                 "language=$topLanguage provider=${provider != null} " +
                 "exactForms=${surfaceSlate.exactCase.count { it }}\n"
         )
@@ -1448,7 +1450,7 @@ class SuggestionHandler(
                 // these fields up front and (a) force the editor-scan fallback,
                 // (b) never inject a leading space (it would corrupt the value).
                 val syncSuppressedField = !contextTracker.shouldSyncForInputType(editorInfo)
-                val automaticSpacing = !inPasswordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo)
+                val automaticSpacing = !inPasswordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo, (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields)
 
                 // Next-word call-site 3 (audit §4.4): a NEXT_WORD candidate that
                 // was APPENDED after swipe alternates must append after the
@@ -2289,7 +2291,7 @@ class SuggestionHandler(
      */
     private fun suggestionSpaceSuffix(ic: InputConnection?, info: EditorInfo?): String {
         if (isPasswordMode || !config.auto_space_after_suggestion ||
-            !EditorSpacingPolicy.allowsAutomaticSpacing(info)) return ""
+            !EditorSpacingPolicy.allowsAutomaticSpacing(info, (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields)) return ""
         return if (SmartAutoSpace.hasSeparatorAfter(ic?.getTextAfterCursor(1, 0)?.firstOrNull())) "" else " "
     }
 
@@ -3183,9 +3185,12 @@ class SuggestionHandler(
                     val isInDictionary = predictionCoordinator.getWordPredictor()?.isInDictionary(exactTyped) ?: true
 
                     if (!alreadyInPredictions && !isUserWord && !isInDictionary) {
-                        finalWords = listOf(Suggestion.ExactAdd(exactTyped).wire) + transformedWords
-                        finalScores = listOf(0) + mergedScores
-                        finalMetas = listOf(SuggestionMeta(SuggestionOrigin.EXACT_ADD)) + mergedMetas
+                        val first = (config.edit_behavior ?: EditBehaviorOptions()).exactAddFirst
+                        val chip = listOf(Suggestion.ExactAdd(exactTyped).wire)
+                        val chipMeta = listOf(SuggestionMeta(SuggestionOrigin.EXACT_ADD))
+                        finalWords = if (first) chip + transformedWords else transformedWords + chip
+                        finalScores = if (first) listOf(0) + mergedScores else mergedScores + listOf(0)
+                        finalMetas = if (first) chipMeta + mergedMetas else mergedMetas + chipMeta
                         vlog { "EXACT ADD: Added '$exactTyped' as tap-to-add option" }
                     } else {
                         finalWords = transformedWords

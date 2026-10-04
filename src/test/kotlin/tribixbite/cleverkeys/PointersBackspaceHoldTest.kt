@@ -107,6 +107,36 @@ class PointersBackspaceHoldTest {
         verify(exactly = 0) { handler.onPointerDown(any(),any()) }
     }
 
+    private fun configured(options: EditBehaviorOptions) {
+        val key = ptr.value!!
+        ptrs.clear()
+        ptr = Pointers.Pointer(1, ptr.key, key, 900f, 100f,
+            Pointers.Modifiers.EMPTY, Pointers.FLAG_P_DEFERRED_DOWN,
+            testConfigSnapshot(swipe_typing_enabled = false, edit_behavior = options))
+        ptrs.add(ptr)
+    }
+    @Test fun releaseOptionKeepsTheSelectionWithoutDeleteDispatch() {
+        configured(EditBehaviorOptions(releaseDelete = false))
+        hold(); pointers.onTouchUp(1)
+        verify(exactly = 1) { handler.keepBackspaceHoldSelection() }
+        verify(exactly = 0) { handler.finishBackspaceHold(any()) }
+        verify(exactly = 0) { handler.onPointerUp(any(), any()) }
+    }
+    @Test fun configuredDistancesAreScaledByDensityAndKeepPauseFreeOfTimers() {
+        configured(EditBehaviorOptions(pauseDp = 6, resumeDp = 24))
+        every { handler.backspaceDensity() } returns 2f
+        hold(); pointers.onTouchMove(100f, 200f, 1)
+        pointers.onTouchMove(111f, 200f, 1); assertEquals(-1, ptr.backspaceDrag!!.direction)
+        pointers.onTouchMove(112f, 200f, 1); assertEquals(0, ptr.backspaceDrag!!.direction)
+        pointers.onTouchMove(159f, 200f, 1); assertEquals(0, ptr.backspaceDrag!!.direction)
+        pointers.onTouchMove(160f, 200f, 1); assertEquals(1, ptr.backspaceDrag!!.direction)
+    }
+    @Test fun holdSelectionCanBeDisabled() {
+        configured(EditBehaviorOptions(holdSelect = false))
+        hold()
+        assertFalse(ptr.backspaceWordHold)
+        verify(exactly = 0) { handler.beginBackspaceHold() }
+    }
     private fun tick() {
         Pointers::class.java.getDeclaredMethod("handleSelectionDeleteRepeat", Pointers.Pointer::class.java)
             .apply { isAccessible = true }.invoke(pointers,ptr)

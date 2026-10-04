@@ -89,7 +89,8 @@ object SmartAutoSpace {
     /** A bounded edit around the caret; never removes tabs, newlines or indentation. */
     data class PunctuationEdit(val deleteBefore: Int, val text: String, val addedSpace: Boolean)
 
-    fun punctuationEdit(char: Char, before: String?, after: String?): PunctuationEdit? {
+    fun punctuationEdit(char: Char, before: String?, after: String?,
+        removeSpace: Boolean = true, followingSpace: Boolean = true): PunctuationEdit? {
         if (before == null || after == null) return null
         // Opening quotes/brackets and lexical apostrophes/hyphens remain literal.
         val closingQuote = char == '"' && before.count { it == '"' } % 2 == 1
@@ -107,9 +108,9 @@ object SmartAutoSpace {
         if (char in setOf('.', ',', ':') && trimmed.last().isDigit()) return null
         if (trimmed.last() in UNAMBIGUOUS_OPENERS) return null
         val next = after.firstOrNull()
-        val addSpace = next == null || (!next.isWhitespace() &&
-            !isClosingPunctuation(next) && next != '"' && next != '»')
-        return PunctuationEdit(spaces, if (addSpace) "$char " else char.toString(), addSpace)
+        val addSpace = followingSpace && (next == null || (!next.isWhitespace() &&
+            !isClosingPunctuation(next) && next != '"' && next != '»'))
+        return PunctuationEdit(if (removeSpace) spaces else 0, if (addSpace) "$char " else char.toString(), addSpace)
     }
 
     /** Verify a swipe replacement's actual suffix instead of assuming a trailing space. */
@@ -204,3 +205,4 @@ object SmartAutoSpace {
         decideTrailingSpace(autoSpaceAfterEnabled, isSwipeAutoInsert, hasSpaceAfter) ==
             TrailingSpaceMode.TRAILING_SPACE
 }
+

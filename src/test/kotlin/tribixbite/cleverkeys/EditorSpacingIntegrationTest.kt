@@ -144,6 +144,24 @@ class EditorSpacingIntegrationTest {
         verify(exactly = 0) { conn.getTextBeforeCursor(500, any()) }
         verify(exactly = 0) { conn.getTextAfterCursor(any(), any()) }
     }
+    @Test fun searchFormattingCanBeEnabledWithoutExposingPasswords() {
+        config.edit_behavior = EditBehaviorOptions(formatSearchFields = true)
+        info.imeOptions = EditorInfo.IME_ACTION_SEARCH
+        before = "Łódź "; type(',')
+        assertEquals("Łódź, ", before)
+        info.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        before = "ab "; type(',')
+        assertEquals("ab ,", before)
+        info.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+        before = "ab "; type(',')
+        assertEquals("ab ,", before)
+    }
+    @Test fun punctuationAttachmentAndFollowingSpaceCanBeChangedSeparately() {
+        config.edit_behavior = EditBehaviorOptions(punctuationAddSpace = false)
+        before = "word "; type(','); assertEquals("word,", before)
+        config.edit_behavior = EditBehaviorOptions(punctuationRemoveSpace = false)
+        before = "word "; type(','); assertEquals("word , ", before)
+    }
     @Test fun staleOwedSpaceCannotLeakIntoSearch() {
         info.imeOptions = EditorInfo.IME_ACTION_SEARCH
         every { recv.takeOwedTrailingSpace() } returns "word"

@@ -86,6 +86,29 @@ class ShiftWordCapitalizationTest {
         handler.selection_updated(old + 1, cursor)
     }
 
+    @Test fun wordCaseEditingCanBeDisabledWithoutChangingText() {
+        mockkObject(Config.Companion)
+        try {
+            val config = mockk<Config>(relaxed = true)
+            config.edit_behavior = EditBehaviorOptions(shiftWordCase = false)
+            every { Config.globalConfigOrNull() } returns config
+            park(10)
+            assertFalse(handler.tryWordCapitalization())
+            assertEquals("To jest łódź.", text)
+            verify(exactly = 0) { conn.commitText(any(), any()) }
+        } finally { unmockkObject(Config.Companion) }
+    }
+    @Test fun wordEndOptionPreservesInteriorEditing() {
+        mockkObject(Config.Companion)
+        try {
+            val config = mockk<Config>(relaxed = true)
+            config.edit_behavior = EditBehaviorOptions(shiftWordEnd = false)
+            every { Config.globalConfigOrNull() } returns config
+            park(12); assertFalse(handler.tryWordCapitalization())
+            park(10); assertTrue(handler.tryWordCapitalization())
+            assertEquals("To jest Łódź.", text)
+        } finally { unmockkObject(Config.Companion) }
+    }
     @Test fun wordEndTogglesFirstLetter() {
         park(12)
         assertTrue(handler.tryWordCapitalization())

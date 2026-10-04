@@ -126,7 +126,8 @@ class Autocapitalisation(
 
     private val delayed_callback = Runnable {
         if (shouldUpdateCapsMode && ic != null) {
-            shouldEnableShift = shouldCapitalizeAtCursor(ic, editorInfo, enabled)
+            shouldEnableShift = shouldCapitalizeAtCursor(ic, editorInfo, enabled,
+                options = Config.globalConfig().edit_behavior ?: EditBehaviorOptions())
             vlog { "AUTOCAP callback: enabled=$enabled, shouldEnableShift=$shouldEnableShift" }
             shouldUpdateCapsMode = false
         }
@@ -225,19 +226,25 @@ class Autocapitalisation(
             ic: InputConnection?,
             info: EditorInfo?,
             autocapEnabled: Boolean,
-            allowAdjacentNumericPeriod: Boolean = false
+            allowAdjacentNumericPeriod: Boolean = false,
+            options: EditBehaviorOptions = EditBehaviorOptions()
         ): Boolean {
             if (!autocapEnabled || ic == null || info == null) return false
             val capsMode = info.inputType and SUPPORTED_CAPS_MODES
             if (capsMode == 0) return false
+            if (!options.numericPeriodCaps && capsMode == InputType.TYPE_TEXT_FLAG_CAP_SENTENCES && try {
+                SmartAutoSpace.numericPeriodStartsSentence(ic.getTextBeforeCursor(256, 0)?.toString(),
+                    ic.getTextAfterCursor(1, 0)?.toString(), allowAdjacentNumericPeriod)
+            } catch (_: Exception) { false }) return false
             val editorCaps = try { ic.getCursorCapsMode(capsMode) } catch (_: Exception) { 0 }
-            return editorCaps != 0 || sentenceBoundary(ic, info, allowAdjacentNumericPeriod)
+            return editorCaps != 0 || sentenceBoundary(ic, info, allowAdjacentNumericPeriod, options)
         }
 
-        private fun sentenceBoundary(ic: InputConnection?, info: EditorInfo?, allowAdjacent: Boolean): Boolean {
+        private fun sentenceBoundary(ic: InputConnection?, info: EditorInfo?, allowAdjacent: Boolean, options: EditBehaviorOptions): Boolean {
             if (ic == null || info == null ||
                 (info.inputType and InputType.TYPE_TEXT_FLAG_CAP_SENTENCES) == 0 ||
-                !EditorSpacingPolicy.allowsAutomaticSpacing(info)) return false
+                !EditorSpacingPolicy.allowsAutomaticSpacing(info,
+                    options.formatSearchFields)) return false
             return try {
                 val before = ic.getTextBeforeCursor(256, 0)?.toString() ?: return false
                 val after = ic.getTextAfterCursor(1, 0)?.toString() ?: return false

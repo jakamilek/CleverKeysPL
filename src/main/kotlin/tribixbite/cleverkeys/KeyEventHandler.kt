@@ -206,6 +206,15 @@ class KeyEventHandler(
         }
     }
 
+    override fun keepBackspaceHoldSelection() {
+        // Leave only a verified live selection; cancellation still collapses it.
+        val s = backspaceHold ?: return
+        backspaceHold = null
+        if (!backspaceHoldStillCurrent(s)) return
+        recv.clearSwipeUndoState()
+        recv.clearAutocorrectUndoState()
+    }
+
     override fun finishBackspaceHold(commit: Boolean) {
         val s = backspaceHold ?: run { traceBackspace("release blocked: no session commit=$commit"); return }
         traceBackspace("release requested: commit=$commit expected=${s.expectedSelection()}")
@@ -249,6 +258,8 @@ class KeyEventHandler(
     }
 
     override fun tryWordCapitalization(): Boolean {
+        val options = Config.globalConfigOrNull()?.edit_behavior ?: EditBehaviorOptions()
+        if (!options.shiftWordCase) return false
         val parkedPosition = cursorWordCapitalization.eligiblePosition ?: return false
         val info = recv.getCurrentEditorInfo() ?: return false
         if ((info.inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT ||
@@ -275,6 +286,10 @@ class KeyEventHandler(
                 ?.toString() ?: return false
             val after = conn.getTextAfterCursor(CursorWordCapitalization.CONTEXT_LIMIT, 0)
                 ?.toString() ?: return false
+            if (!options.shiftWordEnd && (after.isEmpty() ||
+                    !Character.isLetter(after.codePointAt(0)) &&
+                    Character.getType(after.codePointAt(0)) !in setOf(
+                        Character.NON_SPACING_MARK.toInt(), Character.COMBINING_SPACING_MARK.toInt()))) return false
             val edit = CursorWordCapitalization.plan(before, after, parkedPosition) ?: return false
             batching = conn.beginBatchEdit()
             // Replace only the first code point, preserving suffix spelling and its spans.
@@ -377,9 +392,16 @@ class KeyEventHandler(
                     if (key.getKeyevent() == KeyEvent.KEYCODE_ENTER) {
                         learningHooks?.onEditorWordBoundary(recv.getCurrentInputConnection())
                     }
-                    send_key_down_up(key.getKeyevent())
+                    val undo = key.getKeyevent() == KeyEvent.KEYCODE_DEL && !isKeyRepeat &&
+                        EditorSpacingPolicy.allowsAutomaticSpacing(recv.getCurrentEditorInfo(), allowSearch = true) &&
+                        when ((Config.globalConfigOrNull()?.edit_behavior ?: EditBehaviorOptions()).tapMode) {
+                            1 -> handleBackspaceUndoAutocorrect()
+                            2 -> handleBackspaceUndoSwipe()
+                            else -> false
+                        }
+                    if (!undo) send_key_down_up(key.getKeyevent())
                     // Handle backspace for word prediction
-                    if (key.getKeyevent() == KeyEvent.KEYCODE_DEL) {
+                    if (key.getKeyevent() == KeyEvent.KEYCODE_DEL && !undo) {
                         recv.clearSwipeUndoState()
                         recv.clearAutocorrectUndoState()
                         // SAS-1: backspace invalidates the pending auto-space swallow
@@ -625,7 +647,8 @@ class KeyEventHandler(
         // A formatter-added space is re-marked pending AFTER the commit below.
         var reMarkAutoSpaceAfterCommit = false
         val config = Config.globalConfig()
-        val automaticSpacing = EditorSpacingPolicy.allowsAutomaticSpacing(recv.getCurrentEditorInfo())
+        val automaticSpacing = EditorSpacingPolicy.allowsAutomaticSpacing(recv.getCurrentEditorInfo(),
+            (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields)
         if (automaticSpacing && config.double_space_to_period && !isKeyRepeat &&
             text.length == 1 && text[0] == ' ' && lastTypedChar == ' ' &&
             (currentTime - lastTypedTimestamp) < doubleSpaceThresholdMs) {
@@ -652,8 +675,10 @@ class KeyEventHandler(
             if (automaticSpacing && config.smart_punctuation && SmartAutoSpace.isFormattingPunctuation(char)) {
                 val before = conn.getTextBeforeCursor(500, 0)?.toString()
                 val edit = SmartAutoSpace.punctuationEdit(
-                    char, before, conn.getTextAfterCursor(1, 0)?.toString()
-                ) ?: if (char == '\'' && SmartAutoSpace.isSwallowEligible(
+                    char, before, conn.getTextAfterCursor(1, 0)?.toString(),
+                    (config.edit_behavior ?: EditBehaviorOptions()).punctuationRemoveSpace,
+                    (config.edit_behavior ?: EditBehaviorOptions()).punctuationAddSpace
+                ) ?: if (char == '\'' && (config.edit_behavior ?: EditBehaviorOptions()).punctuationRemoveSpace && SmartAutoSpace.isSwallowEligible(
                         recv.wasLastSpaceAutoInserted(), recv.getAutoSpaceStampedPosition(),
                         before?.lastOrNull(), PredictionContextTracker.currentCursorPosition(conn))) {
                     // Retain lexical apostrophe attachment after an automatic swipe space,
@@ -757,7 +782,7 @@ class KeyEventHandler(
      */
     private fun handleBackspaceUndoSwipe(): Boolean {
         val config = Config.globalConfig() ?: return false
-        if (!config.backspace_undo_swipe) return false
+        if ((config.edit_behavior ?: EditBehaviorOptions()).tapMode != 2) return false
         // #110 fix: Don't check wasLastInputSwipe() — it's cleared by onSuggestionSelected().
         // Instead, defer to autocorrect handler when autocorrect state is present.
         if (recv.getLastAutocorrectOriginalWord() != null) return false
@@ -767,6 +792,12 @@ class KeyEventHandler(
 
         val conn = recv.getCurrentInputConnection() ?: return false
 
+        val selection = getCursorPos(conn) ?: return false
+        if (selection.selectionStart < 0 || selection.selectionStart != selection.selectionEnd) return false
+        val verified = conn.getTextBeforeCursor(swipedWord.length + 2, 0)?.toString() ?: return false
+        val withoutSpace = verified.removeSuffix(" ")
+        if (!withoutSpace.endsWith(swipedWord) ||
+            withoutSpace.length > swipedWord.length && !withoutSpace[withoutSpace.length - swipedWord.length - 1].isWhitespace()) return false
         // Read text before cursor to verify the swiped word is still there
         // and check for trailing auto-space (inserted by auto_space_after_suggestion)
         val beforeCursor = conn.getTextBeforeCursor(swipedWord.length + 1, 0)?.toString() ?: ""
@@ -781,7 +812,8 @@ class KeyEventHandler(
             else -> return false
         }
 
-        conn.deleteSurroundingText(charsToDelete, 0)
+        if (!conn.deleteSurroundingText(charsToDelete, 0)) return false
+        noteEditorTextMutation(conn)
 
         // Clear swipe tracking and reset prediction state
         // SAS-1: the undone commit's auto-space is gone — invalidate the swallow
@@ -791,6 +823,7 @@ class KeyEventHandler(
         // the swipe-correction tracker can note where the replacement word must appear.
         learningHooks?.onSwipeWordUndone(swipedWord, conn)
         recv.handle_backspace()
+        autocap.event_sent(KeyEvent.KEYCODE_DEL, 0)
 
         return true
     }
@@ -802,7 +835,7 @@ class KeyEventHandler(
      */
     private fun handleBackspaceUndoAutocorrect(): Boolean {
         val config = Config.globalConfig() ?: return false
-        if (!config.backspace_undo_autocorrect) return false
+        if ((config.edit_behavior ?: EditBehaviorOptions()).tapMode != 1) return false
 
         val originalWord = recv.getLastAutocorrectOriginalWord() ?: return false
         val correctedWord = recv.getLastAutoInsertedWord() ?: return false
@@ -810,6 +843,12 @@ class KeyEventHandler(
 
         val conn = recv.getCurrentInputConnection() ?: return false
 
+        val selection = getCursorPos(conn) ?: return false
+        if (selection.selectionStart < 0 || selection.selectionStart != selection.selectionEnd) return false
+        val verified = conn.getTextBeforeCursor(correctedWord.length + 2, 0)?.toString() ?: return false
+        val withoutSpace = verified.removeSuffix(" ")
+        if (!withoutSpace.endsWith(correctedWord) ||
+            withoutSpace.length > correctedWord.length && !withoutSpace[withoutSpace.length - correctedWord.length - 1].isWhitespace()) return false
         // Verify the corrected word is still at cursor position (handles cursor-move edge case)
         val beforeCursor = conn.getTextBeforeCursor(correctedWord.length + 1, 0)?.toString() ?: ""
         val charsToDelete = when {
@@ -823,10 +862,24 @@ class KeyEventHandler(
             else -> return false
         }
 
-        // Replace corrected word with original, preserving trailing space if present
-        conn.deleteSurroundingText(charsToDelete, 0)
+        // Replace a verified selection in one commit. A refused commit must not first
+        // delete the corrected word, unlike a deleteSurroundingText + commit pair.
         val replacement = if (charsToDelete > correctedWord.length) "$originalWord " else originalWord
-        conn.commitText(replacement, 1)
+        val anchor = selection.startOffset + selection.selectionStart
+        val start = anchor - charsToDelete
+        if (start < 0) return false
+        var accepted = false
+        try {
+            conn.beginBatchEdit()
+            if (!conn.setSelection(start, anchor)) return false
+            if (conn.getSelectedText(0)?.toString() != beforeCursor.takeLast(charsToDelete)) return false
+            accepted = conn.commitText(replacement, 1)
+            if (!accepted) return false
+        } finally {
+            if (!accepted) conn.setSelection(anchor, anchor)
+            conn.endBatchEdit()
+        }
+        noteEditorTextMutation(conn)
 
         // Clear all undo state to prevent double-undo
         // SAS-1: text was rewritten by the undo — invalidate the pending auto-space
@@ -838,6 +891,7 @@ class KeyEventHandler(
             correctedWord, originalWord, originalCompleted = charsToDelete > correctedWord.length
         )
         recv.handle_backspace()
+        autocap.event_sent(KeyEvent.KEYCODE_DEL, 0)
         return true
     }
 

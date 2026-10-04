@@ -473,9 +473,9 @@
     <string name="input_suggestion_bar_opacity_title">추천 바 불투명도</string>
     <string name="input_suggestion_bar_opacity_desc">추천 바의 투명도</string>
     <string name="input_auto_space_after_title">추천 선택 후 자동 공백</string>
-    <string name="input_auto_space_after_desc">추천어 선택 시 뒤에 공백을 추가합니다</string>
+    <string name="input_auto_space_after_desc">추천어 선택 시 뒤에 공백을 추가합니다 스와이프한 단어와 누른 후보 모두에 적용됩니다.</string>
     <string name="input_auto_space_before_title">추천어 앞 자동 공백</string>
-    <string name="input_auto_space_before_desc">탭한 추천어 앞에 공백을 삽입합니다（스와이프는 항상 공백 추가）</string>
+    <string name="input_auto_space_before_desc">탭한 추천어 앞에 공백을 삽입합니다（스와이프는 항상 공백 추가） 스와이프한 단어와 누른 후보 모두에 적용됩니다.</string>
     <string name="input_backspace_undo_swipe_title">백스페이스로 스와이프 취소</string>
     <string name="input_backspace_undo_swipe_desc">스와이프 입력 직후 백스페이스를 탭하면 전체 단어가 삭제됩니다</string>
     <string name="input_show_exact_typed_title">정확히 입력한 단어 표시</string>
@@ -2176,4 +2176,36 @@
     <string name="cmd_timestamp_iso_desc">ISO 8601 타임스탬프 삽입(YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">%1$s 섹션</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">짧게 누른 Backspace</string>
+    <string name="edit_backspace_hold_select_title">길게 눌러 단어 선택</string>
+    <string name="edit_backspace_release_delete_title">손을 떼면 선택 삭제</string>
+    <string name="edit_backspace_pause_enabled_title">방향을 바꾸면 일시 정지</string>
+    <string name="edit_backspace_pause_dp_title">정지 거리</string>
+    <string name="edit_backspace_resume_dp_title">재개 거리</string>
+    <string name="edit_backspace_speed_percent_title">선택 속도</string>
+    <string name="edit_backspace_fast_percent_title">빠른 선택 속도</string>
+    <string name="edit_backspace_accel_percent_title">가속 기준</string>
+    <string name="edit_punctuation_remove_space_title">문장 부호 앞 공백 제거</string>
+    <string name="edit_punctuation_add_space_title">문장 부호 뒤 공백 추가</string>
+    <string name="edit_format_search_fields_title">검색에서 자동 서식</string>
+    <string name="edit_numeric_period_caps_title">숫자와 마침표 뒤 대문자</string>
+    <string name="edit_shift_word_case_title">Shift로 단어 첫 글자 변경</string>
+    <string name="edit_shift_word_end_title">단어 끝에서도 Shift 적용</string>
+    <string name="edit_show_case_variants_title">사전의 대소문자 후보 표시</string>
+    <string name="edit_exact_add_first_title">단어 추가를 첫 후보로</string>
+    <string name="edit_reset_suggestions_on_delete_title">Backspace 후 후보 처음으로</string>
+    <string name="edit_tap_character">문자 또는 공백 삭제</string>
+    <string name="edit_tap_autocorrect">자동 수정 취소 후 문자 삭제</string>
+    <string name="edit_tap_swipe">마지막 스와이프 단어 삭제 후 문자 삭제</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">텍스트 서식</string>
+    <string name="edit_backspace_help">길게 눌러 선택하는 기능은 키보드 전체에서 작동합니다. 끄면 일반 삭제에 키 반복이 필요합니다. 짧게 누르는 대체 동작은 후보 입력 직후 적용됩니다.</string>
+    <string name="edit_pause_help">짧게 반대 방향으로 움직이면 정지합니다. 정지 위치에서 더 움직이면 재개합니다.</string>
+    <string name="edit_speed_help" formatted="false">이전 제스처 속도 기준: 80%는 더 느리며 100%는 동일합니다.</string>
+    <string name="edit_fast_help">화면 너비의 이 비율보다 멀리 이동하면 빨라집니다. 방향을 바꾸면 이동 거리가 초기화됩니다.</string>
+    <string name="edit_format_help">비밀번호와 기술 입력란에는 자동 서식이 적용되지 않습니다. 문장 부호 옵션에는 스마트 문장 부호, 숫자 뒤 대문자에는 자동 대문자 기능이 필요합니다.</string>
+    <string name="edit_fallback_header">기존 두 축 선택</string>
 </resources>
+

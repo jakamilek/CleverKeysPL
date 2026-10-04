@@ -31,6 +31,16 @@ object BackspaceGesture {
         return (200f - 170f * edge * edge).toLong().coerceIn(30L, 200L)
     }
 
+    /** Percentages scale the v8 rate. Fast mode is based on travel, not absolute finger position. */
+    fun repeatDelay(x: Float, width: Float, direction: Int, travel: Float,
+        screenWidth: Float, options: EditBehaviorOptions): Long {
+        val fast = screenWidth.isFinite() && screenWidth > 0f && travel.isFinite() &&
+            travel > screenWidth * options.accelPercent.coerceIn(EditBehaviorRanges.BACKSPACE_ACCEL_PERCENT) / 100f
+        val percent = if (fast) options.fastPercent.coerceIn(EditBehaviorRanges.BACKSPACE_FAST_PERCENT)
+            else options.speedPercent.coerceIn(EditBehaviorRanges.BACKSPACE_SPEED_PERCENT)
+        return (repeatDelay(x, width, direction) * 100f / percent).toLong().coerceAtLeast(10L)
+    }
+
     /**
      * A small reversal brakes the current repeat; a separate deliberate move resumes.
      * References follow the active extreme, so touch jitter cannot drift the brake point.
@@ -38,11 +48,17 @@ object BackspaceGesture {
     class Drag(
         private val originX: Float,
         private val threshold: Float = 15f,
-        private val pauseThreshold: Float = 3f
+        private val pauseThreshold: Float = 3f,
+        private val pauseEnabled: Boolean = true
     ) {
         var direction = 0
             private set
         private var activated = false
+        private var travelOrigin = originX
+        private var lastDirection = -1
+
+        fun travel(x: Float): Float = if (direction == 0) 0f
+            else ((x - travelOrigin) * direction).coerceAtLeast(0f)
         private var motionReference = originX
         private var extremeX = originX
 
@@ -55,14 +71,22 @@ object BackspaceGesture {
                 if (!activated && delta > -threshold) return false
                 if (kotlin.math.abs(delta) < threshold) return false
                 direction = if (delta < 0f) -1 else 1
+                if (activated && direction != lastDirection) travelOrigin = motionReference
+                lastDirection = direction
                 activated = true
                 extremeX = x
                 return true
             }
             val advance = (x - extremeX) * direction
             if (advance <= -pauseThreshold) {
-                direction = 0
                 motionReference = x
+                if (pauseEnabled) direction = 0
+                else {
+                    direction = -direction
+                    lastDirection = direction
+                    travelOrigin = extremeX
+                    extremeX = x
+                }
                 return true
             }
             if (advance > 0f) extremeX = x
@@ -70,3 +94,4 @@ object BackspaceGesture {
         }
     }
 }
+

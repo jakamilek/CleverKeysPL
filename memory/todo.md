@@ -171,3 +171,15 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 ## Release authority
 
 Do not commit, tag, push, publish, or open external issues without explicit user authorization.
+
+
+## Polish fork editing settings v9 — 2026-10-04
+
+- Implemented: 18 typed controls, larger dp pause/resume band, configurable normal/fast
+  rates and screen-travel threshold, unified tap action, release policy, Shift/formatting/
+  suggestion options; 22 resource sets, backup classification and scoped reset.
+- Pending: v9 Actions compilation/pure/focused tests and phone acceptance. Do not report
+  v8's 3006 passes as a v9 result. No local Android SDK, Gradle or Kotlin compiler here.
+- Preserve the 60-second TOTAL Actions monitoring cap. No merge/tag/release/version bump.
+- Pack/producer/AI/CTC unchanged. Existing lint/security issues, instrumented/minified/
+  performance checks and Ale/Lub diagnosis remain open.
