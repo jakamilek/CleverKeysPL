@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="herbert_benchmark_title">Test polskiej SI</string>
+    <string name="herbert_benchmark_explanation">Pomiar HerBERT FP32 na gotowych przykładach. Nie zmienia podpowiedzi klawiatury i nie odczytuje tekstu z innych aplikacji. Zewnętrzny model zajmuje około 622 MiB. Zaimportowane pliki zostaną usunięte po zamknięciu tego ekranu.</string>
+    <string name="herbert_benchmark_pending">Paczka testowa czeka na zweryfikowanie wyników CI. Import będzie dostępny po potwierdzeniu jej pełnej tożsamości.</string>
+    <string name="herbert_benchmark_no_model">Zaimportuj zweryfikowaną paczkę testową.</string>
+    <string name="herbert_benchmark_import">Importuj ZIP z modelem</string>
+    <string name="herbert_benchmark_run">Uruchom test</string>
+    <string name="herbert_benchmark_cancel">Zatrzymaj test</string>
+    <string name="herbert_benchmark_remove">Usuń zaimportowany model</string>
+    <string name="herbert_benchmark_notice">Autorzy i licencja modelu</string>
+    <string name="herbert_benchmark_copy">Kopiuj raport</string>
+    <string name="herbert_benchmark_back">Wróć</string>
+    <string name="herbert_benchmark_importing">Sprawdzanie i importowanie paczki…</string>
+    <string name="herbert_benchmark_ready">Model zaimportowany. Możesz uruchomić test.</string>
+    <string name="herbert_benchmark_import_failed">Import nie powiódł się. Wybierz zweryfikowany ZIP testowy i sprawdź wolne miejsce.</string>
+    <string name="herbert_benchmark_running">Sprawdzanie tokenizacji, wyników modelu i szybkości…</string>
+    <string name="herbert_benchmark_passed">Testy zgodności przeszły. Raport zawiera pomiary z tego telefonu.</string>
+    <string name="herbert_benchmark_cancelled">Test zatrzymany.</string>
+    <string name="herbert_benchmark_test_failed">Test nie przeszedł. Zgodność tokenizacji lub wyników modelu nie została potwierdzona.</string>
+    <string name="herbert_benchmark_report">HerBERT FP32 — pomiar v1\n%1$s\nTokenizer: %2$d przykładów; wyniki: %3$d paczki kandydatów\nNajwiększy błąd wyniku: %4$.6f\nWczytanie modelu wraz ze sprawdzeniem sumy: %5$.1f ms\nPróbki pomiarowe: %6$d (dwie formy, trzy długości kontekstu)\nTokenizacja i przygotowanie wejścia p50/p95: %7$.1f / %8$.1f ms\nInferencja p50/p95: %9$.1f / %10$.1f ms\nCałość p50/p95: %11$.1f / %12$.1f ms\nNajwiększa próbka PSS całego procesu: %13$.1f MiB\nPSS jest próbkowane pomiędzy wywołaniami; nie oznacza dokładnego szczytu ani pamięci samego modelu. Tylko gotowe przykłady; bez niezależnej oceny trafności i bez uruchamiania SI w podpowiedziach.</string>
+</resources>

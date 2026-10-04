@@ -7,6 +7,9 @@ import ai.onnxruntime.OrtSession
 import ai.onnxruntime.TensorInfo
 import java.nio.FloatBuffer
 import java.nio.LongBuffer
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
+import java.io.FileInputStream
 import java.security.MessageDigest
 
 /**
@@ -17,6 +20,8 @@ import java.security.MessageDigest
 internal class HerbertOnnxScorer private constructor(
     private val environment: OrtEnvironment,
     private val session: OrtSession,
+    // Retain the read-only mapped buffer for the session's entire native lifetime.
+    @Suppress("unused") private val mappedModel: ByteBuffer? = null,
 ) : AutoCloseable {
     private var closed = false
 
@@ -69,6 +74,27 @@ internal class HerbertOnnxScorer private constructor(
         private val outputNames = setOf("mean_log_probability", "sum_log_probability")
         private const val MAX_MODEL_BYTES = 768 * 1024 * 1024
 
+        /** Import snapshot is private and never edited; owner serializes close/delete with score. */
+        fun open(bundle: HerbertImportedBundle,
+                 environment: OrtEnvironment = OrtEnvironment.getEnvironment()): HerbertOnnxScorer {
+            val identity = bundle.trust.files.getValue("model.onnx")
+            val mapped = FileInputStream(bundle.model).use { input ->
+                require(input.channel.size() == identity.bytes)
+                input.channel.map(FileChannel.MapMode.READ_ONLY, 0, identity.bytes)
+            }
+            val digest = MessageDigest.getInstance("SHA-256")
+            digest.update(mapped.asReadOnlyBuffer())
+            require(HerbertBundleImport.hex(digest.digest()) == identity.sha256)
+            val session = options().use { environment.createSession(mapped, it) }
+            return checked(environment, session, mapped)
+        }
+
+        private fun options() = OrtSession.SessionOptions().apply {
+            setIntraOpNumThreads(2)
+            setInterOpNumThreads(1)
+            setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+        }
+
         /** Expected SHA comes from a trusted release/trial identity, never from an arbitrary pack. */
         fun open(verifiedCandidate: ByteArray, expectedSha256: String,
                  environment: OrtEnvironment = OrtEnvironment.getEnvironment()): HerbertOnnxScorer {
@@ -79,12 +105,12 @@ internal class HerbertOnnxScorer private constructor(
             val actual = MessageDigest.getInstance("SHA-256").digest(modelBytes)
                 .joinToString("") { "%02x".format(it.toInt() and 0xff) }
             require(actual == expectedSha256) { "HerBERT model hash mismatch" }
-            val session = OrtSession.SessionOptions().use { options ->
-                options.setIntraOpNumThreads(2)
-                options.setInterOpNumThreads(1)
-                options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                environment.createSession(modelBytes, options)
-            }
+            val session = options().use { environment.createSession(modelBytes, it) }
+            return checked(environment, session, null)
+        }
+
+        private fun checked(environment: OrtEnvironment, session: OrtSession,
+                            mapped: ByteBuffer?): HerbertOnnxScorer {
             try {
                 require(session.inputNames == inputRanks.keys && session.outputNames == outputNames)
                 for ((name, rank) in inputRanks) {
@@ -98,7 +124,7 @@ internal class HerbertOnnxScorer private constructor(
                         ?: error("Non-tensor HerBERT output")
                     require(info.type == OnnxJavaType.FLOAT && info.shape.size == 1)
                 }
-                return HerbertOnnxScorer(environment, session)
+                return HerbertOnnxScorer(environment, session, mapped)
             } catch (failure: Exception) {
                 session.close()
                 throw failure

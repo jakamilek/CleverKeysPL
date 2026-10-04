@@ -588,6 +588,9 @@ tasks.register('runPureTests', JavaExec) {
   def pureTestClasses = [
     'tribixbite.cleverkeys.ai.HerbertCasePolicyTest',
     'tribixbite.cleverkeys.ai.HerbertPreparedBatchTest',
+    'tribixbite.cleverkeys.ai.HerbertTokenizerTest',
+    'tribixbite.cleverkeys.ai.HerbertBundleImportTest',
+    'tribixbite.cleverkeys.ai.HerbertRealConformanceTest',
     'tribixbite.cleverkeys.BackspaceGestureTest',
     'tribixbite.cleverkeys.EditingSettingsPolicyTest',
     'tribixbite.cleverkeys.PunctuationSpacingTest',
@@ -1098,6 +1101,9 @@ tasks.register('runPureTests', JavaExec) {
   systemProperty 'geoFull', (project.findProperty('geoFull') ?: 'false')
   // Wave-G OQ sweep instrument (GeoOqSweepTest) — same bridge pattern; double-heavy
   // measurement runs stay opt-in and skip in milliseconds otherwise.
+  if (project.hasProperty('herbertFixtureDir')) {
+    systemProperty 'herbertFixtureDir', project.property('herbertFixtureDir')
+  }
   systemProperty 'geoSweep', (project.findProperty('geoSweep') ?: 'false')
   systemProperty 'oqOnly', (project.findProperty('oqOnly') ?: '')
   // Sampling knobs for ContextRescoringReplayTest, same -P-to-system-property bridge. Only set
@@ -1604,4 +1610,5 @@ tasks.configureEach { task ->
         task.finalizedBy("normalizeApkPaths")
     }
 }
+
 

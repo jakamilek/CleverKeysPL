@@ -1,21 +1,24 @@
 # Current work queue
 
-## Polish contextual SI preparation (2026-10-04)
+## Polish contextual SI FP32 benchmark preparation (2026-10-04)
 
-- Maintainer authorizes HerBERT mobile feasibility and preparation for integration.
-- Prepared real ONNX WWM scorer, immutable bounded feeds, case-preserving 64-word context
-  and strict same-key pair policy with full editor/request identity and deadline checks.
-  Components are not wired into the IME; no model weights, settings or behavior changes.
-- Registered 17 pure regression tests. Kotlin/Android compile, JNI/model/tokenizer parity
-  and device performance pending; no local Android/Kotlin toolchain available.
-- Producer experiment/herbert-mobile-v1: FP32 export + INT8 quantization with fixed gates,
-  archived plain scores, real tokenizer/score vectors and attributed candidate bundle.
-- First live scope planned: case-pair order only, preserve geometric keys/scores and both forms.
-  Unknown/ineligible/private/search/explicit case/late/stale results retain existing order.
-- Next: inspect conversion, exact tokenizer conformance/import, Nubia shadow benchmark,
-  independent contexts/slates, then opt-in live dispatcher/settings. See canonical spec
-  docs/specs/polish-context-ai.md. No claim conversion or phone test has passed yet.
-- Max 60 seconds TOTAL Actions monitoring per build. No merge/release/version bump.
+- Previous passive core Android run 37227497872: compile, 2901 tests, debug/vital lint PASS.
+- Previous export: FP32 PASS; INT8 preservation FAIL (22 rank changes, 7 top-1 regressions,
+  1 top-3 regression). Do not weaken its gate or claim mobile quality from host results.
+- New frozen producer stage reproduces exact FP32 SHA and derives original Char-BPE tables,
+  probing pinned Rust Unicode behaviour and exhaustive scalar-block/reference conformance.
+- Runtime prepared portable tokenizer, authenticated/bounded private import, mapped-file scorer,
+  real-token/feed/score conformance runner and explicit Polish benchmark screen in Playground.
+  Single worker owns native session/staging; metrics use only prepared examples, not editor text.
+- Import trust deliberately unset until all seven producer file hashes/provenance are verified.
+  No APK or live-IME activation yet. Fifteen new unit tests plus one optional real-fixture test;
+  compile/lint/new tests and real Kotlin tokenizer/JNI parity remain pending this stage's CI.
+- Next: inspect producer/runtime run results; pin verified identities, provide real metadata to
+  JVM tests, prepare trial APK; Nubia load/timing/PSS/pair benchmark; independent slates/contexts.
+  Then decide opt-in live dispatcher/settings. Canonical spec docs/specs/polish-context-ai.md.
+- First live scope remains same-key case-pair order; preserve both forms and geometric scores.
+  No model/editor text backups/network fallback, no guessed phone speed or metadata meanings.
+- Max 60 seconds TOTAL Actions monitoring per build. No merge/release/version bump/subagents.
 
 
 ## New-word suggestion viewport v15 (2026-10-04)
@@ -285,3 +288,4 @@ Do not commit, tag, push, publish, or open external issues without explicit user
   findings and one low esbuild finding. These are recorded separately; the unchanged
   CI gate excludes unfixed findings. A newer npm http-cache-semantics release exists,
   but its repair of this advisory is not verified here.
+

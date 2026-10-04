@@ -137,3 +137,19 @@ conformance and phone shadow measurements before opt-in live integration. Never
 infer phone timing or add raw MLM scores to geometric scores without calibration.
 No editor text logging/persistence or network fallback. Context, field eligibility,
 request/revision/selection/pack/settings identity and deadlines gate future updates.
+
+
+## FP32 benchmark follow-up
+
+The failed INT8 preservation gate in herbert_mobile_v1 remains failed. The explicit
+herbert_fp32_benchmark_v1 producer stage may package only the byte-identical verified FP32
+for diagnostics. Portable Char-BPE tables are derived from original fast-tokenizer data,
+including probed Unicode classifications, not Android Character categories. Real token vectors
+and five-input feed equality are required in addition to native score/rank parity.
+
+HerbertBenchmarkActivity uses prepared fixtures only and never enables live SI. Import requires
+all seven file hashes from verified CI provenance; HerbertBenchmarkTrial.trust is null until then.
+Never construct trusted identities from an imported manifest. Keep all operations on its worker,
+private noBackup staging, mapped model lifetime, cancellation between calls and deletion serialized.
+No model/editor-text backup, logging/network or activation changes. PSS samples are whole process,
+not exact peak/model memory; timing fixtures and host conversions are not independent quality tests.

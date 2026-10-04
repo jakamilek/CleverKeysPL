@@ -178,4 +178,5 @@ Space and Backspace share motion-driven sliding: see [Selection Delete](wiki/ges
 
 ## Polish contextual SI trial
 
-- [Polish contextual SI preparation](specs/polish-context-ai.md) — real ONNX scorer/feed and context/case contract; model conversion, tokenizer and phone gates pending; live IME unchanged.
+- [Polish contextual SI preparation](specs/polish-context-ai.md) — real ONNX scorer/feed, portable original tokenizer, trusted import and explicit FP32 benchmark screen; new CI/real fixtures/phone gates pending, import trust unset and live IME unchanged.
+

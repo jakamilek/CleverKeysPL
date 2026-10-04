@@ -122,3 +122,42 @@ remain on backlog and must preserve accepted Space-like drag behavior.
 No merge/release/tag/version bump. Actions monitoring <=60 seconds TOTAL/build then maintainer reports
 completion. Previous results/protocols immutable. Significant stages checkpointed in both repo mains,
 documentation only. Gemini/PAL requirement waived; no subagents without explicit instruction.
+
+## FP32 benchmark preparation v1 (2026-10-04)
+
+Previous Android run 37227497872 succeeded at b1c829cf: compilation, 2818 pure tests,
+83 focused integration tests (2901 total), debug lint and release vital lint. No APK/model.
+The previous producer export passed FP32 but failed INT8 preservation; do not reclassify it.
+
+New producer experiment/herbert-fp32-benchmark-v1 reproduces the exact verified FP32 graph,
+keeps archived score/ranking gates, derives portable original Char-BPE vocabulary/merge/Unicode
+classification tables, and checks its independent interpreter against the pinned fast tokenizer.
+All Unicode scalar blocks, range boundaries, seeded random inputs, special-token edges and archived
+contexts/surfaces are checked. This does not replace or hand-build the language dictionary.
+
+Runtime HerbertTokenizer implements those tables with a leftmost/rank priority queue, no persistent
+text cache, strict Unicode/scalar bounds, original added tokens, and whole-target masking. Model
+input over budget drops oldest complete words. HerbertConformance requires original token vectors,
+all five archived feeds on 232 requests, actual ONNX mean/sum score tolerance 0.001 and unchanged
+rankings. An optional JVM real-fixture test is explicitly skipped until producer metadata is supplied;
+synthetic tests alone never establish real tokenizer parity.
+
+HerbertBundleImport authenticates all seven members against externally trusted trial identities,
+not the imported manifest. Strict names/duplicates/size/hash/UTF-8/JSON checks and private staging
+protect imports; failures/cancellation remove staging. Imported model is never backed up. Scorer
+maps and rehashes a private immutable model file read-only, avoiding giant Java byte-array copies.
+One worker serializes loading, native inference/close, import replacement and file deletion.
+
+HerbertBenchmarkActivity is a non-exported screen entered from Swipe Playground. Polish/base
+resources cover import, testing, cancellation, removal and license/attribution. Only archived or
+synthetic text is used; no editor or network access. Report includes device/Android/ABI, parity,
+model load (including rehash), balanced warmed two-form timing (three context lengths, 90 samples),
+separate tokenization/feed and inference and end-to-end p50/p95. Maximum sampled whole-process PSS
+is sampled between calls and is not an exact peak or model-only figure. Clipboard report contains
+metrics/device identity only. On close native session/staging are removed by the worker; process-death
+staging is cleaned on the next benchmark opening. Closing/backgrounding cancels between native calls.
+
+HerbertBenchmarkTrial.trust is deliberately null until the producer bundle and metadata are verified.
+Do not create trust from a user ZIP. Import remains unavailable; no APK is published in this phase.
+Next: verify completed producer/runtime CI, pin all seven hashes, run real JVM fixtures, build trial APK,
+then measure on Nubia. No live IME changes, opt-in settings, accuracy or phone-speed claim yet.

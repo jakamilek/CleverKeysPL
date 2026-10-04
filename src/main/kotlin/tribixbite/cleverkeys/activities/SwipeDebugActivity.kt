@@ -158,6 +158,10 @@ class SwipeDebugActivity : Activity() {
             confirmClearRecordedTraces()
         }
 
+        findViewById<Button>(R.id.herbert_benchmark_button).setOnClickListener {
+            startActivity(Intent(this, HerbertBenchmarkActivity::class.java))
+        }
+
         // Setup input field with auto-scroll behavior
         inputText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -480,4 +484,5 @@ class SwipeDebugActivity : Activity() {
     /** A failure's message for a toast, or the localized "Unknown error" when it has none. */
     private fun errorDetail(e: Exception): String = e.message ?: getString(R.string.common_unknown_error)
 }
+
 
