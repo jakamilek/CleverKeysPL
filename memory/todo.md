@@ -178,8 +178,25 @@ Do not commit, tag, push, publish, or open external issues without explicit user
 - Implemented: 18 typed controls, larger dp pause/resume band, configurable normal/fast
   rates and screen-travel threshold, unified tap action, release policy, Shift/formatting/
   suggestion options; 22 resource sets, backup classification and scoped reset.
-- Pending: v9 Actions compilation/pure/focused tests and phone acceptance. Do not report
-  v8's 3006 passes as a v9 result. No local Android SDK, Gradle or Kotlin compiler here.
+- V9 runtime 897edfa3: debug assembly + 2804 pure + 227 focused tests PASS (3031),
+  run 37183355586; APK 11295888906. Maintainer accepts introduced changes on phone
+  (2026-10-04, qualitative feedback, not an itemized backup/editor checklist).
+  No local Android SDK, Gradle or Kotlin compiler here.
 - Preserve the 60-second TOTAL Actions monitoring cap. No merge/tag/release/version bump.
 - Pack/producer/AI/CTC unchanged. Existing lint/security issues, instrumented/minified/
   performance checks and Ale/Lub diagnosis remain open.
+
+## CI stabilization after accepted v9 — 2026-10-04
+
+- Prepared: remembered mapping state + keyed LaunchedEffect in SubkeyAssignActivity;
+  devalue 5.9.3 exact override and Bun-generated lockfile (no other package changes).
+- Pending: guarded Android compile/pure/focused/debug lint/release vital lint and
+  unchanged HIGH/CRITICAL security gate in the next Actions run. Do not claim green CI
+  from the earlier 3031 passing tests.
+- Polish UI translation is the priority. Record non-Polish locale defects by key,
+  symptom and evidence for later; native review remains deferred.
+- Local Bun audit no longer reports devalue. It still reports http-cache-semantics
+  GHSA-ch52-4w7c-c8xp (HIGH; advisory lists no patched version), four moderate Svelte
+  findings and one low esbuild finding. These are recorded separately; the unchanged
+  CI gate excludes unfixed findings. A newer npm http-cache-semantics release exists,
+  but its repair of this advisory is not verified here.
