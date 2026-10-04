@@ -120,3 +120,20 @@ in the session. Reversed endpoint requests can trigger state-driven editor resyn
 
 See `docs/wiki/specs/settings/input-behavior-spec.md` for keys and field guards. Dictionary
 add and editor/cursor/prediction consistency guards are unconditional fixes, not toggles.
+
+## 6. Polish contextual SI preparation (2026-10-04)
+
+Canonical spec: docs/specs/polish-context-ai.md. Prepared ai/HerbertCasePolicy,
+HerbertPreparedBatch and real HerbertOnnxScorer are not yet wired into the IME.
+Geometric stays the decoder; first live scope is source-confirmed case-pair order only.
+Use a separate bounded live editor context preserving case/punctuation, never the
+lowercase two-word PredictionContextTracker history. Preserve all source variants,
+keys/scores/languages and the single SuggestionHandler presentation/commit pipeline.
+
+Model export/scoring identity lives in producer experiments/herbert_mobile_v1.
+ONNX Runtime Android and JVM are actually 1.21.1 in build.gradle (README is stale).
+Require FP32/batched score parity, INT8 regression gate, exact fast-tokenizer
+conformance and phone shadow measurements before opt-in live integration. Never
+infer phone timing or add raw MLM scores to geometric scores without calibration.
+No editor text logging/persistence or network fallback. Context, field eligibility,
+request/revision/selection/pack/settings identity and deadlines gate future updates.

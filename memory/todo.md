@@ -1,5 +1,23 @@
 # Current work queue
 
+## Polish contextual SI preparation (2026-10-04)
+
+- Maintainer authorizes HerBERT mobile feasibility and preparation for integration.
+- Prepared real ONNX WWM scorer, immutable bounded feeds, case-preserving 64-word context
+  and strict same-key pair policy with full editor/request identity and deadline checks.
+  Components are not wired into the IME; no model weights, settings or behavior changes.
+- Registered 17 pure regression tests. Kotlin/Android compile, JNI/model/tokenizer parity
+  and device performance pending; no local Android/Kotlin toolchain available.
+- Producer experiment/herbert-mobile-v1: FP32 export + INT8 quantization with fixed gates,
+  archived plain scores, real tokenizer/score vectors and attributed candidate bundle.
+- First live scope planned: case-pair order only, preserve geometric keys/scores and both forms.
+  Unknown/ineligible/private/search/explicit case/late/stale results retain existing order.
+- Next: inspect conversion, exact tokenizer conformance/import, Nubia shadow benchmark,
+  independent contexts/slates, then opt-in live dispatcher/settings. See canonical spec
+  docs/specs/polish-context-ai.md. No claim conversion or phone test has passed yet.
+- Max 60 seconds TOTAL Actions monitoring per build. No merge/release/version bump.
+
+
 ## New-word suggestion viewport v15 (2026-10-04)
 
 - Maintainer reports only updating the APK, not importing function-word pack v4.
