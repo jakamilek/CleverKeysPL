@@ -1,12 +1,12 @@
 # CleverKeys Documentation - Table of Contents
 
-Trial v8: [Backspace brake and resume](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v8--brake-and-resume). V7 accepted on phone; v8 adds a small reversal to pause, then deliberate motion to resume. Build/tests and phone checks pending.
+Trial v8: [Backspace brake and resume](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v8--brake-and-resume). V7 accepted on phone; v8 adds a small reversal to pause, then deliberate motion to resume. Debug build and 3006 checks PASS (run 37154899155); phone checks pending.
 
-Trial v7: [Backspace phone diagnostics](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v7--phone-diagnostics-issue-unresolved). V6 phone retest failed; v7 debug build and 2999 checks PASS (run 37153176431); phone trace pending. No fix claimed.
+Trial v7: [Backspace phone diagnostics](wiki/specs/gestures/selection-delete-spec.md#polish-trial-v7--phone-diagnostics-issue-unresolved). V6 phone retest failed; v7 debug build and 2999 checks PASS (run 37153176431); phone trace received and tested hold/drag/release accepted by maintainer.
 
-Trial v6: Backspace editor-acknowledgement follow-up; debug build and 2992 CI checks PASS, phone validation pending. V5 phone accepts tap/caps/Shift but rejects hold drag/release.
+Trial v6: Backspace editor-acknowledgement follow-up; debug build and 2992 CI checks PASS; subsequent v6 phone retest failed. V5 phone accepts tap/caps/Shift but rejects hold drag/release.
 
-Trial v5: [Backspace hold and reversible selection](wiki/gestures/selection-delete.md), [technical changes](wiki/specs/gestures/selection-delete-spec.md). Debug build and 2985 CI checks PASS; device validation pending (2026-10-03).
+Trial v5: [Backspace hold and reversible selection](wiki/gestures/selection-delete.md), [technical changes](wiki/specs/gestures/selection-delete-spec.md). Debug build and 2985 CI checks PASS; v5 phone accepted tap/caps/Shift but rejected hold drag/release (2026-10-03).
 
 
 **Last Updated**: 2026-08-15

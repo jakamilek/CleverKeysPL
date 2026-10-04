@@ -10,7 +10,7 @@ related_spec: ../specs/gestures/selection-delete-spec.md
 
 ## Polish trial v8 (2026-10-03)
 
-This behavior applies to ordinary text editors that support selection APIs. The maintainer has tested and accepted the v7 hold and release behavior. V8 adds a pause after a small movement in the opposite direction; its build and phone checks are pending. It is not a released change.
+This behavior applies to ordinary text editors that support selection APIs. The maintainer has tested and accepted the v7 hold and release behavior. V8 adds a pause after a small movement in the opposite direction; its debug build and 3006 CI checks passed (run 37154899155), while phone checks remain pending. It is not a released change.
 
 | Action | Result |
 |--------|--------|

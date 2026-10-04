@@ -33,7 +33,7 @@ selection checks, tap deletion, Shift, spacing and unsupported-editor fallback a
 unchanged. Five new pure cases and two pointer/timer cases cover braking, jitter,
 both resume directions, stopped timer delivery and release. Existing lagging-editor
 integration now checks that the brake leaves its selected text unchanged before
-resumption. V8 build/tests and phone acceptance are pending.
+resumption. V8 debug assembly and 2795 pure + 211 focused mocks passed (3006) in run 37154899155; BackspaceHoldTest 23 and PointersBackspaceHoldTest 11 passed. APK artifact 11285860899 is available; phone acceptance is pending.
 
 ## Polish trial v7 — phone diagnostics, issue unresolved
 

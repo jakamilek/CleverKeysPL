@@ -6,7 +6,7 @@
 - [x] Pause on small opposite movement from active extreme (3 px); resume only after further motion (15 px) from the pause point, left or right.
 - [x] Cancel repeat while paused; preserve current selection for release, edge speed and keyboard-wide pointer ownership.
 - [x] Add five pure and two pointer/timer regressions; retain test names and update lagging-editor integration to assert unchanged selection during brake.
-- [ ] V8 guarded CI build/tests; local Android toolchain unavailable.
+- [x] V8 debug assembly, 2795 pure + 211 focused mocks PASS (3006), run 37154899155; APK artifact 11285860899. Existing lint/security blockers remain; phone checks pending.
 - [ ] Phone acceptance for backspace-pause-v8: pause, stable hold, both resume directions and release while paused.
 - Accepted tap deletion/casing/editor integrity preserved; producer unchanged. Maximum 60 seconds TOTAL Actions monitoring per build.
 
@@ -15,7 +15,7 @@
 - Phone rejects v6 too: word preview works, horizontal extension/reversal and release deletion do not.
 - [x] Add bounded playground-only pointer/editor/lifecycle traces, actual runtime package marker and failure reasons; log offsets/counts only, no editor text.
 - [x] Add seven diagnostic regressions for failure reasons, text exclusion, bounded output, cancellation and sink failures.
-- [x] V7 debug assembly, 2790 pure + 209 focused mocks PASS (2999), run 37153176431; APK artifact 11284274382. Existing lint/security failures remain; phone trace pending.
+- [x] V7 debug assembly, 2790 pure + 209 focused mocks PASS (2999), run 37153176431; APK artifact 11284274382. Existing lint/security failures remain; v7 phone trace received and accepted below.
 - [x] V7 phone log supplied; maintainer accepts hold/drag/release. Trace confirms tested paths. Proceed with requested brake/resume UX.
 - Cause remains unconfirmed; v7 changes diagnostics, not the editing policy. Preserve accepted tap/casing behavior.
 - Monitoring: maximum 60 seconds TOTAL per build, then maintainer reports completion.
