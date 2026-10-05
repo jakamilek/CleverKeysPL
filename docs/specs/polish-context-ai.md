@@ -1,6 +1,6 @@
 # Feature specification: Polish contextual SI
 
-**Priority:** P1. **Status:** phase-v2 CI and Nubia native conformance PASS; memory investigation and independent quality pending.
+**Priority:** P1. **Status:** phase-v2 CI/native PASS; smaller Polish MLM review prioritized, independent quality/mobile cost pending.
 **Target version:** isolated trial, no release/version change. Created 2026-10-04.
 
 ## Overview and motivation
@@ -338,3 +338,16 @@ Do not combine several allocator/model changes or claim savings before measureme
 If cost persists, compare smaller models with independent held-out Polish quality;
 failed INT8 remains failed. Live SI and version unchanged. Report plural “1 próbek”
 is a pending Polish UI fix for next code change.
+
+## Smaller-model review after phone memory evidence (2026-10-05)
+
+User questions further HerBERT investment after high PSS and proposes testing 16 words.
+Review: docs/eval/2026-10-05-polish-ai-alternatives.md. First new candidate sdadas/polish-distilroberta
+(~82M/six layers according to authors) is not yet loaded, frozen, exported or validated.
+Keep HerBERT as immutable quality/runtime reference, not committed production choice.
+Prioritize a frozen comparison of full trained MLMs at 16/32 words and separate new
+unseen contexts plus case/punctuation regressions; exact tokenizer/head loading required.
+Existing MiniLM NLI/Qwen3-0.6B v5 results do not establish better replacements. Do not
+promise smaller PSS from model metadata or support all punctuation from a fill-mask head.
+No default context change until quality evidence; no live AI/graph/app setting change.
+HerBERT mapped-vs-path memory experiment remains reserve. INT8 gate remains failed.

@@ -190,3 +190,5 @@ Space and Backspace share motion-driven sliding: see [Selection Delete](wiki/ges
 - [HerBERT FP32 — pamięć etapami v2](HERBERT_FP32_PHASE_TRIAL_V2.md) — świeża sesja, dwie formy przed obowiązkową zgodnością, PSS etapów i czasy per kontekst; CI i natywna próba telefonu PASS.
 
 - [HerBERT FP32 — wynik faz v2 na Nubii](eval/2026-10-05-herbert-fp32-nubia-phase-v2.md) — zgodne SHA i native PASS; koszt ładowania dominuje PSS, czasy 7/8/32/48 słów, protokół dalszej próby pamięci.
+
+- [Mniejsze alternatywy polskiej SI](eval/2026-10-05-polish-ai-alternatives.md) — nowy kandydat DistilRoBERTa, wcześniejsze ograniczenia MiniLM/Qwen, proponowana próba 16/32 słów; bez nowego pomiaru/modelu w aplikacji.

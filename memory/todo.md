@@ -1,5 +1,15 @@
 # Current work queue
 
+## Smaller Polish SI candidate review (2026-10-05)
+
+- Prioritize evaluating sdadas/polish-distilroberta (~82M/six layers), with HerBERT
+  as frozen reference. Model not loaded/exported/tested yet; no RAM saving claim.
+- Freeze revision/full MLM/tokenizer, independent case/punctuation comparisons at
+  16/32 words before phone export. Existing Qwen/MiniLM adapters were weaker in v5.
+- Review: docs/eval/2026-10-05-polish-ai-alternatives.md. Mapped-vs-path HerBERT experiment is reserve;
+  no live/default-context/model/app changes. INT8 HerBERT remains FAIL.
+
+
 ## Phase memory/timing trial v2 (2026-10-05)
 
 - Prepared: fresh-session two-form workload first, mandatory conformance after timings,
