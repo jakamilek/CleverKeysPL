@@ -184,3 +184,5 @@ Space and Backspace share motion-driven sliding: see [Selection Delete](wiki/ges
 - [Polish AI localization backlog](LOCALIZATION_BACKLOG_POLISH_AI.md) — base/Polish trial complete; other locales deferred per maintainer.
 
 - [HerBERT FP32 phone trial](HERBERT_FP32_PHONE_TRIAL_V1.md) — verified CI APK/model links and Polish diagnostic steps; device results pending.
+
+- [HerBERT FP32 — pierwszy raport Nubii](eval/2026-10-05-herbert-fp32-nubia-phone-v1.md) — native conformance PASS; 32/64 timing and whole-process PSS; memory/quality follow-up remains.

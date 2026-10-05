@@ -256,3 +256,20 @@ Stable link and updated phone steps in docs/HERBERT_FP32_PHONE_TRIAL_V1.md.
 The same model ZIP is retained. Next is phone import retry with >=1.4 GB free;
 use the copyable import failure report if needed. Actual device import/JNI/timing
 and independent quality remain unverified; no live IME, model or version change.
+
+## First native phone report (2026-10-05)
+
+Maintainer report on nubia NX721J /Android 15 /arm64-v8a completed import and native
+conformance: 2471 tokenizer examples, 232 batches/532 candidates, maximum displayed
+error 0.000062 (<0.001), unchanged rankings required by the benchmark.
+End-to-end p50/p95: 32 words 82.2/229.0 ms; 64 words 81.7/326.9 ms (90 samples each).
+Load including hash check 1256.2 ms. Maximum sampled whole-process PSS 2699.3 MiB.
+
+Raw report, identity limitations and interpretation: docs/eval/2026-10-05-herbert-fp32-nubia-phone-v1.md.
+Prepared timing contexts have 7/8/48 words; short contexts are identical across limits.
+PSS covers the whole process and same scorer doing conformance then timings, with no
+baseline/phase split. Do not claim 2.64 GiB model-only memory or arena as proven cause.
+Next: phase-specific memory, fresh intended two-form workload, per-context timings and
+report model/APK identity before any live activation. Keep default 32/INT8 fail/private
+context/unchanged editor pipeline. This report confirms native implementation, not
+independent semantic quality or a production memory/latency/energy acceptance gate.

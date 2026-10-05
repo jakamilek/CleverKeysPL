@@ -12,8 +12,12 @@
 - Run 37280833641 at 884a29b SUCCESS: compile, JUnitCore OK(2842), mandatory original
   token/feed conformance, 83 focused tests, debug/vital lint, assembly and APK audit/upload PASS.
   APK artifact 11331993610; updated phone guide. Seven new import regressions registered.
-- Pending: phone import retry with same model ZIP and >=1.4 GB free. Copy report on import
-  failure; native scores/timing/quality remain unverified.
+- Phone report on nubia NX721J /Android 15 /arm64-v8a confirms import and full native parity:
+  2471 vectors /232 batches, max displayed error 0.000062. Timings p50/p95: 32=82.2/229.0 ms,
+  64=81.7/326.9 ms. Load 1256.2 ms; max sampled process PSS 2699.3 MiB.
+  Raw report and limitations: docs/eval/2026-10-05-herbert-fp32-nubia-phone-v1.md.
+- Next: baseline/phase PSS and intended two-form workload before conformance, per-context
+  timings and report identity. Independent quality/energy and production gate remain open.
 - Same producer/model artifact; only runtime APK rebuild. No live SI/version/release change.
 
 
