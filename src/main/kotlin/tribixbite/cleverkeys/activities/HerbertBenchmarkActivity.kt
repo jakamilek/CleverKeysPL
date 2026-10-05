@@ -19,6 +19,8 @@ import tribixbite.cleverkeys.ai.HerbertConformance
 import tribixbite.cleverkeys.ai.HerbertImportedBundle
 import tribixbite.cleverkeys.ai.HerbertImportFailure
 import tribixbite.cleverkeys.ai.HerbertImportReason
+import tribixbite.cleverkeys.ai.HerbertMemoryProbe
+import java.security.MessageDigest
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -38,6 +40,8 @@ class HerbertBenchmarkActivity : Activity() {
     private lateinit var removeButton: Button
     private lateinit var noticeButton: Button
     private lateinit var cancelButton: Button
+    private lateinit var copyButton: Button
+    private var trialNumber = 0
     private var hasBundle = false // main-thread UI state only
     private var report = ""
 
@@ -80,7 +84,7 @@ class HerbertBenchmarkActivity : Activity() {
                     .setMessage(notice).setPositiveButton(android.R.string.ok, null).show() }
             }
         }
-        button(R.string.herbert_benchmark_copy) {
+        copyButton = button(R.string.herbert_benchmark_copy) {
             if (report.isNotEmpty()) {
                 (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
                     .setPrimaryClip(ClipData.newPlainText(getString(R.string.herbert_benchmark_title), report))
@@ -146,39 +150,104 @@ class HerbertBenchmarkActivity : Activity() {
         cancelled.set(false)
         report = ""
         output.text = ""
+        val thisTrial = ++trialNumber
         busy(true)
         status.setText(R.string.herbert_benchmark_running)
         worker.execute {
+            val memory = HerbertMemoryProbe(readKiB = { Debug.getPss() })
+            var identity = ""
+            var lastProgress = 0L
+            var lastStage: HerbertMemoryProbe.Stage? = null
             try {
-                var maximumSampledPss = 0L
-                var lastSample = 0L
-                fun sample() {
-                    val now = System.nanoTime()
-                    if (now - lastSample >= 250_000_000L) {
-                        maximumSampledPss = maxOf(maximumSampledPss, Debug.getPss())
-                        lastSample = now
+                val bundle = imported ?: error("Missing model")
+                // Installed base APK fingerprint, never its private filename/URI.
+                val digest = MessageDigest.getInstance("SHA-256")
+                File(applicationInfo.sourceDir).inputStream().use { source ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        if (cancelled.get() || destroyed.get()) throw CancellationException()
+                        val n = source.read(buffer)
+                        if (n < 0) break
+                        digest.update(buffer, 0, n)
                     }
                 }
-                sample()
-                val bundle = imported ?: error("Missing model")
-                val result = HerbertConformance.benchmark(bundle, { cancelled.get() || destroyed.get() }, ::sample)
-                val identity = "${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE}; ${Build.SUPPORTED_ABIS.firstOrNull()}"
+                identity = getString(R.string.herbert_benchmark_identity_report,
+                    BuildConfig.HERBERT_TRIAL_COMMIT, HerbertBundleImport.hex(digest.digest()),
+                    bundle.trust.files.getValue("model.onnx").sha256, thisTrial, android.os.Process.myPid())
+                val result = HerbertConformance.benchmark(bundle,
+                    cancelled = { cancelled.get() || destroyed.get() },
+                    checkpoint = { phase, force -> memory.sample(phase, force) },
+                    progress = { value ->
+                        val now = System.nanoTime()
+                        if (lastStage != value.stage || now - lastProgress >= 500_000_000L ||
+                            value.total > 0 && value.completed == value.total) {
+                            lastStage = value.stage; lastProgress = now
+                            val message = when (value.stage) {
+                                HerbertMemoryProbe.Stage.LOADED -> getString(R.string.herbert_benchmark_progress_load)
+                                HerbertMemoryProbe.Stage.FIRST_PAIR -> getString(R.string.herbert_benchmark_progress_first)
+                                HerbertMemoryProbe.Stage.WARMUP -> getString(R.string.herbert_benchmark_progress_warmup)
+                                HerbertMemoryProbe.Stage.WORKLOAD -> getString(R.string.herbert_benchmark_progress_workload, value.completed, value.total)
+                                HerbertMemoryProbe.Stage.CONFORMANCE -> getString(R.string.herbert_benchmark_progress_conformance, value.completed, value.total)
+                                else -> getString(R.string.herbert_benchmark_running)
+                            }
+                            ui { status.text = message }
+                        }
+                    })
+                val device = "${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE}; ${Build.SUPPORTED_ABIS.firstOrNull()}"
                 val windowReport = result.windows.joinToString("\n") { window ->
                     getString(R.string.herbert_benchmark_window_report, window.words, window.total.samples,
                         window.feed.p50Ms, window.feed.p95Ms, window.inference.p50Ms, window.inference.p95Ms,
                         window.total.p50Ms, window.total.p95Ms)
                 }
-                val value = getString(R.string.herbert_benchmark_report, identity,
+                val caseReport = result.cases.joinToString("\n") { row ->
+                    getString(R.string.herbert_benchmark_case_report, row.context, row.words, row.retainedWords,
+                        row.batch, row.sequence, row.targets, row.total.samples,
+                        row.feed.p50Ms, row.feed.p95Ms, row.inference.p50Ms, row.inference.p95Ms,
+                        row.total.p50Ms, row.total.p95Ms)
+                }
+                val details = listOf(identity,
+                    getString(R.string.herbert_benchmark_first_report, result.firstPairMs, result.durationMs),
+                    windowReport, caseReport, memoryReport(memory)).joinToString("\n\n")
+                val value = getString(R.string.herbert_benchmark_report, device,
                     result.tokenizerVectors, result.scoreVectors, result.maxAbsoluteError.toDouble(),
                     result.loadMs, result.total.samples, result.feed.p50Ms, result.feed.p95Ms,
                     result.inference.p50Ms, result.inference.p95Ms, result.total.p50Ms, result.total.p95Ms,
-                    maximumSampledPss / 1024.0, windowReport)
+                    memory.maximumKiB() / 1024.0, details)
                 ui { report = value; output.text = value; status.setText(R.string.herbert_benchmark_passed) }
             } catch (_: CancellationException) {
-                ui { status.setText(R.string.herbert_benchmark_cancelled) }
+                ui {
+                    report = getString(R.string.herbert_benchmark_partial_report,
+                        getString(R.string.herbert_benchmark_cancelled), identity, memoryReport(memory))
+                    output.text = report; status.setText(R.string.herbert_benchmark_cancelled)
+                }
             } catch (_: Exception) {
-                ui { status.setText(R.string.herbert_benchmark_test_failed) }
+                ui {
+                    report = getString(R.string.herbert_benchmark_partial_report,
+                        getString(R.string.herbert_benchmark_test_failed), identity, memoryReport(memory))
+                    output.text = report; status.setText(R.string.herbert_benchmark_test_failed)
+                }
             } finally { ui { busy(false) } }
+        }
+    }
+
+    private fun memoryReport(memory: HerbertMemoryProbe): String {
+        val rows = memory.snapshot()
+        if (rows.isEmpty()) return getString(R.string.herbert_benchmark_memory_unavailable)
+        val baseline = memory.baselineKiB()
+        fun label(phase: HerbertMemoryProbe.Phase): String = when (phase.stage) {
+            HerbertMemoryProbe.Stage.BASELINE -> getString(R.string.herbert_benchmark_phase_baseline)
+            HerbertMemoryProbe.Stage.LOADED -> getString(R.string.herbert_benchmark_phase_loaded)
+            HerbertMemoryProbe.Stage.FIRST_PAIR -> getString(R.string.herbert_benchmark_phase_first)
+            HerbertMemoryProbe.Stage.CONFORMANCE -> getString(R.string.herbert_benchmark_phase_conformance)
+            HerbertMemoryProbe.Stage.CLOSED -> getString(R.string.herbert_benchmark_phase_closed)
+            HerbertMemoryProbe.Stage.WARMUP -> getString(R.string.herbert_benchmark_phase_case,
+                getString(R.string.herbert_benchmark_phase_warmup), phase.context, phase.words)
+            HerbertMemoryProbe.Stage.WORKLOAD -> getString(R.string.herbert_benchmark_phase_case,
+                getString(R.string.herbert_benchmark_phase_workload), phase.context, phase.words)
+        }
+        return getString(R.string.herbert_benchmark_memory_explanation) + "\n" + rows.joinToString("\n") { row ->
+            getString(R.string.herbert_benchmark_memory_row, label(row.phase), row.firstKiB / 1024.0,
+                row.lastKiB / 1024.0, row.maxKiB / 1024.0, (row.maxKiB - baseline) / 1024.0, row.samples)
         }
     }
 
@@ -188,6 +257,7 @@ class HerbertBenchmarkActivity : Activity() {
         removeButton.isEnabled = !value && hasBundle
         noticeButton.isEnabled = !value && hasBundle
         cancelButton.isEnabled = value
+        copyButton.isEnabled = !value && report.isNotEmpty()
     }
 
     private fun ui(action: () -> Unit) {

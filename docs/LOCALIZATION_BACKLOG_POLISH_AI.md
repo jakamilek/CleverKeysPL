@@ -49,3 +49,14 @@ herbert_benchmark_import_error_report. The changed explanation and import_failed
 wording also need translation review. Evidence: resources added for the phone import
 repair. Other locales fall back to base English; preserve the three numbered string
 arguments in the error report. No global lint exception or other-locale edits.
+
+## Phase measurement v2 — 2026-10-05
+
+Those same 18 locales also need 20 new base/Polish keys: herbert_benchmark_identity_report,
+case_report, first_report, memory_explanation, memory_row, memory_unavailable,
+partial_report, progress_load, progress_first, progress_warmup, progress_workload,
+progress_conformance, phase_baseline, phase_loaded, phase_first, phase_conformance,
+phase_closed, phase_warmup, phase_workload, phase_case (all with herbert_benchmark_ prefix).
+Also review changed report-v2 heading and running message. Evidence: phase diagnostic
+resources, base/Polish complete; fallback English until later translation. Preserve
+indexed argument types and phase sample units. Global lint remains unchanged.

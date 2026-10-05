@@ -10,6 +10,21 @@ internal object HerbertContextWindow {
 
     private fun space(cp: Int) = Character.isWhitespace(cp) || Character.isSpaceChar(cp) || cp == 0x85
 
+    /** Diagnostic count using the same boundaries as retain; no editor access. */
+    fun countWords(text: String): Int {
+        var count = 0
+        var inWord = false
+        var i = 0
+        while (i < text.length) {
+            val cp = text.codePointAt(i)
+            val isSpace = space(cp)
+            if (!isSpace && !inWord) count++
+            inWord = !isSpace
+            i += Character.charCount(cp)
+        }
+        return count
+    }
+
     /** The caller reads BEFORE inserting a swipe, never from a historical lowercase word list. */
     fun retain(beforeCursor: String, maxWords: Int = DEFAULT_WORDS): String {
         require(maxWords in 1..MAX_WORDS)

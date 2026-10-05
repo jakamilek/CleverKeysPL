@@ -1,5 +1,18 @@
 # Current work queue
 
+## Phase memory/timing trial v2 (2026-10-05)
+
+- Prepared: fresh-session two-form workload first, mandatory conformance after timings,
+  finally close + immediate PSS observation; model/arena/threads/live IME unchanged.
+- Six case rows (30 samples each), retained words/B/S/T, first request and full duration;
+  PSS baseline/load/first, warmup/timed per case/window, conformance, close and deltas.
+- Progress/copyable partial report, code/base-APK/model hashes, PID and trial ordinal;
+  base/Polish 20 added keys with non-Polish backlog. Closed scorer drops mapped reference.
+- Nine new registered metric/lifecycle regressions; local resources PASS. Android CI
+  and first phase-v2 phone report pending. Same model ZIP; no new producer export.
+- Step guide: docs/HERBERT_FP32_PHASE_TRIAL_V2.md. No live activation/version bump/release.
+
+
 ## FP32 phone import repair (2026-10-05)
 
 - Phone import failed with only a generic message; exact device exception unknown.

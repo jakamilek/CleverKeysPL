@@ -74,7 +74,9 @@ jobs:
                           sha256=digest, diagnosticOnly=True, liveAI=False,
                           producerCommit='d831e17b6cb99590d6ba036e92a72b6c3fd0cc7c',
                           producerRun=37230171787, modelArtifact=11312693984,
-                          contextDefaultWords=32, comparedWordLimits=[32,64])
+                          contextDefaultWords=32, comparedWordLimits=[32,64],
+                          benchmarkRevision='phase-v2', workloadBeforeConformance=True,
+                          perContextSamples=30, phaseMemory=True)
           Path('build/outputs/apk/debug/herbert-benchmark-apk.json').write_text(json.dumps(identity,indent=2)+'\n')
           print(json.dumps(identity,indent=2))
           PY

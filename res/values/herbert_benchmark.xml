@@ -15,11 +15,11 @@
     <string name="herbert_benchmark_importing">Checking and importing the package…</string>
     <string name="herbert_benchmark_ready">Model imported. Ready to test.</string>
     <string name="herbert_benchmark_import_failed">Import failed. The reason is shown below; use Copy report.</string>
-    <string name="herbert_benchmark_running">Testing tokenization, model scores and speed…</string>
+    <string name="herbert_benchmark_running">Preparing the memory and timing test…</string>
     <string name="herbert_benchmark_passed">Conformance tests passed. The report contains measurements from this phone.</string>
     <string name="herbert_benchmark_cancelled">Test stopped.</string>
     <string name="herbert_benchmark_test_failed">Test failed. Tokenization or model score conformance has not been confirmed.</string>
-    <string name="herbert_benchmark_report">HerBERT FP32 benchmark v1\n%1$s\nTokenizer: %2$d examples; scores: %3$d batches\nMaximum score error: %4$.6f\nModel load including hash check: %5$.1f ms\nTimed samples: %6$d (two forms, three context lengths)\nTokenization and feed p50/p95: %7$.1f / %8$.1f ms\nInference p50/p95: %9$.1f / %10$.1f ms\nTotal p50/p95: %11$.1f / %12$.1f ms\nMaximum sampled whole-process PSS: %13$.1f MiB\n%14$s\nPSS is sampled between calls, not an exact peak or model-only memory. Prepared examples only; no independent accuracy claim or live AI activation.</string>
+    <string name="herbert_benchmark_report">HerBERT FP32 phase benchmark v2\n%1$s\nTokenizer: %2$d examples; scores: %3$d batches\nMaximum score error: %4$.6f\nModel load including hash check: %5$.1f ms\nTimed samples: %6$d (two forms, three context lengths)\nTokenization and feed p50/p95: %7$.1f / %8$.1f ms\nInference p50/p95: %9$.1f / %10$.1f ms\nTotal p50/p95: %11$.1f / %12$.1f ms\nMaximum sampled whole-process PSS: %13$.1f MiB\n%14$s\nPSS is sampled between calls, not an exact peak or model-only memory. Prepared examples only; no independent accuracy claim or live AI activation.</string>
     <string name="herbert_benchmark_window_report">Limit %1$d words — %2$d samples\nTokenization/feed p50/p95: %3$.1f / %4$.1f ms\nInference p50/p95: %5$.1f / %6$.1f ms\nTotal p50/p95: %7$.1f / %8$.1f ms</string>
     <string name="herbert_benchmark_import_storage">Not enough storage. Keep at least 1.4 GB free during import; the temporary ZIP copy is removed afterwards.</string>
     <string name="herbert_benchmark_import_read">The selected file could not be read or the private copy could not be written. Select the fully downloaded model ZIP from local storage.</string>
@@ -28,4 +28,24 @@
     <string name="herbert_benchmark_import_identity">A file size or SHA-256 differs from the verified model. Select the unchanged model ZIP from the supplied link.</string>
     <string name="herbert_benchmark_import_metadata">Verified files were read, but their metadata could not be processed. Copy this report for diagnosis.</string>
     <string name="herbert_benchmark_import_error_report">HerBERT FP32 — import v2\nError code: %1$s\n%2$s\n%3$s\nUse Copy report. The report contains no file paths or typed text.</string>
+    <string name="herbert_benchmark_identity_report">Code commit: %1$s\nInstalled base APK SHA-256: %2$s\nModel SHA-256: %3$s\nRun number on this screen: %4$d; PID: %5$d\nORT 1.21.1 CPU; threads 2/1. New session; process allocations may remain from earlier runs.</string>
+    <string name="herbert_benchmark_case_report">Context %1$d, limit %2$d words, retained %3$d words; B/S/T=%4$d/%5$d/%6$d; %7$d samples\nPreparation p50/p95: %8$.1f / %9$.1f ms\nInference p50/p95: %10$.1f / %11$.1f ms\nTotal p50/p95: %12$.1f / %13$.1f ms</string>
+    <string name="herbert_benchmark_first_report">First short two-form request, including preparation: %1$.1f ms\nWhole test including warmup, conformance and PSS reads: %2$.1f ms</string>
+    <string name="herbert_benchmark_memory_explanation">PSS by phase — whole-process MiB. Baseline includes the imported tokenizer. Delta compares the maximum of a phase with the baseline. Workload precedes full conformance in one new session; later phases can retain earlier allocations. Close is observed immediately; file mappings and process allocators may remain. No forced GC or exact peak/model-only claim.</string>
+    <string name="herbert_benchmark_memory_row">%1$s: first/last/max %2$.1f / %3$.1f / %4$.1f MiB; delta %5$.1f MiB; %6$d samples</string>
+    <string name="herbert_benchmark_memory_unavailable">No phase PSS samples were collected.</string>
+    <string name="herbert_benchmark_partial_report">HerBERT FP32 — partial phase measurement v2\n%1$s\n%2$s\n%3$s\nIncomplete test. Model conformance has not been confirmed by this run.</string>
+    <string name="herbert_benchmark_progress_load">Loading model and checking its hash…</string>
+    <string name="herbert_benchmark_progress_first">Measuring the first short two-form request…</string>
+    <string name="herbert_benchmark_progress_warmup">Warming up the next context…</string>
+    <string name="herbert_benchmark_progress_workload">Measuring two forms: %1$d / %2$d…</string>
+    <string name="herbert_benchmark_progress_conformance">Checking tokenizer and model conformance: %1$d / %2$d batches…</string>
+    <string name="herbert_benchmark_phase_baseline">After import, before model load</string>
+    <string name="herbert_benchmark_phase_loaded">After model load</string>
+    <string name="herbert_benchmark_phase_first">After first short two-form request</string>
+    <string name="herbert_benchmark_phase_conformance">Full conformance</string>
+    <string name="herbert_benchmark_phase_closed">Immediately after ONNX session close</string>
+    <string name="herbert_benchmark_phase_warmup">Warmup</string>
+    <string name="herbert_benchmark_phase_workload">Timed requests</string>
+    <string name="herbert_benchmark_phase_case">%1$s — context %2$d, limit %3$d words</string>
 </resources>

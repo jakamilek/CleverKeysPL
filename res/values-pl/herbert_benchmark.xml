@@ -14,11 +14,11 @@
     <string name="herbert_benchmark_importing">Sprawdzanie i importowanie paczki…</string>
     <string name="herbert_benchmark_ready">Model zaimportowany. Możesz uruchomić test.</string>
     <string name="herbert_benchmark_import_failed">Import nie powiódł się. Przyczyna jest podana poniżej; użyj przycisku Kopiuj raport.</string>
-    <string name="herbert_benchmark_running">Sprawdzanie tokenizacji, wyników modelu i szybkości…</string>
+    <string name="herbert_benchmark_running">Przygotowanie testu pamięci i szybkości…</string>
     <string name="herbert_benchmark_passed">Testy zgodności przeszły. Raport zawiera pomiary z tego telefonu.</string>
     <string name="herbert_benchmark_cancelled">Test zatrzymany.</string>
     <string name="herbert_benchmark_test_failed">Test nie przeszedł. Zgodność tokenizacji lub wyników modelu nie została potwierdzona.</string>
-    <string name="herbert_benchmark_report">HerBERT FP32 — pomiar v1\n%1$s\nTokenizer: %2$d przykładów; wyniki: %3$d paczki kandydatów\nNajwiększy błąd wyniku: %4$.6f\nWczytanie modelu wraz ze sprawdzeniem sumy: %5$.1f ms\nPróbki pomiarowe: %6$d (dwie formy, trzy długości kontekstu)\nTokenizacja i przygotowanie wejścia p50/p95: %7$.1f / %8$.1f ms\nInferencja p50/p95: %9$.1f / %10$.1f ms\nCałość p50/p95: %11$.1f / %12$.1f ms\nNajwiększa próbka PSS całego procesu: %13$.1f MiB\n%14$s\nPSS jest próbkowane pomiędzy wywołaniami; nie oznacza dokładnego szczytu ani pamięci samego modelu. Tylko gotowe przykłady; bez niezależnej oceny trafności i bez uruchamiania SI w podpowiedziach.</string>
+    <string name="herbert_benchmark_report">HerBERT FP32 — pomiar etapów v2\n%1$s\nTokenizer: %2$d przykładów; wyniki: %3$d paczki kandydatów\nNajwiększy błąd wyniku: %4$.6f\nWczytanie modelu wraz ze sprawdzeniem sumy: %5$.1f ms\nPróbki pomiarowe: %6$d (dwie formy, trzy długości kontekstu)\nTokenizacja i przygotowanie wejścia p50/p95: %7$.1f / %8$.1f ms\nInferencja p50/p95: %9$.1f / %10$.1f ms\nCałość p50/p95: %11$.1f / %12$.1f ms\nNajwiększa próbka PSS całego procesu: %13$.1f MiB\n%14$s\nPSS jest próbkowane pomiędzy wywołaniami; nie oznacza dokładnego szczytu ani pamięci samego modelu. Tylko gotowe przykłady; bez niezależnej oceny trafności i bez uruchamiania SI w podpowiedziach.</string>
     <string name="herbert_benchmark_window_report">Limit %1$d słów — %2$d próbek\nTokenizacja/wejście p50/p95: %3$.1f / %4$.1f ms\nInferencja p50/p95: %5$.1f / %6$.1f ms\nCałość p50/p95: %7$.1f / %8$.1f ms</string>
     <string name="herbert_benchmark_import_storage">Za mało miejsca. Na czas importu pozostaw co najmniej 1,4 GB wolnego miejsca; tymczasowa kopia ZIP zostanie potem usunięta.</string>
     <string name="herbert_benchmark_import_read">Nie udało się odczytać wybranego pliku lub zapisać prywatnej kopii. Wybierz w pełni pobrany ZIP modelu z pamięci telefonu.</string>
@@ -27,4 +27,24 @@
     <string name="herbert_benchmark_import_identity">Rozmiar pliku lub suma SHA-256 różni się od zweryfikowanego modelu. Wybierz niezmieniony ZIP modelu z podanego linku.</string>
     <string name="herbert_benchmark_import_metadata">Zweryfikowane pliki zostały odczytane, ale nie udało się przetworzyć ich metadanych. Skopiuj raport do diagnozy.</string>
     <string name="herbert_benchmark_import_error_report">HerBERT FP32 — import v2\nKod błędu: %1$s\n%2$s\n%3$s\nUżyj przycisku Kopiuj raport. Raport nie zawiera ścieżek plików ani wpisywanego tekstu.</string>
+    <string name="herbert_benchmark_identity_report">Commit kodu: %1$s\nSHA-256 zainstalowanego bazowego APK: %2$s\nSHA-256 modelu: %3$s\nNumer próby na tym ekranie: %4$d; PID: %5$d\nORT 1.21.1 CPU; wątki 2/1. Nowa sesja; proces może zachowywać alokacje z wcześniejszych prób.</string>
+    <string name="herbert_benchmark_case_report">Kontekst %1$d, limit %2$d słów, zachowano %3$d słów; B/S/T=%4$d/%5$d/%6$d; %7$d próbek\nPrzygotowanie p50/p95: %8$.1f / %9$.1f ms\nInferencja p50/p95: %10$.1f / %11$.1f ms\nCałość p50/p95: %12$.1f / %13$.1f ms</string>
+    <string name="herbert_benchmark_first_report">Pierwsza krótka analiza dwóch form wraz z przygotowaniem: %1$.1f ms\nCały test wraz z rozgrzewką, zgodnością i odczytami PSS: %2$.1f ms</string>
+    <string name="herbert_benchmark_memory_explanation">PSS etapami — MiB całego procesu. Punkt bazowy obejmuje zaimportowany tokenizer. Różnica porównuje największą próbkę etapu z punktem bazowym. Pomiar dwóch form poprzedza pełną zgodność w jednej nowej sesji; późniejsze etapy mogą zachowywać wcześniejsze alokacje. Odczyt po zamknięciu jest natychmiastowy; mapowania pliku i alokatory procesu mogą pozostać. Bez wymuszania GC i bez pomiaru dokładnego szczytu ani samego modelu.</string>
+    <string name="herbert_benchmark_memory_row">%1$s: pierwsza/ostatnia/największa %2$.1f / %3$.1f / %4$.1f MiB; różnica %5$.1f MiB; %6$d próbek</string>
+    <string name="herbert_benchmark_memory_unavailable">Nie zebrano próbek PSS etapów.</string>
+    <string name="herbert_benchmark_partial_report">HerBERT FP32 — niepełny pomiar etapów v2\n%1$s\n%2$s\n%3$s\nTest nieukończony. Ta próba nie potwierdziła zgodności modelu.</string>
+    <string name="herbert_benchmark_progress_load">Wczytywanie modelu i sprawdzanie sumy…</string>
+    <string name="herbert_benchmark_progress_first">Pomiar pierwszej krótkiej analizy dwóch form…</string>
+    <string name="herbert_benchmark_progress_warmup">Rozgrzewka kolejnego kontekstu…</string>
+    <string name="herbert_benchmark_progress_workload">Pomiar dwóch form: %1$d / %2$d…</string>
+    <string name="herbert_benchmark_progress_conformance">Sprawdzanie tokenizera i zgodności modelu: %1$d / %2$d paczek…</string>
+    <string name="herbert_benchmark_phase_baseline">Po imporcie, przed wczytaniem modelu</string>
+    <string name="herbert_benchmark_phase_loaded">Po wczytaniu modelu</string>
+    <string name="herbert_benchmark_phase_first">Po pierwszej krótkiej analizie dwóch form</string>
+    <string name="herbert_benchmark_phase_conformance">Pełna kontrola zgodności</string>
+    <string name="herbert_benchmark_phase_closed">Zaraz po zamknięciu sesji ONNX</string>
+    <string name="herbert_benchmark_phase_warmup">Rozgrzewka</string>
+    <string name="herbert_benchmark_phase_workload">Analizy mierzone</string>
+    <string name="herbert_benchmark_phase_case">%1$s — kontekst %2$d, limit %3$d słów</string>
 </resources>

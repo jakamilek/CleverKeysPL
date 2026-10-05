@@ -174,3 +174,11 @@ data descriptors: ZipInputStream rejects that envelope. FP32 importer now stages
 private ZIP and uses ZipFile after bounding EOCD/index, preserving every compiled file hash.
 Budget container plus extraction space; remove container before metadata parsing. Import UI
 reports fixed reason codes and copyable Polish explanations, never raw throwable paths/URIs.
+
+
+Phase-v2 diagnostics start with a fresh scorer and intended two-form requests BEFORE
+mandatory conformance. Success still requires every token/feed/score/rank gate. Record
+phase PSS outside timers, with forced boundaries and 250ms repeat throttle; first/last/max
+are whole process, not isolated model memory or exact peak. Finally close then observe,
+release mapped reference only after successful native close, never force GC/allocator tweaks.
+Keep per-case timings, retained words/B/S/T and compiled code/base APK/model identity.

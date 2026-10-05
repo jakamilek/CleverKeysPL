@@ -21,7 +21,7 @@ internal class HerbertOnnxScorer private constructor(
     private val environment: OrtEnvironment,
     private val session: OrtSession,
     // Retain the read-only mapped buffer for the session's entire native lifetime.
-    @Suppress("unused") private val mappedModel: ByteBuffer? = null,
+    @Suppress("unused") private var mappedModel: ByteBuffer? = null,
 ) : AutoCloseable {
     private var closed = false
 
@@ -65,6 +65,8 @@ internal class HerbertOnnxScorer private constructor(
         if (!closed) {
             closed = true
             session.close()
+            // Native lifetime has ended. OS reclamation still depends on GC.
+            mappedModel = null
         }
     }
 

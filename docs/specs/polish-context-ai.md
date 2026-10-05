@@ -1,6 +1,6 @@
 # Feature specification: Polish contextual SI
 
-**Priority:** P1. **Status:** preparation implemented; conversion/Android validation pending.
+**Priority:** P1. **Status:** native FP32 diagnostics verified on Nubia; phase-v2 measurement pending CI/device.
 **Target version:** isolated trial, no release/version change. Created 2026-10-04.
 
 ## Overview and motivation
@@ -273,3 +273,43 @@ Next: phase-specific memory, fresh intended two-form workload, per-context timin
 report model/APK identity before any live activation. Keep default 32/INT8 fail/private
 context/unchanged editor pipeline. This report confirms native implementation, not
 independent semantic quality or a production memory/latency/energy acceptance gate.
+
+## Phase memory/timing benchmark v2 (2026-10-05)
+
+The first phone native PASS is retained as evidence, not replaced. This follow-up changes
+only diagnostic measurement order/reporting plus release of the mapped-buffer reference
+after successful native session close; graph, hashes, inference/allocator settings and IME
+remain unchanged. One fresh session per click, no forced GC or allocator experiment.
+
+Order: imported-tokenizer baseline → load/hash → first short two-form request → short
+contexts and then long context warmup/timing → mandatory token/feed/native rank/score
+conformance → native close → immediate closed sample. Close and its observation execute
+in finally on success, cancellation and verification failure; failed open has no session.
+Successful result is returned only after all mandatory checks and close. No gate bypass.
+
+Six case rows report retained words and B/S/T, 30 timed samples each; window aggregates
+remain 90/limit, 180 total. Contexts 7/8/48 words, long clipped to 32 or retained 48. Each
+context gets three warmups per limit, then alternating 32/64 order over 30 rounds. Short
+workload is observed before long; first long-32 warmup precedes long-64 warmup. Timed
+case samples can retain allocations from prior warmup/cases/windows: not isolated memory
+or order-free comparative speed. First short request and whole diagnostic duration separate.
+
+HerbertMemoryProbe observes baseline/load/first pair, six warmup phases, six timed phases,
+full conformance and immediately after close. Forced boundaries/first phase plus throttled
+>=250ms repeat samples report first/last/max/count, delta from whole-process baseline.
+PSS is sampled outside timed sections, not in native calls or exact peak/model-only memory.
+Closed scorer releases its own strong mapped-model reference only after successful close;
+GC and process allocator may retain OS pages. Existing import cleanup/lifetime remains.
+
+Report includes compiled validated GITHUB_SHA (or local-unidentified), installed base APK
+SHA, compiled model SHA, PID/trial ordinal, ORT 1.21.1 CPU 2/1. Revision phase-v2 in workflow
+artifact identity. No URI/path/editor text; prepared examples only. UI shows stage/count;
+copy enabled only with a completed/partial report, cancellation/failure report explicitly
+says conformance was not confirmed. Polish/base 20 added keys, other locales backlog.
+
+Nine registered metric/lifecycle tests cover ordering, mandatory verification failure,
+cancellation, failed open/close observation, PSS throttle/forced boundaries/snapshot/deltas,
+valid quantiles, invalid samples and context word bounds. Existing 2471-token/232-batch
+five-input and editor/lint/APK gates preserved. Local resource/format/reference validation
+PASS; actual Kotlin/Android compilation and phone phase results pending CI/device.
+No release/version bump/model export/live changes or independent quality claim.
