@@ -1,5 +1,18 @@
 # Current work queue
 
+## FP32 phone import repair (2026-10-05)
+
+- Phone import failed with only a generic message; exact device exception unknown.
+- Reproduced ZipInputStream rejection of GitHub compression-level 0 STORED entries
+  with trailing descriptors; the same tiny fixture succeeds with ZipFile.
+- Implemented bounded private container copy + bounded central directory + ZipFile,
+  unchanged seven SHA/size identities, extraction and cancellation cleanup.
+- Base/Polish fixed reason codes and copyable failure report; no URI/path/raw exception.
+  Import preflight about 1.33 GB; UI requests 1.4 GB free, temporary ZIP removed.
+- Registered container/hash/safety/cancel/storage regressions; Android CI and phone retry pending.
+- Same producer/model artifact; only runtime APK rebuild. No live SI/version/release change.
+
+
 ## Polish SI verified FP32 package and diagnostic APK (2026-10-04)
 
 - Producer 37230171787 at d831e17: SUCCESS, byte-identical FP32, zero archived rank changes;

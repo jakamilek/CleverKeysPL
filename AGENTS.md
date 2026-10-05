@@ -167,3 +167,10 @@ CI runner tool inventory is not guaranteed: rg was absent in run 37231774451 aft
 real tokenizer tests passed. The mandatory original-conformance log marker is checked
 with Python stdlib (already required for APK audit), not an uninstalled search utility.
 Keep the assertion and all following gates; test/compile success alone is not APK success.
+
+
+GitHub upload-artifact at compression-level 0 emits STORED stream entries with trailing
+data descriptors: ZipInputStream rejects that envelope. FP32 importer now stages a bounded
+private ZIP and uses ZipFile after bounding EOCD/index, preserving every compiled file hash.
+Budget container plus extraction space; remove container before metadata parsing. Import UI
+reports fixed reason codes and copyable Polish explanations, never raw throwable paths/URIs.

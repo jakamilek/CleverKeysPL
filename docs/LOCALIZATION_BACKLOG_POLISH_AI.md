@@ -38,3 +38,14 @@ Klucze do tłumaczenia (20; ostatni dodany wraz z porównaniem limitów 32/64):
 
 Zachować numerowane formaty i jednostki raportu. Po dodaniu pełnych tłumaczeń usunąć
 lokalny ignore. Brak tłumaczenia nie oznacza nieprawidłowych wyników modelu.
+
+## Import diagnostics follow-up — 2026-10-05
+
+Those same 18 locales also lack seven new base/Polish keys:
+herbert_benchmark_import_storage, herbert_benchmark_import_read,
+herbert_benchmark_import_zip, herbert_benchmark_import_contents,
+herbert_benchmark_import_identity, herbert_benchmark_import_metadata,
+herbert_benchmark_import_error_report. The changed explanation and import_failed
+wording also need translation review. Evidence: resources added for the phone import
+repair. Other locales fall back to base English; preserve the three numbered string
+arguments in the error report. No global lint exception or other-locale edits.

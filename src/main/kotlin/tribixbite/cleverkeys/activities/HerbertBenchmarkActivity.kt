@@ -17,6 +17,8 @@ import tribixbite.cleverkeys.ai.HerbertBenchmarkTrial
 import tribixbite.cleverkeys.ai.HerbertBundleImport
 import tribixbite.cleverkeys.ai.HerbertConformance
 import tribixbite.cleverkeys.ai.HerbertImportedBundle
+import tribixbite.cleverkeys.ai.HerbertImportFailure
+import tribixbite.cleverkeys.ai.HerbertImportReason
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -115,8 +117,27 @@ class HerbertBenchmarkActivity : Activity() {
                 try { imported?.close() } catch (failure: Exception) { staged.close(); throw failure }
                 imported = staged
                 ui { hasBundle = true; report = ""; output.text = ""; status.setText(R.string.herbert_benchmark_ready) }
-            } catch (_: Exception) {
-                ui { status.setText(R.string.herbert_benchmark_import_failed) }
+            } catch (_: CancellationException) {
+                ui {
+                    report = ""; output.text = ""
+                    status.setText(R.string.herbert_benchmark_cancelled)
+                }
+            } catch (failure: Exception) {
+                val reason = (failure as? HerbertImportFailure)?.reason ?: HerbertImportReason.READ
+                val explanation = when (reason) {
+                    HerbertImportReason.STORAGE -> R.string.herbert_benchmark_import_storage
+                    HerbertImportReason.READ -> R.string.herbert_benchmark_import_read
+                    HerbertImportReason.ZIP -> R.string.herbert_benchmark_import_zip
+                    HerbertImportReason.CONTENTS -> R.string.herbert_benchmark_import_contents
+                    HerbertImportReason.IDENTITY -> R.string.herbert_benchmark_import_identity
+                    HerbertImportReason.METADATA -> R.string.herbert_benchmark_import_metadata
+                }
+                ui {
+                    status.setText(R.string.herbert_benchmark_import_failed)
+                    report = getString(R.string.herbert_benchmark_import_error_report, reason.name,
+                        getString(explanation), "${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE}")
+                    output.text = report
+                }
             } finally { ui { busy(false) } }
         }
     }

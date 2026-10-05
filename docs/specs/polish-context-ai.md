@@ -213,3 +213,33 @@ seven compiled file hashes checked again by the importer.
 
 Next is device native-score/rank parity and repeated 32/64 timing/PSS on Nubia.
 No live integration/editor context dispatch/accuracy or phone performance claim yet.
+
+## Phone import compatibility repair (2026-10-05)
+
+Maintainer reports generic import failure on the diagnostic APK. Its original catch hid the
+exception, so the precise device cause is not established. Source inspection identified a concrete
+compatibility defect: producer upload-artifact uses compression-level 0; zip-stream switches to
+STORED and writes stream entries with bit 3/trailing data descriptors. Java ZipInputStream rejects
+this envelope with "only DEFLATED entries can have EXT descriptor". A 16-byte local fixture reproduces
+this rejection; ZipFile reads the same fixture successfully. This is container evidence, not a native
+phone result or independent verification of the full model artifact.
+
+HerbertZipArchive copies the input into the unique private noBackup snapshot with a strict container
+bound of the seven trusted sizes plus 1 MiB overhead. Before ZipFile opens, EOCD checks bound its
+central directory and entry count, refusing multidisk/ZIP64-directory containers not needed by this
+<4 GiB pinned package. Extraction still requires exact allowed names, no duplicates/directories,
+complete seven-member set, exact sizes and SHA-256, followed by the existing verified manifest and
+tokenizer parsing. No trust/hash/model changes. The temporary ZIP is deleted before model parsing;
+failure/cancel removes the unique snapshot. The existing imported model is replaced only on success.
+
+Free-space preflight includes container plus extracted files and reserve: about 1.33 GB for this
+package; Polish UI requests at least 1.4 GB free during import. Completed model storage is unchanged.
+Cancelled import is shown as stopped. Fixed reason codes STORAGE/READ/ZIP/CONTENTS/IDENTITY/METADATA
+have base/Polish explanations and a copyable report; no raw throwable text, provider URI, filename,
+private path or typed editor text is reported. Other-locale keys remain on the localization backlog.
+
+Registered import regressions cover the STORED-descriptor envelope, DEFLATED compatibility,
+hash tampering, duplicates/traversal/incomplete membership, truncated/oversized/bad-directory containers,
+copy cancellation cleanup and the staging space bound. Android compilation, these Kotlin tests/lint
+and the rebuilt APK are pending CI. Keep existing tokenizer/editor gates and Actions monitoring cap.
+Same external model ZIP; install only the subsequent verified APK before retrying on Nubia.

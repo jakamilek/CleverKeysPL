@@ -1,5 +1,11 @@
 # Test HerBERT FP32 na telefonie — v1
 
+**Aktualizacja 05.10.2026:** zgłoszony import nie powiódł się w APK z poniższego
+starego runu. Przygotowano naprawę odczytu ZIP-a GitHuba i raport błędów; nowy APK
+czeka na CI i ponowny test telefonu. Zachowaj pobrany ZIP modelu.
+Na czas importu pozostaw co najmniej **1,4 GB wolnego miejsca** na tymczasową kopię
+ZIP i rozpakowany model; kopia będzie usunięta po imporcie.
+
 [Run Androida 37232458354](https://github.com/jakamilek/CleverKeysPL/actions/runs/37232458354)
 zakończył się SUCCESS dla code commit 73627fae758bcdf845ed8696be821b7052e326ff.
 Compile, JUnitCore OK(2835), mandatory original tokenizer/feed parity, 83 focused
