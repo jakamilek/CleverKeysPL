@@ -1,17 +1,22 @@
 # Current work queue
 
-## Smaller Polish SI candidate review (2026-10-05)
+## Smaller Polish SI comparison v1 completed (2026-10-05)
 
-- Prioritize evaluating sdadas/polish-distilroberta (~82M/six layers), with HerBERT
-  as frozen reference. Model not loaded/exported/tested yet; no RAM saving claim.
-- Frozen comparison launched: producer 769fc46579e910f50ff40f5546f0d5ae5643de5b,
-  run 37355290211; 192 cases/384 requests each, separate natural/distance/regression/
-  punctuation populations, original pretrained/tokenizer/projection gates.
-- Distil revision849b664fa3134beae84095d28a184c145c6a3aa5; eleven local contract tests
-  PASS. Full native host loads/quality and RSS pending CI; no mobile export yet.
-  Existing Qwen/MiniLM adapters were weaker in v5; keep failed INT8/model trust intact.
-- Review: docs/eval/2026-10-05-polish-ai-alternatives.md. Mapped-vs-path HerBERT experiment is reserve;
-  no live/default-context/model/app changes. INT8 HerBERT remains FAIL.
+- Run 37355290211 FAILURE: contract 11 tests PASS, HerBERT 384/384 PASS;
+  DistilRoBERTa failed unknown-target tokenizer gate, collector correctly failed.
+- Reject sdadas/polish-distilroberta revision849b664fa3134beae84095d28a184c145c6a3aa5:
+  original uppercase Ł in Łódź/Łotysz becomes ID3; 26 spans in 22/384 requests.
+  No quality or mobile-cost comparison for that model; no gate/dataset change.
+- Evidence producer 9162d9a9f2ac3b94f4212a773cf9be80e1cb632a:
+  experiments/polish_mlm_compare_v1_results/RESULTS.md, raw HerBERT predictions,
+  verified artifact SHA and exact report recomputation, reproducible tokenizer diagnosis.
+- HerBERT new natural 24/32 at both limits, contexts 6–14 words (same input).
+  Artificial distance 16/32 versus 18/32; not independent evidence to change default.
+- Next: screen other smaller models with exact source-form/case/Polish Unicode tokenizer
+  coverage before loading weights; then separately frozen quality/mobile measurements.
+  No model selected for deployment, no new APK, keep default32/max64 and live SI off.
+- Review: docs/eval/2026-10-05-polish-ai-alternatives.md (initial candidate superseded).
+  Mapped-vs-path HerBERT remains reserve; failed INT8/model trust intact.
 
 
 ## Phase memory/timing trial v2 (2026-10-05)

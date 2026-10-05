@@ -1,6 +1,6 @@
 # Feature specification: Polish contextual SI
 
-**Priority:** P1. **Status:** phase-v2 CI/native PASS; frozen HerBERT/DistilRoBERTa 16/32 comparison in CI; independent quality/mobile cost pending.
+**Priority:** P1. **Status:** phase-v2 CI/native PASS; MLM v1 completed with DistilRoBERTa tokenizer FAIL; next smaller candidate pending.
 **Target version:** isolated trial, no release/version change. Created 2026-10-04.
 
 ## Overview and motivation
@@ -341,8 +341,8 @@ is a pending Polish UI fix for next code change.
 ## Smaller-model review after phone memory evidence (2026-10-05)
 
 User questions further HerBERT investment after high PSS and proposes testing 16 words.
-Review: docs/eval/2026-10-05-polish-ai-alternatives.md. First new candidate sdadas/polish-distilroberta
-(~82M/six layers according to authors) is not yet loaded, frozen, exported or validated.
+Review: docs/eval/2026-10-05-polish-ai-alternatives.md. First candidate sdadas/polish-distilroberta
+(~82M/six layers according to authors) subsequently failed frozen v1 tokenizer validation; see result below.
 Keep HerBERT as immutable quality/runtime reference, not committed production choice.
 Prioritize a frozen comparison of full trained MLMs at 16/32 words and separate new
 unseen contexts plus case/punctuation regressions; exact tokenizer/head loading required.
@@ -351,10 +351,10 @@ promise smaller PSS from model metadata or support all punctuation from a fill-m
 No default context change until quality evidence; no live AI/graph/app setting change.
 HerBERT mapped-vs-path memory experiment remains reserve. INT8 gate remains failed.
 
-## Frozen smaller-MLM comparison launched (2026-10-05)
+## Frozen smaller-MLM comparison v1 — historical launch (2026-10-05)
 
 Producer experiment/polish-mlm-16-32-v1, code 769fc46579e910f50ff40f5546f0d5ae5643de5b;
-protocol experiments/polish_mlm_compare_v1/PROTOCOL.md. Run 37355290211 in progress.
+protocol experiments/polish_mlm_compare_v1/PROTOCOL.md. The initial pending state below is superseded by the completed result.
 Both original pretrained MLMs, HerBERT 50e33e05 and Polish DistilRoBERTa revision
 849b664fa3134beae84095d28a184c145c6a3aa5. Config/tokenizer read before freeze:
 RobertaForMaskedLM, six layers/768, vocab50001, Unigram/NFKC/Metaspace; full head
@@ -370,3 +370,27 @@ Eleven local stdlib tests PASS and all thirteen uploaded blobs verified; actual 
 loads/inference and host RSS/timings pending CI. Android/export/quantization remain later.
 Exploratory screen is frozen before results; no automatic activation or release gate claim.
 App code/default32 and all failed HerBERT INT8 gates remain unchanged.
+
+## Completed smaller-MLM comparison v1 (2026-10-05)
+
+Run 37355290211 FAILURE: 11-test contract and HerBERT 384/384 PASS, DistilRoBERTa
+unknown-target gate FAIL before quality/projection checks, collector correctly rejected
+missing model output. Original tokenizer maps uppercase Ł in Łódź/Łotysz to ID3;
+26 candidate spans in 22/384 requests affected. Exact pinned tokenizer.json SHA and
+repeatable diagnosis archived. Model rejected for this task/revision; no gate weakening,
+removed hard cases, alternative tokenizer or fabricated comparison scores.
+
+Verified results/raw predictions and diagnosis: producer commit
+9162d9a9f2ac3b94f4212a773cf9be80e1cb632a,
+experiments/polish_mlm_compare_v1_results/RESULTS.md; artifact ZIP SHA confirmed,
+report recomputed exactly with frozen contract. New natural HerBERT top1 24/32
+at both limits, but contexts only 6–14 words: identical inputs, not evidence for
+truncating longer real text. Artificial 23–25-word distance test 16/32 versus 18/32;
+32 changes eight first positions (five repairs, three regressions). New comma/none
+20/24, three regressions; no automatic punctuation acceptance. Host RSS/timing is
+not phone PSS or Android performance. Keep default32/max64, HerBERT reference only.
+
+Next smaller candidate must first pass original-tokenizer source-form/case/Unicode
+coverage before any expensive full-head inference/export. Then a separately frozen
+quality experiment and actual phone RAM/latency. No next model selected or loaded;
+no new APK, activation, quantization, merge or release. Earlier INT8 remains FAIL.

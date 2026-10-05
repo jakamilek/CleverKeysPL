@@ -191,6 +191,8 @@ Space and Backspace share motion-driven sliding: see [Selection Delete](wiki/ges
 
 - [HerBERT FP32 — wynik faz v2 na Nubii](eval/2026-10-05-herbert-fp32-nubia-phase-v2.md) — zgodne SHA i native PASS; koszt ładowania dominuje PSS, czasy 7/8/32/48 słów, protokół dalszej próby pamięci.
 
-- [Mniejsze alternatywy polskiej SI](eval/2026-10-05-polish-ai-alternatives.md) — nowy kandydat DistilRoBERTa, wcześniejsze ograniczenia MiniLM/Qwen, proponowana próba 16/32 słów; bez nowego pomiaru/modelu w aplikacji.
+- [Mniejsze alternatywy polskiej SI](eval/2026-10-05-polish-ai-alternatives.md) — historyczny przegląd kandydatów; DistilRoBERTa później odrzucona przez bramkę tokenizera, bez modelu w aplikacji.
 
-- [Zamrożone porównanie MLM 16/32](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/769fc46579e910f50ff40f5546f0d5ae5643de5b/experiments/polish_mlm_compare_v1/PROTOCOL.md) — HerBERT / polski DistilRoBERTa, 384 zapytania na model; CI 37355290211 trwa, bez nowego APK.
+- [Zamrożone porównanie MLM 16/32](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/769fc46579e910f50ff40f5546f0d5ae5643de5b/experiments/polish_mlm_compare_v1/PROTOCOL.md) — 384 zapytania na model; run 37355290211 zakończony FAILURE: HerBERT PASS, DistilRoBERTa nie rozpoznaje Ł w celu.
+
+- [Wynik MLM v1 i diagnoza Ł](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/9162d9a9f2ac3b94f4212a773cf9be80e1cb632a/experiments/polish_mlm_compare_v1_results/RESULTS.md) — odrzucony model, ukończona referencja i ograniczenia próby 16/32; bez nowego APK.
