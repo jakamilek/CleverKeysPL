@@ -1,6 +1,6 @@
 # Feature specification: Polish contextual SI
 
-**Priority:** P1. **Status:** phase-v2 CI/native PASS; MLM v1 completed with DistilRoBERTa tokenizer FAIL; next smaller candidate pending.
+**Priority:** P1. **Status:** phase-v2 CI/native PASS; v1 DistilRoBERTa rejected; tokenizer-screened Geotrend/distilHerBERT v2 in CI.
 **Target version:** isolated trial, no release/version change. Created 2026-10-04.
 
 ## Overview and motivation
@@ -394,3 +394,35 @@ Next smaller candidate must first pass original-tokenizer source-form/case/Unico
 coverage before any expensive full-head inference/export. Then a separately frozen
 quality experiment and actual phone RAM/latency. No next model selected or loaded;
 no new APK, activation, quantization, merge or release. Earlier INT8 remains FAIL.
+
+## Smaller Polish MLM v2 after full source-tokenizer screening (2026-10-05)
+
+Producer experiment/polish-mlm-16-32-v2, frozen code56b7d0f213fcdda1a8a5c245555bd3307fcc2133;
+protocol experiments/polish_mlm_compare_v2/PROTOCOL.md. Push run37359525824 in progress;
+draft PR9 and contract-only PR run37359531859 SUCCESS, not model quality/mobile acceptance.
+No Android code change. Exact screening evidence and reproducible script:
+experiments/polish_mlm_screen_v2/README.md + results JSON.
+122480 source forms,16117 multi-variant keys from authenticated full v5 pack:
+distilHerBERT recognizes all; Geotrend's only unknown source forms are standalone ą/ę,
+zero unknown/collapsed source pairs and all384requests/836targetspans valid. Single
+ąęńĄĘŃ probes unsupported by Geotrend; full-source coverage explicitly false. No data/gate exception.
+
+Compare Geotrend/distilbert-base-pl-cased rev9002d311e35aac14575bf53ad4fa3d8f8b853c2b
+(Apache-2.0,6layers,API60737405F32params) and BartekK/distilHerBERT-base-cased
+rev7276461b7a8fd668aaf30313c03a68bd11aad642 (6layers,original HerbertTokenizerFast;
+actualparamcount pending). Bartek model weight license unspecified; no redistribution
+or deployment approval inferred. No weight bundle in artifacts/APK/Git. Geotrend BERT12
+is reserve; ORIS Small C25.41M research-gated/custom code,API401,no files loaded.
+
+Same192cases/384queries each as v1, separate known populations. Original source attrs/forms,
+no invented dictionary descriptions. Plain scoring v1 byte-identical; original DistilBERT
+head function chain adapter and original-forward parity. Exact tokenizer backend hash
+and all spans BEFORE weights, strict no-missing/unexpected full MLM, three parity probes.
+Archived HerBERT v1 raw predictions/reference exactly recomputed, original commit deliberately
+retained; current models must share current commit. Manifest binds all source/code/results.
+New request SHA3cd36f0b230e1b5abb70df44dc1bd992828e48495c1c3cb17bf3f23bf07a7da2.
+Eight new local pure gate tests PASS plus eleven unchanged old tests in CI. Full native
+model load/parity/quality and host results pending. Natural <=14words means identical16/32,
+no default16 evidence; distance/punctuation separate,top3 structurally saturated.
+No default32/max64 change, live SI off, previous INT8 FAIL preserved. After run: inspect
+complete gate results and scores, then independent quality/export/phone cost only if justified.

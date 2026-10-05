@@ -1,5 +1,24 @@
 # Current work queue
 
+## Smaller Polish MLM v2 launched after coverage screening (2026-10-05)
+
+- Frozen producer56b7d0f213fcdda1a8a5c245555bd3307fcc2133, experiment/polish-mlm-16-32-v2;
+  push run37359525824 in progress, draftPR9; contract-only PR37359531859 SUCCESS.
+- Full authenticated v5 pack:122480forms/16117variant keys. DistilHerBERT full coverage;
+  Geotrend only standaloneą/ę unknown, all source pairs and384requests/836targets PASS.
+  Full-source Geotrend coverage remains false; no gate exception or dropped cases.
+- Compare pinned Geotrend Distil6layers/60737405F32 metadata and distilHerBERT6layers;
+  exact tokenizer before weights, original pretrained head/parity, v1 scoring unchanged,
+  old HerBERT raw reference hash-bound and recomputed. Eight new pure tests PASS locally.
+- DistilHerBERT weights license unspecified: no redistribution/deployment approval.
+  Geotrend BERT12 reserve; ORIS research gated/custom/API401, no files loaded.
+- Next after maintainer reports run completion: validate complete native loads/parity,
+  paired quality and all regressions, then justified export/independent quality/phone cost.
+  Known contexts not blind; natural<=14words cannot prove truncation16 safe. No APK/live/default change.
+- Protocol experiments/polish_mlm_compare_v2/PROTOCOL.md; full screening evidence
+  experiments/polish_mlm_screen_v2/README.md and raw JSON. INT8 earlier FAIL preserved.
+
+
 ## Smaller Polish SI comparison v1 completed (2026-10-05)
 
 - Run 37355290211 FAILURE: contract 11 tests PASS, HerBERT 384/384 PASS;

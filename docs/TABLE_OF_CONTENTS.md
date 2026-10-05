@@ -196,3 +196,5 @@ Space and Backspace share motion-driven sliding: see [Selection Delete](wiki/ges
 - [Zamrożone porównanie MLM 16/32](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/769fc46579e910f50ff40f5546f0d5ae5643de5b/experiments/polish_mlm_compare_v1/PROTOCOL.md) — 384 zapytania na model; run 37355290211 zakończony FAILURE: HerBERT PASS, DistilRoBERTa nie rozpoznaje Ł w celu.
 
 - [Wynik MLM v1 i diagnoza Ł](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/9162d9a9f2ac3b94f4212a773cf9be80e1cb632a/experiments/polish_mlm_compare_v1_results/RESULTS.md) — odrzucony model, ukończona referencja i ograniczenia próby 16/32; bez nowego APK.
+
+- [Tokenizer screening i MLM v2](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/56b7d0f213fcdda1a8a5c245555bd3307fcc2133/experiments/polish_mlm_compare_v2/PROTOCOL.md) — Geotrend Distil/distilHerBERT, 122480 źródłowych form; run37359525824 trwa, kontrakt PR PASS; licencja distilHerBERT niewyjaśniona, bez APK.
