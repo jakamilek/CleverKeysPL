@@ -1,20 +1,19 @@
 # Test HerBERT FP32 na telefonie — v1
 
-**Aktualizacja 05.10.2026:** zgłoszony import nie powiódł się w APK z poniższego
-starego runu. Przygotowano naprawę odczytu ZIP-a GitHuba i raport błędów; nowy APK
-czeka na CI i ponowny test telefonu. Zachowaj pobrany ZIP modelu.
+**Aktualizacja 05.10.2026:** naprawa odczytu ZIP-a GitHuba i raport błędów przeszły CI.
+Nowy APK jest gotowy do ponownej próby telefonu. Zachowaj pobrany ZIP modelu.
 Na czas importu pozostaw co najmniej **1,4 GB wolnego miejsca** na tymczasową kopię
 ZIP i rozpakowany model; kopia będzie usunięta po imporcie.
 
-[Run Androida 37232458354](https://github.com/jakamilek/CleverKeysPL/actions/runs/37232458354)
-zakończył się SUCCESS dla code commit 73627fae758bcdf845ed8696be821b7052e326ff.
-Compile, JUnitCore OK(2835), mandatory original tokenizer/feed parity, 83 focused
+[Run Androida 37280833641](https://github.com/jakamilek/CleverKeysPL/actions/runs/37280833641)
+zakończył się SUCCESS dla code commit 884a29b72e8673ad57e506c3d3d2d174e5cd329f.
+Compile, JUnitCore OK(2842), mandatory original tokenizer/feed parity, 83 focused
 editor regressions, debug/vital lint, assembleDebug i APK ZIP audit/upload przeszły.
 To ekran pomiarowy. SI nie jest jeszcze podłączona do codziennych podpowiedzi.
 
 ## Pobieranie
 
-1. Pobierz [paczkę APK ARM64](https://github.com/jakamilek/CleverKeysPL/actions/runs/37232458354/artifacts/11314463703).
+1. Pobierz [paczkę APK ARM64](https://github.com/jakamilek/CleverKeysPL/actions/runs/37280833641/artifacts/11331993610).
    Rozpakuj ZIP i zainstaluj CleverKeys-v2.0.0-arm64-v8a.apk. Numer wersji pozostał
    dotychczasowy; to trial diagnostic, nie release. ZIP około 36 MB.
 2. Pobierz [ZIP z modelem FP32](https://github.com/jakamilek/CleverKeys-langpack-pl/actions/runs/37230171787/artifacts/11312693984),
@@ -31,7 +30,8 @@ To ekran pomiarowy. SI nie jest jeszcze podłączona do codziennych podpowiedzi.
    a następnie szybkość dwóch form przy limitach 32/64 słów.
 4. Po zakończeniu wybierz Kopiuj raport i przekaż jego treść. Możesz powtórzyć test
    2–3 razy bez opuszczania tego ekranu i przekazać także raport z ostatniego pomiaru.
-   Jeśli import/test się nie powiedzie, przekaż dokładny komunikat ekranu.
+   Jeśli import się nie powiedzie, wybierz Kopiuj raport i przekaż kod oraz przyczynę.
+   Jeśli test modelu nie przejdzie, przekaż dokładny komunikat ekranu.
 
 Test używa gotowych przykładów, nie odczytuje tekstu innych aplikacji. Raport zawiera
 device/Android/ABI, zgodność, czas load z checksum, tokenizację/wejście, inference i total
@@ -42,17 +42,16 @@ model po zamknięciu native session; przy ponownym otwarciu trzeba importować Z
 
 ## Tożsamość i zakres weryfikacji
 
-APK 35696490 B, SHA256
-70c3e0e94f10e0a6e7ec4f9b6e043767cd9e41e7e21f14f21586958b07e07958.
-APK ZIP artifact 11314463703, 35697510 B, GitHub digest
-a5fda8a6163de65bdd531cd48a88aa3ce14b79cff04dbb630d80a59f1c3109d5.
+APK 35709678 B, SHA256
+ce65d548cd8b82fa5dd8d71f8b68cbf764ec0a48223a1e880b76ee913223e80b.
+APK ZIP artifact 11331993610, 35710698 B, GitHub digest
+c4c528139523c0e27b326184829cf3a299990b87e80360c5da093da0f357befc.
 W paczce są APK, herbert-benchmark-apk.json i herbert-benchmark-apk.sha256.
-Reports artifact 11313914852, 21636 B, GitHub digest
-bc3283e33e416130ab41ccb0d3b6287c6dbc5ae2b2908b754891ced34770e9b5.
+Reports artifact 11331924004, 22313 B, GitHub digest
+ab9b662d1e685a5b66eb779099c718ffe235812f1121ba02fd97f9aac5b563e6.
 
 CI obliczyło raw APK hash i sprawdziło jego ZIP: bez FP32 weights i JVM test fixtures.
-Raw APK nie był pobrany/weryfikowany lokalnie w tym workspace; próba dostępu do
-download URL zwróciła HTTP403, a download_file ma limit 32 MiB. Powyższe SHA pochodzą
+Raw APK nie był pobrany/weryfikowany lokalnie w tym workspace. Powyższe SHA pochodzą
 ze zweryfikowanych logs/metadata CI. Nie przypisywać tej kontroli lokalnemu skanowaniu.
 Model ZIP także nie był pobrany lokalnie; małe metadata były w pełni hash verified,
 a importer telefonu zweryfikuje wszystkie siedem plików z compiled trust.

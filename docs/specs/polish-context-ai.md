@@ -243,3 +243,16 @@ hash tampering, duplicates/traversal/incomplete membership, truncated/oversized/
 copy cancellation cleanup and the staging space bound. Android compilation, these Kotlin tests/lint
 and the rebuilt APK are pending CI. Keep existing tokenizer/editor gates and Actions monitoring cap.
 Same external model ZIP; install only the subsequent verified APK before retrying on Nubia.
+
+## ZIP import repair APK verified (2026-10-05)
+
+Runtime run 37280833641 at 884a29b72e8673ad57e506c3d3d2d174e5cd329f SUCCESS.
+Compile, JUnitCore OK(2842) including seven new import regressions, mandatory
+2471-token/232-batch/532-candidate original five-input conformance, 83 focused
+editor regressions, debug/vital lint, assembleDebug and APK ZIP audit/upload PASS.
+Artifact 11331993610; raw APK 35709678 bytes, SHA256
+ce65d548cd8b82fa5dd8d71f8b68cbf764ec0a48223a1e880b76ee913223e80b.
+Stable link and updated phone steps in docs/HERBERT_FP32_PHONE_TRIAL_V1.md.
+The same model ZIP is retained. Next is phone import retry with >=1.4 GB free;
+use the copyable import failure report if needed. Actual device import/JNI/timing
+and independent quality remain unverified; no live IME, model or version change.
