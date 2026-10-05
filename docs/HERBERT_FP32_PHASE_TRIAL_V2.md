@@ -1,8 +1,9 @@
 # HerBERT FP32 — pomiar pamięci etapami v2
 
-Nowy APK oczekuje CI; wcześniejszy APK z runu 37280833641 zawiera pomiar v1.
-Zachowaj ten sam ZIP modelu. Po otrzymaniu nowego zweryfikowanego APK zainstaluj
-aktualizację. Najbardziej przydatna będzie pierwsza próba po aktualizacji aplikacji.
+Run [37348519387](https://github.com/jakamilek/CleverKeysPL/actions/runs/37348519387) zakończył się sukcesem.
+Pobierz [ZIP z APK ARM64](https://github.com/jakamilek/CleverKeysPL/actions/runs/37348519387/artifacts/11361288863),
+rozpakuj i zainstaluj CleverKeys-v2.0.0-arm64-v8a.apk jako aktualizację.
+Zachowaj ten sam ZIP modelu. Najbardziej przydatna będzie pierwsza próba po aktualizacji aplikacji.
 
 1. Otwórz Plac testowy gestów → Test polskiej SI.
 2. Importuj dotychczasowy ZIP modelu (co najmniej 1,4 GB wolnego miejsca na czas importu).
@@ -29,3 +30,22 @@ Sesja jest nowa przy każdym uruchomieniu testu, ale proces może pozostawać ro
 Poprzedni raport telefonu jest zachowany w
 [analizie v1](eval/2026-10-05-herbert-fp32-nubia-phone-v1.md).
 Ten etap ma wyjaśnić koszt pamięci, nie ocenia niezależnej trafności nowych zdań.
+
+## Dowód CI i tożsamość APK
+
+Kod: db88fd28cca21ba2aa1e99b38e3886f1f147b5d6; job 111893158683.
+Kompilacja Android, JUnitCore 2851 testów, oryginalne 2471 wektorów tokenów /
+232 paczki / 532 kandydatów / pięć wejść, 83 testy edytora (45+16+8+11+3),
+debug/vital lint, assembly i audyt APK bez FP32/fixture PASS.
+To nie zastępuje nowego natywnego pomiaru telefonu ani niezależnej oceny trafności.
+
+APK: 35 742 138 bajtów, SHA256
+c3d15aaf1ba26b8f2534199dda5a6b8835cb72e5233038f4e6f1292b57ed3dd9.
+ZIP artefaktu 11361288863: 35 743 280 bajtów, SHA256
+05883670b94c815be141f98c993eed7f337dc4407daeb66b419693bd8305ed70;
+ważny do 2026-10-19T17:40:07Z.
+[Raporty CI](https://github.com/jakamilek/CleverKeysPL/actions/runs/37348519387/artifacts/11362182090):
+22 355 bajtów, SHA256 e9006a2add28f93d9bd0a7b67dfba23ec89976dd9e773c860669e663334847f7.
+Sumy APK pochodzą z logu CI, ZIP z metadanych GitHub; APK nie pobierano ani nie skanowano lokalnie.
+Wersja aplikacji pozostaje 2.0.0, dlatego potwierdzeniem nowej próby jest nagłówek
+„pomiar etapów v2”, commit i SHA APK w skopiowanym raporcie.
