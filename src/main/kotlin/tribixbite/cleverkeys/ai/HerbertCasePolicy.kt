@@ -6,11 +6,28 @@ import java.util.Locale
 internal object HerbertContextWindow {
     const val MAX_UNITS = 4096
     const val MAX_WORDS = 64
+    const val DEFAULT_WORDS = 32
 
     private fun space(cp: Int) = Character.isWhitespace(cp) || Character.isSpaceChar(cp) || cp == 0x85
 
+    /** Diagnostic count using the same boundaries as retain; no editor access. */
+    fun countWords(text: String): Int {
+        var count = 0
+        var inWord = false
+        var i = 0
+        while (i < text.length) {
+            val cp = text.codePointAt(i)
+            val isSpace = space(cp)
+            if (!isSpace && !inWord) count++
+            inWord = !isSpace
+            i += Character.charCount(cp)
+        }
+        return count
+    }
+
     /** The caller reads BEFORE inserting a swipe, never from a historical lowercase word list. */
-    fun retain(beforeCursor: String): String {
+    fun retain(beforeCursor: String, maxWords: Int = DEFAULT_WORDS): String {
+        require(maxWords in 1..MAX_WORDS)
         var start = (beforeCursor.length - MAX_UNITS).coerceAtLeast(0)
         if (start < beforeCursor.length && Character.isLowSurrogate(beforeCursor[start])) start++
         // A bounded read may start inside a word; do not pass that invented fragment to the model.
@@ -30,7 +47,7 @@ internal object HerbertContextWindow {
             inWord = !isSpace
             i += Character.charCount(cp)
         }
-        if (starts.size > MAX_WORDS) start = starts[starts.size - MAX_WORDS]
+        if (starts.size > maxWords) start = starts[starts.size - maxWords]
         return beforeCursor.substring(start)
     }
 }

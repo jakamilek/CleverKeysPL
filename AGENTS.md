@@ -137,3 +137,59 @@ conformance and phone shadow measurements before opt-in live integration. Never
 infer phone timing or add raw MLM scores to geometric scores without calibration.
 No editor text logging/persistence or network fallback. Context, field eligibility,
 request/revision/selection/pack/settings identity and deadlines gate future updates.
+
+
+## FP32 benchmark follow-up
+
+The failed INT8 preservation gate in herbert_mobile_v1 remains failed. The explicit
+herbert_fp32_benchmark_v1 producer stage may package only the byte-identical verified FP32
+for diagnostics. Portable Char-BPE tables are derived from original fast-tokenizer data,
+including probed Unicode classifications, not Android Character categories. Real token vectors
+and five-input feed equality are required in addition to native score/rank parity.
+
+HerbertBenchmarkActivity uses prepared fixtures only and never enables live SI. Import requires
+all seven file hashes from verified CI provenance; HerbertBenchmarkTrial now pins seven verified identities from producer run 37230171787.
+Never construct trusted identities from an imported manifest. Keep all operations on its worker,
+private noBackup staging, mapped model lifetime, cancellation between calls and deletion serialized.
+No model/editor-text backup, logging/network or activation changes. PSS samples are whole process,
+not exact peak/model memory; timing fixtures and host conversions are not independent quality tests.
+
+Context window default is 32 words with a 64-word safety maximum and 4096 UTF-16 units.
+The explicit benchmark compares both limits using alternating order and prepared examples,
+not live editor history. Real JVM conformance is mandatory via compressed original test
+fixtures; verify fixture hashes against compiled trust and never include them in APK.
+APK workflow requires the exact real-conformance PASS marker plus existing lint/editor gates.
+Other-locale missing trial-screen translations are deferred per maintainer, documented in
+LOCALIZATION_BACKLOG_POLISH_AI.md, with a local-only MissingTranslation ignore on the new
+resource file. Do not weaken global lint or claim JNI/mobile accuracy from host/pure tests.
+
+CI runner tool inventory is not guaranteed: rg was absent in run 37231774451 after
+real tokenizer tests passed. The mandatory original-conformance log marker is checked
+with Python stdlib (already required for APK audit), not an uninstalled search utility.
+Keep the assertion and all following gates; test/compile success alone is not APK success.
+
+
+GitHub upload-artifact at compression-level 0 emits STORED stream entries with trailing
+data descriptors: ZipInputStream rejects that envelope. FP32 importer now stages a bounded
+private ZIP and uses ZipFile after bounding EOCD/index, preserving every compiled file hash.
+Budget container plus extraction space; remove container before metadata parsing. Import UI
+reports fixed reason codes and copyable Polish explanations, never raw throwable paths/URIs.
+
+
+Phase-v2 diagnostics start with a fresh scorer and intended two-form requests BEFORE
+mandatory conformance. Success still requires every token/feed/score/rank gate. Record
+phase PSS outside timers, with forced boundaries and 250ms repeat throttle; first/last/max
+are whole process, not isolated model memory or exact peak. Finally close then observe,
+release mapped reference only after successful native close, never force GC/allocator tweaks.
+Keep per-case timings, retained words/B/S/T and compiled code/base APK/model identity.
+
+
+Nubia phase-v2 native report is archived in docs/eval/2026-10-05-herbert-fp32-nubia-phase-v2.md.
+Code/APK/model hashes match CI; load dominates observed whole-process PSS
+(346.2 baseline → 2121.0 loaded → 2132.1 workload max → 1336.8 immediate close).
+Do not attribute the residual to a leak or the difference from v1 to optimization.
+Next diagnostic should isolate mapped versus private-path session loading in separate
+processes, bounded streaming SHA and phase/component readings; same immutable model,
+threads/optimization/conformance gates. This experiment is planned, not implemented.
+Default 32 helps latency but does not eliminate observed fixed load cost. Native
+conformance is not independent semantic quality or a live production acceptance gate.

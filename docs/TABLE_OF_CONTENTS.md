@@ -178,4 +178,27 @@ Space and Backspace share motion-driven sliding: see [Selection Delete](wiki/ges
 
 ## Polish contextual SI trial
 
-- [Polish contextual SI preparation](specs/polish-context-ai.md) — real ONNX scorer/feed and context/case contract; model conversion, tokenizer and phone gates pending; live IME unchanged.
+- [Polish contextual SI preparation](specs/polish-context-ai.md) — real ONNX scorer/feed, portable original tokenizer, trusted import and explicit FP32 benchmark screen; verified FP32/trust, mandatory real fixtures and 32/64 window benchmark; phase-v2 CI/native gates PASS; memory and independent quality pending, live IME unchanged.
+
+
+- [Polish AI localization backlog](LOCALIZATION_BACKLOG_POLISH_AI.md) — base/Polish trial complete; other locales deferred per maintainer.
+
+- [HerBERT FP32 phone trial](HERBERT_FP32_PHONE_TRIAL_V1.md) — verified CI APK/model links and Polish diagnostic steps; native phone v1/v2 reports archived.
+
+- [HerBERT FP32 — pierwszy raport Nubii](eval/2026-10-05-herbert-fp32-nubia-phone-v1.md) — native conformance PASS; 32/64 timing and whole-process PSS; memory/quality follow-up remains.
+
+- [HerBERT FP32 — pamięć etapami v2](HERBERT_FP32_PHASE_TRIAL_V2.md) — świeża sesja, dwie formy przed obowiązkową zgodnością, PSS etapów i czasy per kontekst; CI i natywna próba telefonu PASS.
+
+- [HerBERT FP32 — wynik faz v2 na Nubii](eval/2026-10-05-herbert-fp32-nubia-phase-v2.md) — zgodne SHA i native PASS; koszt ładowania dominuje PSS, czasy 7/8/32/48 słów, protokół dalszej próby pamięci.
+
+- [Mniejsze alternatywy polskiej SI](eval/2026-10-05-polish-ai-alternatives.md) — historyczny przegląd kandydatów; DistilRoBERTa później odrzucona przez bramkę tokenizera, bez modelu w aplikacji.
+
+- [Zamrożone porównanie MLM 16/32](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/769fc46579e910f50ff40f5546f0d5ae5643de5b/experiments/polish_mlm_compare_v1/PROTOCOL.md) — 384 zapytania na model; run 37355290211 zakończony FAILURE: HerBERT PASS, DistilRoBERTa nie rozpoznaje Ł w celu.
+
+- [Wynik MLM v1 i diagnoza Ł](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/9162d9a9f2ac3b94f4212a773cf9be80e1cb632a/experiments/polish_mlm_compare_v1_results/RESULTS.md) — odrzucony model, ukończona referencja i ograniczenia próby 16/32; bez nowego APK.
+
+- [Tokenizer screening i MLM v2](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/56b7d0f213fcdda1a8a5c245555bd3307fcc2133/experiments/polish_mlm_compare_v2/PROTOCOL.md) — Geotrend Distil/distilHerBERT, 122480 źródłowych form; run 37359525824 SUCCESS, pełne tokenizery/głowice PASS; licencja distilHerBERT niewyjaśniona, bez APK.
+
+- [Zweryfikowany wynik mniejszych MLM v2](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/a729fd780241a581f9cac153c0a6d926d8bfa1c1/experiments/polish_mlm_compare_v2_results/RESULTS.md) — distilHerBERT 25/32 nowych form, 46/64 starszych i 16/24 nowej interpunkcji; wynik mieszany, Geotrend nie przechodzi bramki jakości. Bez wdrożenia SI.
+
+- [Świeże konteksty kapitalizacji v3](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/c1e9d3a7895f2a380bc75772985c88a53db32a4b/experiments/polish_mlm_fresh_v3/PROTOCOL.md) — 64 nowe i 64 historyczne przypadki, HerBERT/distilHerBERT ponownie, rzeczywiście różne dłuższe wejścia 16/32; run 37363474711 queued. Autorska diagnostyka, licencja odłożona na prośbę użytkownika; bez APK.

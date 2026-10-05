@@ -89,6 +89,8 @@
          point. exported=false + no MAIN/DEFAULT filter closes the exported-activity
          attack surface (explicit Intents ignore intent-filters). -->
 
+    <activity android:name="tribixbite.cleverkeys.HerbertBenchmarkActivity" android:label="@string/herbert_benchmark_title" android:theme="@style/settingsTheme" android:exported="false"/>
+
     <activity android:name="tribixbite.cleverkeys.GeometricSettingsActivity" android:label="@string/geo_settings_title" android:theme="@style/settingsTheme" android:exported="false" android:directBootAware="true" tools:targetApi="24"/>
     <activity android:name="tribixbite.cleverkeys.CtcSettingsActivity" android:label="@string/ctc_settings_title" android:theme="@style/settingsTheme" android:exported="false" android:directBootAware="true" tools:targetApi="24"/>
 
@@ -176,3 +178,4 @@
     </intent>
   </queries>
 </manifest>
+

@@ -64,7 +64,7 @@ class HerbertCasePolicyTest {
 
     @Test fun long_context_keeps_case_punctuation_and_recent_64_words() {
         val words = (1..80).map { "Wyraz$it" }
-        val result = HerbertContextWindow.retain(words.joinToString(" ") + ". Łódź! ")
+        val result = HerbertContextWindow.retain(words.joinToString(" ") + ". Łódź! ", 64)
         assertEquals("Wyraz18", result.substringBefore(' '))
         assertTrue(result.endsWith(". Łódź! "))
         assertEquals(64, result.trim().split(Regex("\\s+")).size)
@@ -79,8 +79,17 @@ class HerbertCasePolicyTest {
     }
 
     @Test fun unicode_whitespace_is_counted_without_losing_original_separators() {
-        val result = HerbertContextWindow.retain((1..70).joinToString("\u00a0") { "X$it" })
+        val result = HerbertContextWindow.retain((1..70).joinToString("\u00a0") { "X$it" }, 64)
         assertTrue(result.startsWith("X7\u00a0"))
         assertTrue(result.endsWith("X70"))
+    }
+
+    @Test fun default_context_retains_recent_32_words_and_short_context_is_unchanged() {
+        val text = (1..70).joinToString(" ") { "X$it" }
+        val result = HerbertContextWindow.retain(text)
+        assertTrue(result.startsWith("X39 "))
+        assertEquals(32, result.split(' ').size)
+        assertEquals("Jadę do Łodzi. ", HerbertContextWindow.retain("Jadę do Łodzi. "))
+        assertThrows(IllegalArgumentException::class.java) { HerbertContextWindow.retain(text, 65) }
     }
 }

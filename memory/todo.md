@@ -1,21 +1,130 @@
 # Current work queue
 
-## Polish contextual SI preparation (2026-10-04)
+## Fresh Polish case v3 launched (2026-10-05)
 
-- Maintainer authorizes HerBERT mobile feasibility and preparation for integration.
-- Prepared real ONNX WWM scorer, immutable bounded feeds, case-preserving 64-word context
-  and strict same-key pair policy with full editor/request identity and deadline checks.
-  Components are not wired into the IME; no model weights, settings or behavior changes.
-- Registered 17 pure regression tests. Kotlin/Android compile, JNI/model/tokenizer parity
-  and device performance pending; no local Android/Kotlin toolchain available.
-- Producer experiment/herbert-mobile-v1: FP32 export + INT8 quantization with fixed gates,
-  archived plain scores, real tokenizer/score vectors and attributed candidate bundle.
-- First live scope planned: case-pair order only, preserve geometric keys/scores and both forms.
-  Unknown/ineligible/private/search/explicit case/late/stale results retain existing order.
-- Next: inspect conversion, exact tokenizer conformance/import, Nubia shadow benchmark,
-  independent contexts/slates, then opt-in live dispatcher/settings. See canonical spec
-  docs/specs/polish-context-ai.md. No claim conversion or phone test has passed yet.
-- Max 60 seconds TOTAL Actions monitoring per build. No merge/release/version bump.
+- Frozen producer c1e9d3a7895f2a380bc75772985c88a53db32a4b, branch experiment/polish-mlm-fresh-v3,
+  draft PR10; run 37363474711 queued; [protocol](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/c1e9d3a7895f2a380bc75772985c88a53db32a4b/experiments/polish_mlm_fresh_v3/PROTOCOL.md).
+- 64 fresh authored cases (4 balanced strata, 8 known/8 new keys; short/21–26 words),
+  64 immutable regression cases; both original HerBERT/distilHerBERT rerun 256 requests.
+- 27 local pure gate tests, 8 AST PASS; original distil tokenizer 256 requests/512 targets,
+  max39 tokens PASS before weights. All uploaded blobs verified.
+- [ ] After run completion: verify original native loads/parity, all complete artifacts,
+  exact collector recomputation, fresh/historical regressions and 16/32 pairs separately.
+- Authored fresh gold is not an external independent/human blind benchmark.
+  No default16/production approval, punctuation, weights, ONNX/APK/live SI or INT8 changes.
+- License review deferred at user request; no teacher-license assumption or author contact.
+  Actions monitoring <=60 seconds TOTAL/run, no waits until completion.
+
+## Smaller Polish MLM v2 — completed, next evidence needed (2026-10-05)
+
+- [x] Run 37359525824 SUCCESS: exact original tokenizer, strict full weights and head parity;
+  384/384 requests each. 19 contract tests; three ZIP identities and exact collector recomputation.
+- [x] Archive [complete mixed results](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/a729fd780241a581f9cac153c0a6d926d8bfa1c1/experiments/polish_mlm_compare_v2_results/RESULTS.md), raw traces and provenance.
+  distilHerBERT natural 25/32 vs HerBERT 24/32; older forms 46/64 vs 50/64;
+  new punctuation 16/24 vs 20/24. Exploratory case screen PASS; production not approved.
+  Geotrend natural 21/32, screen FAIL. Keep regressions, no method changes after results.
+- [x] Freeze fresh authored diagnostic case v3 with longer 16/32 inputs and all known failures.\n- [ ] External independent/human-reviewed context quality remains distinct from authored v3.
+- [ ] Deferred per maintainer 2026-10-05: clarify distilHerBERT weight license before redistribution; no teacher-license assumption
+  or author contact authorization. Source revision 7276461b7a8fd668aaf30313c03a68bd11aad642.
+- [ ] Only then justified original FP32 export/parity, exact native fixtures and Nubia PSS/latency.
+  81,967,184 parameters and host 984.55 MiB are not phone RAM evidence.
+- Natural <=14 words produce identical 16/32 inputs. Default 32/max64 remains;
+  distance stress 16=16/32, 32=19/32 separate. No APK/live SI/punctuation activation.
+- Source screening preserved: 122480 surfaces; distilHerBERT full coverage,
+  Geotrend standalone ą/ę unknown but all pairs/requests pass; no gate exception.
+  Geotrend BERT12/ORIS reserve, previous HerBERT INT8 FAIL immutable.
+- Actions monitoring <=60 seconds total per run; three stationary Backspace timing controls backlog.
+
+
+## Smaller Polish SI comparison v1 completed (2026-10-05)
+
+- Run 37355290211 FAILURE: contract 11 tests PASS, HerBERT 384/384 PASS;
+  DistilRoBERTa failed unknown-target tokenizer gate, collector correctly failed.
+- Reject sdadas/polish-distilroberta revision849b664fa3134beae84095d28a184c145c6a3aa5:
+  original uppercase Ł in Łódź/Łotysz becomes ID3; 26 spans in 22/384 requests.
+  No quality or mobile-cost comparison for that model; no gate/dataset change.
+- Evidence producer 9162d9a9f2ac3b94f4212a773cf9be80e1cb632a:
+  experiments/polish_mlm_compare_v1_results/RESULTS.md, raw HerBERT predictions,
+  verified artifact SHA and exact report recomputation, reproducible tokenizer diagnosis.
+- HerBERT new natural 24/32 at both limits, contexts 6–14 words (same input).
+  Artificial distance 16/32 versus 18/32; not independent evidence to change default.
+- Next: screen other smaller models with exact source-form/case/Polish Unicode tokenizer
+  coverage before loading weights; then separately frozen quality/mobile measurements.
+  No model selected for deployment, no new APK, keep default32/max64 and live SI off.
+- Review: docs/eval/2026-10-05-polish-ai-alternatives.md (initial candidate superseded).
+  Mapped-vs-path HerBERT remains reserve; failed INT8/model trust intact.
+
+
+## Phase memory/timing trial v2 (2026-10-05)
+
+- Prepared: fresh-session two-form workload first, mandatory conformance after timings,
+  finally close + immediate PSS observation; model/arena/threads/live IME unchanged.
+- Six case rows (30 samples each), retained words/B/S/T, first request and full duration;
+  PSS baseline/load/first, warmup/timed per case/window, conformance, close and deltas.
+- Progress/copyable partial report, code/base-APK/model hashes, PID and trial ordinal;
+  base/Polish 20 added keys with non-Polish backlog. Closed scorer drops mapped reference.
+- Nine registered metric/lifecycle regressions PASS in CI run 37348519387:
+  2851 pure tests +83 focused editor tests, real original conformance, lint/APK gates PASS.
+- Phone phase-v2 native conformance PASS and identity matched; load dominates PSS:
+  baseline 346.2 → loaded 2121.0 → workload max 2132.1 → closed 1336.8 MiB.
+  Same model ZIP; no new producer export. Single run, not isolated model memory.
+- Raw phone report: docs/eval/2026-10-05-herbert-fp32-nubia-phase-v2.md.
+- Next planned: isolated mapped-vs-private-path loading experiment, streaming SHA,
+  pre/post-hash/session PSS and component breakdown; unchanged model/score/rank gates.
+  Not implemented yet, no claimed memory saving. Compare smaller models if needed.
+- Fix Polish report plural “1 próbek” in next UI change.
+- Step guide: docs/HERBERT_FP32_PHASE_TRIAL_V2.md. No live activation/version bump/release.
+
+
+## FP32 phone import repair (2026-10-05)
+
+- Phone import failed with only a generic message; exact device exception unknown.
+- Reproduced ZipInputStream rejection of GitHub compression-level 0 STORED entries
+  with trailing descriptors; the same tiny fixture succeeds with ZipFile.
+- Implemented bounded private container copy + bounded central directory + ZipFile,
+  unchanged seven SHA/size identities, extraction and cancellation cleanup.
+- Base/Polish fixed reason codes and copyable failure report; no URI/path/raw exception.
+  Import preflight about 1.33 GB; UI requests 1.4 GB free, temporary ZIP removed.
+- Run 37280833641 at 884a29b SUCCESS: compile, JUnitCore OK(2842), mandatory original
+  token/feed conformance, 83 focused tests, debug/vital lint, assembly and APK audit/upload PASS.
+  APK artifact 11331993610; updated phone guide. Seven new import regressions registered.
+- Phone report on nubia NX721J /Android 15 /arm64-v8a confirms import and full native parity:
+  2471 vectors /232 batches, max displayed error 0.000062. Timings p50/p95: 32=82.2/229.0 ms,
+  64=81.7/326.9 ms. Load 1256.2 ms; max sampled process PSS 2699.3 MiB.
+  Raw report and limitations: docs/eval/2026-10-05-herbert-fp32-nubia-phone-v1.md.
+- Next: baseline/phase PSS and intended two-form workload before conformance, per-context
+  timings and report identity. Independent quality/energy and production gate remain open.
+- Same producer/model artifact; only runtime APK rebuild. No live SI/version/release change.
+
+
+## Polish SI verified FP32 package and diagnostic APK (2026-10-04)
+
+- Producer 37230171787 at d831e17: SUCCESS, byte-identical FP32, zero archived rank changes;
+  2471 token vectors and 4352 exhaustive scalar-block portable reference comparisons PASS.
+  Metadata artifact 11312569320 fully locally verified; model ZIP 11312693984 external.
+- Runtime 37230173951 at 63524ecd: compile, JUnitCore OK(2834) +83 focused tests passed;
+  real-fixture test still assumption-skipped then. Debug lint failed on 19 untranslated
+  trial-only strings; release vital lint/assembly skipped. No APK from that run.
+- Current changes: pin seven trusted file hashes; mandatory real 2471-token/232-batch JVM test,
+  compressed test-only original fixtures; local trial resource MissingTranslation ignore
+  with other-locale backlog, global lint unchanged. Context default 32 words, max 64/4096 UTF16;
+  explicit 32/64 benchmark timing comparison. New test covers default vs cap/short text.
+- Workflow will assemble and publish ARM64 diagnostic debug APK only after required gates;
+  checks that FP32 weights and test fixtures are absent. No version bump or live IME changes.
+- Run 37231774451 at 90615f0: actual compile and JUnitCore OK(2835), mandatory original
+  2471-token/232-batch/532-candidate five-input conformance PASS. Workflow then failed
+  solely because rg marker-check command was absent (exit 127); later gates skipped.
+- Replaced marker search with Python stdlib assertion, preserving all gates and source.
+- Repaired run 37232458354 at 73627fa SUCCESS: compile, JUnitCore OK(2835), real
+  original tokenizer/feed conformance, 83 focused tests, debug/vital lint, assembly
+  and APK audit/upload PASS. ARM64 artifact 11314463703; steps/hashes in
+  docs/HERBERT_FP32_PHONE_TRIAL_V1.md. Raw APK not locally verified; CI evidence only.
+- Pending: install
+  on Nubia, import external ZIP, check native scores/ranks and compare warm/cold timings/PSS.
+  No current phone/JNI/independent accuracy claim. No editor history, logging or network.
+- Further: independent slates/contexts; opt-in live dispatcher/settings. Preserve both forms,
+  geometric scores and single SuggestionHandler commit pipeline. BS timing controls backlog.
+- Max 60 seconds TOTAL Actions monitoring/build. No merge/release/version bump/subagents.
 
 
 ## New-word suggestion viewport v15 (2026-10-04)
@@ -285,3 +394,4 @@ Do not commit, tag, push, publish, or open external issues without explicit user
   findings and one low esbuild finding. These are recorded separately; the unchanged
   CI gate excludes unfixed findings. A newer npm http-cache-semantics release exists,
   but its repair of this advisory is not verified here.
+

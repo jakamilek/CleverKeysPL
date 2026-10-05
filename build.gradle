@@ -211,6 +211,12 @@ android {
 
   defaultConfig {
     applicationId "tribixbite.cleverkeys"
+    // Diagnostic provenance only; never expose arbitrary environment contents.
+    def benchmarkCommit = System.getenv("GITHUB_SHA")
+    if (benchmarkCommit == null || !(benchmarkCommit ==~ /[a-f0-9]{40}/)) {
+      benchmarkCommit = "local-unidentified"
+    }
+    buildConfigField "String", "HERBERT_TRIAL_COMMIT", '"' + benchmarkCommit + '"'
     // ARC-113 (2026-09-03): maintainer approved 21 → 24 to unblock the 16 KB-page-
     // aligned onnxruntime upgrade (see the dependency-line note above). README /
     // fastlane "Android 5.0+" claims become "Android 7.0+" — tracked as follow-up.
@@ -588,6 +594,10 @@ tasks.register('runPureTests', JavaExec) {
   def pureTestClasses = [
     'tribixbite.cleverkeys.ai.HerbertCasePolicyTest',
     'tribixbite.cleverkeys.ai.HerbertPreparedBatchTest',
+    'tribixbite.cleverkeys.ai.HerbertTokenizerTest',
+    'tribixbite.cleverkeys.ai.HerbertBundleImportTest',
+    'tribixbite.cleverkeys.ai.HerbertRealConformanceTest',
+    'tribixbite.cleverkeys.ai.HerbertBenchmarkMetricsTest',
     'tribixbite.cleverkeys.BackspaceGestureTest',
     'tribixbite.cleverkeys.EditingSettingsPolicyTest',
     'tribixbite.cleverkeys.PunctuationSpacingTest',
@@ -1098,6 +1108,9 @@ tasks.register('runPureTests', JavaExec) {
   systemProperty 'geoFull', (project.findProperty('geoFull') ?: 'false')
   // Wave-G OQ sweep instrument (GeoOqSweepTest) — same bridge pattern; double-heavy
   // measurement runs stay opt-in and skip in milliseconds otherwise.
+  if (project.hasProperty('herbertFixtureDir')) {
+    systemProperty 'herbertFixtureDir', project.property('herbertFixtureDir')
+  }
   systemProperty 'geoSweep', (project.findProperty('geoSweep') ?: 'false')
   systemProperty 'oqOnly', (project.findProperty('oqOnly') ?: '')
   // Sampling knobs for ContextRescoringReplayTest, same -P-to-system-property bridge. Only set
@@ -1604,4 +1617,5 @@ tasks.configureEach { task ->
         task.finalizedBy("normalizeApkPaths")
     }
 }
+
 
