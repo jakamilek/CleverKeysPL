@@ -4,8 +4,12 @@
 
 - Prioritize evaluating sdadas/polish-distilroberta (~82M/six layers), with HerBERT
   as frozen reference. Model not loaded/exported/tested yet; no RAM saving claim.
-- Freeze revision/full MLM/tokenizer, independent case/punctuation comparisons at
-  16/32 words before phone export. Existing Qwen/MiniLM adapters were weaker in v5.
+- Frozen comparison launched: producer 769fc46579e910f50ff40f5546f0d5ae5643de5b,
+  run 37355290211; 192 cases/384 requests each, separate natural/distance/regression/
+  punctuation populations, original pretrained/tokenizer/projection gates.
+- Distil revision849b664fa3134beae84095d28a184c145c6a3aa5; eleven local contract tests
+  PASS. Full native host loads/quality and RSS pending CI; no mobile export yet.
+  Existing Qwen/MiniLM adapters were weaker in v5; keep failed INT8/model trust intact.
 - Review: docs/eval/2026-10-05-polish-ai-alternatives.md. Mapped-vs-path HerBERT experiment is reserve;
   no live/default-context/model/app changes. INT8 HerBERT remains FAIL.
 

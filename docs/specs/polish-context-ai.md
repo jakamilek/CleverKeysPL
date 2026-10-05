@@ -1,6 +1,6 @@
 # Feature specification: Polish contextual SI
 
-**Priority:** P1. **Status:** phase-v2 CI/native PASS; smaller Polish MLM review prioritized, independent quality/mobile cost pending.
+**Priority:** P1. **Status:** phase-v2 CI/native PASS; frozen HerBERT/DistilRoBERTa 16/32 comparison in CI; independent quality/mobile cost pending.
 **Target version:** isolated trial, no release/version change. Created 2026-10-04.
 
 ## Overview and motivation
@@ -10,8 +10,7 @@ One dictionary key continues to own both surfaces. The user can always choose th
 Geometric remains the decoder. Source metadata remains useful for permitted variants/defaults;
 the latest text-description/instruction experiment did not establish a ranking benefit.
 
-HerBERT plain, pinned revision 50e33e0567be0c0b313832314c586e3df0dc2297, is the provisional
-candidate. New authored 32 contexts: 25/32 long versus 20/32 two-word, described+guided 24/32.
+HerBERT plain, pinned revision 50e33e0567be0c0b313832314c586e3df0dc2297, is the retained reference, with a smaller Polish MLM now under comparison. New authored 32 contexts: 25/32 long versus 20/32 two-word, described+guided 24/32.
 This is a diagnostic result for known keys, not independent production evidence.
 
 ## Functional requirements
@@ -351,3 +350,23 @@ Existing MiniLM NLI/Qwen3-0.6B v5 results do not establish better replacements. 
 promise smaller PSS from model metadata or support all punctuation from a fill-mask head.
 No default context change until quality evidence; no live AI/graph/app setting change.
 HerBERT mapped-vs-path memory experiment remains reserve. INT8 gate remains failed.
+
+## Frozen smaller-MLM comparison launched (2026-10-05)
+
+Producer experiment/polish-mlm-16-32-v1, code 769fc46579e910f50ff40f5546f0d5ae5643de5b;
+protocol experiments/polish_mlm_compare_v1/PROTOCOL.md. Run 37355290211 in progress.
+Both original pretrained MLMs, HerBERT 50e33e05 and Polish DistilRoBERTa revision
+849b664fa3134beae84095d28a184c145c6a3aa5. Config/tokenizer read before freeze:
+RobertaForMaskedLM, six layers/768, vocab50001, Unigram/NFKC/Metaspace; full head
+loading/projection checks still require CI. No random head or HerBERT tokenizer reuse.
+192 cases/384 requests per model, 16/32 windows: inherited104, new natural32,
+constructed distance32, new comma/none24. Known lexical keys, authored diagnostics,
+separate populations; not external blind validation. Label-free request SHA
+ a859aac5acf8dc950c07df415873aced44a46f9a4585818504e3f2af6377449b.
+Source metadata/forms/defaults unchanged, no manually authored dictionary descriptions.
+Full target span WWM, original vocabulary mean logp, sums/IDs in trace, shared method
+and input validation. Paired repairs/regressions, lower/proper and punctuation separate.
+Eleven local stdlib tests PASS and all thirteen uploaded blobs verified; actual pretrained
+loads/inference and host RSS/timings pending CI. Android/export/quantization remain later.
+Exploratory screen is frozen before results; no automatic activation or release gate claim.
+App code/default32 and all failed HerBERT INT8 gates remain unchanged.

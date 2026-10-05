@@ -192,3 +192,5 @@ Space and Backspace share motion-driven sliding: see [Selection Delete](wiki/ges
 - [HerBERT FP32 — wynik faz v2 na Nubii](eval/2026-10-05-herbert-fp32-nubia-phase-v2.md) — zgodne SHA i native PASS; koszt ładowania dominuje PSS, czasy 7/8/32/48 słów, protokół dalszej próby pamięci.
 
 - [Mniejsze alternatywy polskiej SI](eval/2026-10-05-polish-ai-alternatives.md) — nowy kandydat DistilRoBERTa, wcześniejsze ograniczenia MiniLM/Qwen, proponowana próba 16/32 słów; bez nowego pomiaru/modelu w aplikacji.
+
+- [Zamrożone porównanie MLM 16/32](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/769fc46579e910f50ff40f5546f0d5ae5643de5b/experiments/polish_mlm_compare_v1/PROTOCOL.md) — HerBERT / polski DistilRoBERTa, 384 zapytania na model; CI 37355290211 trwa, bez nowego APK.
