@@ -1,6 +1,6 @@
 # Feature specification: Polish contextual SI
 
-**Priority:** P1. **Status:** phase-v2 CI/native PASS; v1 DistilRoBERTa rejected; tokenizer-screened Geotrend/distilHerBERT v2 in CI.
+**Priority:** P1. **Status:** phase-v2 CI/native PASS; v1 DistilRoBERTa rejected; smaller MLM v2 technically PASS; distilHerBERT exploratory case candidate with mixed quality and unresolved weight license.
 **Target version:** isolated trial, no release/version change. Created 2026-10-04.
 
 ## Overview and motivation
@@ -395,34 +395,51 @@ coverage before any expensive full-head inference/export. Then a separately froz
 quality experiment and actual phone RAM/latency. No next model selected or loaded;
 no new APK, activation, quantization, merge or release. Earlier INT8 remains FAIL.
 
-## Smaller Polish MLM v2 after full source-tokenizer screening (2026-10-05)
+## Smaller Polish MLM v2 completed (2026-10-05)
 
-Producer experiment/polish-mlm-16-32-v2, frozen code56b7d0f213fcdda1a8a5c245555bd3307fcc2133;
-protocol experiments/polish_mlm_compare_v2/PROTOCOL.md. Push run37359525824 in progress;
-draft PR9 and contract-only PR run37359531859 SUCCESS, not model quality/mobile acceptance.
-No Android code change. Exact screening evidence and reproducible script:
-experiments/polish_mlm_screen_v2/README.md + results JSON.
-122480 source forms,16117 multi-variant keys from authenticated full v5 pack:
-distilHerBERT recognizes all; Geotrend's only unknown source forms are standalone ą/ę,
-zero unknown/collapsed source pairs and all384requests/836targetspans valid. Single
-ąęńĄĘŃ probes unsupported by Geotrend; full-source coverage explicitly false. No data/gate exception.
+Producer frozen code 56b7d0f213fcdda1a8a5c245555bd3307fcc2133; run 37359525824 SUCCESS.
+[Verified results and complete raw traces](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/a729fd780241a581f9cac153c0a6d926d8bfa1c1/experiments/polish_mlm_compare_v2_results/RESULTS.md).
+Both original full MLMs passed strict weights loading, exact source-tokenizer preflight,
+three full-forward projection probes and 384/384 requests. Contract: 11 old + 8 new tests.
+All three artifact ZIP sizes/SHA verified; original frozen collector recomputation exactly
+equals archived comparison.json and COMPARISON.md. No weights redistributed.
 
-Compare Geotrend/distilbert-base-pl-cased rev9002d311e35aac14575bf53ad4fa3d8f8b853c2b
-(Apache-2.0,6layers,API60737405F32params) and BartekK/distilHerBERT-base-cased
-rev7276461b7a8fd668aaf30313c03a68bd11aad642 (6layers,original HerbertTokenizerFast;
-actualparamcount pending). Bartek model weight license unspecified; no redistribution
-or deployment approval inferred. No weight bundle in artifacts/APK/Git. Geotrend BERT12
-is reserve; ORIS Small C25.41M research-gated/custom code,API401,no files loaded.
+| Known diagnostic population, limit 32 | HerBERT reference | Geotrend Distil | distilHerBERT |
+|---|---:|---:|---:|
+| New natural capitalization | 24/32 | 21/32 | 25/32 |
+| Older forms | 50/64 | 40/64 | 46/64 |
+| Older multi-key replay | 7/8 | 1/8 | 7/8 |
+| Artificial cue distance | 18/32 | 16/32 | 19/32 |
+| New punctuation | 20/24 | 11/24 | 16/24 |
+| Older punctuation | 15/20 | 10/20 | 17/20 |
 
-Same192cases/384queries each as v1, separate known populations. Original source attrs/forms,
-no invented dictionary descriptions. Plain scoring v1 byte-identical; original DistilBERT
-head function chain adapter and original-forward parity. Exact tokenizer backend hash
-and all spans BEFORE weights, strict no-missing/unexpected full MLM, three parity probes.
-Archived HerBERT v1 raw predictions/reference exactly recomputed, original commit deliberately
-retained; current models must share current commit. Manifest binds all source/code/results.
-New request SHA3cd36f0b230e1b5abb70df44dc1bd992828e48495c1c3cb17bf3f23bf07a7da2.
-Eight new local pure gate tests PASS plus eleven unchanged old tests in CI. Full native
-model load/parity/quality and host results pending. Natural <=14words means identical16/32,
-no default16 evidence; distance/punctuation separate,top3 structurally saturated.
-No default32/max64 change, live SI off, previous INT8 FAIL preserved. After run: inspect
-complete gate results and scores, then independent quality/export/phone cost only if justified.
+distilHerBERT passes the frozen exploratory case-only screen (>=23/32, <=3 baseline
+regressions): 25/32 with zero baseline regressions, lower 16/16 and upper 9/16.
+However, older forms lose four versus HerBERT (3 repairs, 7 regressions), new punctuation
+also loses four (1 repair, 5 regressions). Keep all failures; no production approval.
+Geotrend fails the same quality screen at 21/32. No retuning of tokenizer/scoring/gates.
+
+Actual parameters: distilHerBERT 81,967,184 (~34% fewer than HerBERT 124,494,416);
+Geotrend 60,737,405. Separate host-process peak RSS: 984.55 / 605.48 MiB respectively;
+historical HerBERT 1426.48 MiB. Separate jobs/hardware and historical timings are not a
+controlled phone comparison, Android PSS or proof of solving the ~2.1 GiB load cost.
+
+Natural contexts contain 6–14 words: 16/32 inputs are identical, so no evidence for
+changing default 32. Artificial distance: distilHerBERT 16=16/32, 32=19/32, reported
+separately. Pair top-3 is structurally saturated even without AI, not quality evidence.
+Original source forms/attributes retained; no duplicate dictionary keys or manual semantics.
+
+Source tokenizer screen: full authenticated v5 has 122480 surfaces/16117 multi-variant keys.
+distilHerBERT recognizes all; Geotrend has unknown standalone ą/ę, full-source coverage
+false, but all source pairs/384 requests/836 target spans pass without exemptions.
+Pinned models: BartekK/distilHerBERT-base-cased 7276461b7a8fd668aaf30313c03a68bd11aad642;
+Geotrend/distilbert-base-pl-cased 9002d311e35aac14575bf53ad4fa3d8f8b853c2b.
+distilHerBERT weight license still unspecified; teacher license is not assumed.
+Original weight files: 327906539 B / 242962316 B, not future ONNX/APK sizes.
+Geotrend BERT12 reserve; ORIS research gated/custom/API401, no access or terms accepted.
+
+Next justified step: fresh independent context quality, including longer texts and
+16/32 truncation, plus clarification of weight redistribution before a phone bundle.
+Then exact original FP32 export/parity/native conformance and real Nubia latency/load/PSS.
+No author contact, APK, live IME dispatcher, punctuation activation, default change or
+quantization in this result stage. Earlier HerBERT INT8 FAIL remains immutable.
