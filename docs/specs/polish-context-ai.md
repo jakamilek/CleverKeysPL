@@ -1,6 +1,6 @@
 # Feature specification: Polish contextual SI
 
-**Priority:** P1. **Status:** native FP32 diagnostics verified on Nubia; phase-v2 measurement pending CI/device.
+**Priority:** P1. **Status:** phase-v2 CI and Nubia native conformance PASS; memory investigation and independent quality pending.
 **Target version:** isolated trial, no release/version change. Created 2026-10-04.
 
 ## Overview and motivation
@@ -313,3 +313,28 @@ valid quantiles, invalid samples and context word bounds. Existing 2471-token/23
 five-input and editor/lint/APK gates preserved. Local resource/format/reference validation
 PASS; actual Kotlin/Android compilation and phone phase results pending CI/device.
 No release/version bump/model export/live changes or independent quality claim.
+
+## Nubia phase-v2 result and next memory experiment (2026-10-05)
+
+Raw report/identity match and interpretation: docs/eval/2026-10-05-herbert-fp32-nubia-phase-v2.md.
+Tested code db88fd28cca21ba2aa1e99b38e3886f1f147b5d6; CI 37348519387 PASS
+(2851 pure, 83 focused editor tests, original fixtures, lint and APK audit).
+Phone native conformance PASS, max displayed error 0.000062. APK/model hashes match.
+PSS whole process: baseline 346.2 MiB, loaded 2121.0, workload max 2132.1,
+post-close 1336.8. Main observed increment exists before first pair; calls add only
+about 11.1 MiB above loaded sample. Exact native/map/optimization contributions
+and residual memory after close are not proven. This is one run, not a leak finding.
+Short cases total p50/p95 66.5/69.4 and 82.4/84.2 ms; long 32-word case
+228.0/229.7 versus 48-word case under cap 64 327.5/329.2 ms. Keep default 32;
+shorter context does not solve the fixed observed load cost. Quality remains unevaluated.
+
+Planned next diagnostic, not implemented: compare mapped loading against trusted
+private-path loading with bounded streaming SHA, same immutable model, threads and
+optimization options. Isolate variants in separately started processes, repeat, and
+observe pre/post hash and session creation, Java/native/file PSS, pair, and close.
+Keep original conformance gates, snapshot lifetime, cancellation, safe reports and
+serialized close/delete. No forced GC, arena tweak or weakened identity check.
+Do not combine several allocator/model changes or claim savings before measurements.
+If cost persists, compare smaller models with independent held-out Polish quality;
+failed INT8 remains failed. Live SI and version unchanged. Report plural “1 próbek”
+is a pending Polish UI fix for next code change.

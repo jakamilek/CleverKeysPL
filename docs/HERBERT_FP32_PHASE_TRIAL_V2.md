@@ -49,3 +49,15 @@ ważny do 2026-10-19T17:40:07Z.
 Sumy APK pochodzą z logu CI, ZIP z metadanych GitHub; APK nie pobierano ani nie skanowano lokalnie.
 Wersja aplikacji pozostaje 2.0.0, dlatego potwierdzeniem nowej próby jest nagłówek
 „pomiar etapów v2”, commit i SHA APK w skopiowanym raporcie.
+
+## Wynik pierwszej próby v2 na telefonie
+
+[Pełny raport i analiza](eval/2026-10-05-herbert-fp32-nubia-phase-v2.md):
+identyczny commit/APK/model, native conformance PASS (max 0,000062).
+PSS baseline 346,2 MiB → po load 2121,0 → max workload 2132,1 → po close 1336,8.
+Główny obserwowany przyrost występuje podczas load; szczegółowa przyczyna nieustalona.
+Krótkie konteksty total p50/p95 66,5/69,4 i 82,4/84,2 ms, długi limit 32
+228,0/229,7 ms, limit 64 zachowujący 48 słów 327,5/329,2 ms.
+Następny zaplanowany eksperyment porówna ładowanie z mapped buffer i z prywatnej
+ścieżki pliku w osobnych procesach, bez zmian modelu/bramek. Jeszcze nie wdrożony;
+nie twierdzimy, że zużycie pamięci spadnie. Nowy raport nie wymaga ponowienia v2 teraz.

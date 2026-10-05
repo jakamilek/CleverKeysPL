@@ -182,3 +182,14 @@ phase PSS outside timers, with forced boundaries and 250ms repeat throttle; firs
 are whole process, not isolated model memory or exact peak. Finally close then observe,
 release mapped reference only after successful native close, never force GC/allocator tweaks.
 Keep per-case timings, retained words/B/S/T and compiled code/base APK/model identity.
+
+
+Nubia phase-v2 native report is archived in docs/eval/2026-10-05-herbert-fp32-nubia-phase-v2.md.
+Code/APK/model hashes match CI; load dominates observed whole-process PSS
+(346.2 baseline → 2121.0 loaded → 2132.1 workload max → 1336.8 immediate close).
+Do not attribute the residual to a leak or the difference from v1 to optimization.
+Next diagnostic should isolate mapped versus private-path session loading in separate
+processes, bounded streaming SHA and phase/component readings; same immutable model,
+threads/optimization/conformance gates. This experiment is planned, not implemented.
+Default 32 helps latency but does not eliminate observed fixed load cost. Native
+conformance is not independent semantic quality or a live production acceptance gate.

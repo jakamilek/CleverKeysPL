@@ -8,8 +8,16 @@
   PSS baseline/load/first, warmup/timed per case/window, conformance, close and deltas.
 - Progress/copyable partial report, code/base-APK/model hashes, PID and trial ordinal;
   base/Polish 20 added keys with non-Polish backlog. Closed scorer drops mapped reference.
-- Nine new registered metric/lifecycle regressions; local resources PASS. Android CI
-  and first phase-v2 phone report pending. Same model ZIP; no new producer export.
+- Nine registered metric/lifecycle regressions PASS in CI run 37348519387:
+  2851 pure tests +83 focused editor tests, real original conformance, lint/APK gates PASS.
+- Phone phase-v2 native conformance PASS and identity matched; load dominates PSS:
+  baseline 346.2 → loaded 2121.0 → workload max 2132.1 → closed 1336.8 MiB.
+  Same model ZIP; no new producer export. Single run, not isolated model memory.
+- Raw phone report: docs/eval/2026-10-05-herbert-fp32-nubia-phase-v2.md.
+- Next planned: isolated mapped-vs-private-path loading experiment, streaming SHA,
+  pre/post-hash/session PSS and component breakdown; unchanged model/score/rank gates.
+  Not implemented yet, no claimed memory saving. Compare smaller models if needed.
+- Fix Polish report plural “1 próbek” in next UI change.
 - Step guide: docs/HERBERT_FP32_PHASE_TRIAL_V2.md. No live activation/version bump/release.
 
 
