@@ -1,6 +1,6 @@
 # Feature specification: Polish contextual SI
 
-**Priority:** P1. **Status:** phase-v2 CI/native PASS; v1 DistilRoBERTa rejected; smaller MLM v2 technically PASS; distilHerBERT exploratory case candidate with mixed quality and unresolved weight license.
+**Priority:** P1. **Status:** phase-v2 CI/native PASS; v1 DistilRoBERTa rejected; smaller MLM v2 technically PASS; distilHerBERT exploratory case candidate with mixed quality; fresh case v3 launched, license review deferred by maintainer.
 **Target version:** isolated trial, no release/version change. Created 2026-10-04.
 
 ## Overview and motivation
@@ -443,3 +443,28 @@ Next justified step: fresh independent context quality, including longer texts a
 Then exact original FP32 export/parity/native conformance and real Nubia latency/load/PSS.
 No author contact, APK, live IME dispatcher, punctuation activation, default change or
 quantization in this result stage. Earlier HerBERT INT8 FAIL remains immutable.
+
+## Fresh Polish case diagnostic v3 (2026-10-05)
+
+[Immutable protocol](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/c1e9d3a7895f2a380bc75772985c88a53db32a4b/experiments/polish_mlm_fresh_v3/PROTOCOL.md); code c1e9d3a7895f2a380bc75772985c88a53db32a4b,
+producer experiment/polish-mlm-fresh-v3, draft PR10. Run 37363474711 queued.
+64 fresh authored contexts (8 known/8 unseen evaluation keys; short 4–6 / longer 21–26 words;
+balanced lower/upper) plus all 64 historical forms, 256 requests per original model.
+Both pinned original HerBERT and distilHerBERT rerun; no historical score substitution.
+New keys koza/wrona/sikora/kula/mucha/wierzba/orzeł/ryś, verbatim authenticated v5 source entries.
+No dictionary duplication, manual semantic descriptions or model metadata prompts.
+
+Four fresh strata kept separate, known 64 regression cases separate; old failures retained.
+Original v1 scoring unchanged; frozen exploratory per-stratum top1>=current HerBERT-1,
+baseline regressions<=HerBERT+1, historical forms top1>=HerBERT-1. No gate tuning after results.
+Quality FAIL is reported without invalidating technically complete execution. No production/default16 approval.
+Fresh authored gold after v2 review is not external independent/blind human-annotated evidence.
+Long windows now differ at 16/32; max full text 26 words, no claim about >32 or private conversations.
+
+27 local contract tests PASS, 8 AST PASS; distil original tokenizer 256/512 spans PASS, max39 tokens.
+All 16 uploaded Git blobs verified. CI native loads/parity/full collector and actual quality pending.
+Strict complete current-commit reports, original-head checks and finite aligned token traces required.
+License review explicitly deferred by maintainer; not a license grant, no weights redistributed/contact.
+No ONNX/APK/live dispatcher/punctuation/default32 change; previous INT8 FAIL immutable.
+After user reports completion: verify complete artifacts, recompute exact collector and inspect regressions.
+Then assess whether export/native phone performance is justified; <=60s TOTAL Actions monitoring.

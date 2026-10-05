@@ -1,5 +1,20 @@
 # Current work queue
 
+## Fresh Polish case v3 launched (2026-10-05)
+
+- Frozen producer c1e9d3a7895f2a380bc75772985c88a53db32a4b, branch experiment/polish-mlm-fresh-v3,
+  draft PR10; run 37363474711 queued; [protocol](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/c1e9d3a7895f2a380bc75772985c88a53db32a4b/experiments/polish_mlm_fresh_v3/PROTOCOL.md).
+- 64 fresh authored cases (4 balanced strata, 8 known/8 new keys; short/21–26 words),
+  64 immutable regression cases; both original HerBERT/distilHerBERT rerun 256 requests.
+- 27 local pure gate tests, 8 AST PASS; original distil tokenizer 256 requests/512 targets,
+  max39 tokens PASS before weights. All uploaded blobs verified.
+- [ ] After run completion: verify original native loads/parity, all complete artifacts,
+  exact collector recomputation, fresh/historical regressions and 16/32 pairs separately.
+- Authored fresh gold is not an external independent/human blind benchmark.
+  No default16/production approval, punctuation, weights, ONNX/APK/live SI or INT8 changes.
+- License review deferred at user request; no teacher-license assumption or author contact.
+  Actions monitoring <=60 seconds TOTAL/run, no waits until completion.
+
 ## Smaller Polish MLM v2 — completed, next evidence needed (2026-10-05)
 
 - [x] Run 37359525824 SUCCESS: exact original tokenizer, strict full weights and head parity;
@@ -8,8 +23,8 @@
   distilHerBERT natural 25/32 vs HerBERT 24/32; older forms 46/64 vs 50/64;
   new punctuation 16/24 vs 20/24. Exploratory case screen PASS; production not approved.
   Geotrend natural 21/32, screen FAIL. Keep regressions, no method changes after results.
-- [ ] Fresh independent case contexts, including real longer texts for 16/32 and all known failures.
-- [ ] Clarify distilHerBERT weight license before redistribution; no teacher-license assumption
+- [x] Freeze fresh authored diagnostic case v3 with longer 16/32 inputs and all known failures.\n- [ ] External independent/human-reviewed context quality remains distinct from authored v3.
+- [ ] Deferred per maintainer 2026-10-05: clarify distilHerBERT weight license before redistribution; no teacher-license assumption
   or author contact authorization. Source revision 7276461b7a8fd668aaf30313c03a68bd11aad642.
 - [ ] Only then justified original FP32 export/parity, exact native fixtures and Nubia PSS/latency.
   81,967,184 parameters and host 984.55 MiB are not phone RAM evidence.

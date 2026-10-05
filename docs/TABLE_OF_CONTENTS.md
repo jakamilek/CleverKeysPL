@@ -200,3 +200,5 @@ Space and Backspace share motion-driven sliding: see [Selection Delete](wiki/ges
 - [Tokenizer screening i MLM v2](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/56b7d0f213fcdda1a8a5c245555bd3307fcc2133/experiments/polish_mlm_compare_v2/PROTOCOL.md) — Geotrend Distil/distilHerBERT, 122480 źródłowych form; run 37359525824 SUCCESS, pełne tokenizery/głowice PASS; licencja distilHerBERT niewyjaśniona, bez APK.
 
 - [Zweryfikowany wynik mniejszych MLM v2](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/a729fd780241a581f9cac153c0a6d926d8bfa1c1/experiments/polish_mlm_compare_v2_results/RESULTS.md) — distilHerBERT 25/32 nowych form, 46/64 starszych i 16/24 nowej interpunkcji; wynik mieszany, Geotrend nie przechodzi bramki jakości. Bez wdrożenia SI.
+
+- [Świeże konteksty kapitalizacji v3](https://github.com/jakamilek/CleverKeys-langpack-pl/blob/c1e9d3a7895f2a380bc75772985c88a53db32a4b/experiments/polish_mlm_fresh_v3/PROTOCOL.md) — 64 nowe i 64 historyczne przypadki, HerBERT/distilHerBERT ponownie, rzeczywiście różne dłuższe wejścia 16/32; run 37363474711 queued. Autorska diagnostyka, licencja odłożona na prośbę użytkownika; bez APK.
