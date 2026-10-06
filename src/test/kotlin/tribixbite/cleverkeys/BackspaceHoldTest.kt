@@ -458,6 +458,60 @@ class BackspaceHoldTest {
         verify(exactly = 0) { conn.deleteSurroundingText(any(), any()) }
         verify(exactly = 0) { handler.send_key_down_up(KeyEvent.KEYCODE_DEL) }
     }
+    @Test fun immediateTypedAutocorrectIsRestoredInCharacterModeThenTheNextTapDeletesNormally() = withTapMode(0) {
+        val hooks = mockk<KeyEventHandler.LearningHooks>(relaxed = true)
+        handler.learningHooks = hooks
+        var eligible = true
+        every { hooks.canUndoTypedAutocorrect(conn, info) } answers { eligible }
+        every { recv.getLastAutoInsertedWord() } returns "mleko"
+        every { recv.getLastAutocorrectOriginalWord() } returns "mlekoo"
+        every { hooks.onAutocorrectUndoRestored("mlekoo", conn, info, true, 12) } answers {
+            eligible = false
+        }
+        every { handler.send_key_down_up(KeyEvent.KEYCODE_DEL) } answers {
+            text = text.dropLast(1); caret(text.length)
+        }
+        tapBackspace()
+        assertEquals("olej mlekoo ", text)
+        verify(exactly = 1) { hooks.onAutocorrectUndone("mleko", "mlekoo", true) }
+        verify(exactly = 1) { hooks.onAutocorrectUndoRestored("mlekoo", conn, info, true, 12) }
+        verify(exactly = 0) { recv.handle_backspace() }
+        verify(exactly = 0) { handler.send_key_down_up(KeyEvent.KEYCODE_DEL) }
+        tapBackspace()
+        assertEquals("olej mlekoo", text)
+        verify(exactly = 1) { recv.handle_backspace() }
+        verify(exactly = 1) { handler.send_key_down_up(KeyEvent.KEYCODE_DEL) }
+    }
+    @Test fun aStaleTypedUndoBookmarkUsesOrdinaryBackspace() = withTapMode(0) {
+        val hooks = mockk<KeyEventHandler.LearningHooks>(relaxed = true)
+        handler.learningHooks = hooks
+        every { hooks.canUndoTypedAutocorrect(conn, info) } returns false
+        every { recv.getLastAutoInsertedWord() } returns "mleko"
+        every { recv.getLastAutocorrectOriginalWord() } returns "mlekoo"
+        every { handler.send_key_down_up(KeyEvent.KEYCODE_DEL) } answers {
+            text = text.dropLast(1); caret(text.length)
+        }
+        tapBackspace()
+        assertEquals("olej mleko", text)
+        verify(exactly = 0) { conn.commitText(any(), any()) }
+        verify(exactly = 0) { hooks.onAutocorrectUndoRestored(any(), any(), any(), any(), any()) }
+    }
+    @Test fun aRefusedUndoCommitDoesNotTryTheSameRestoreTwice() = withTapMode(1) {
+        val hooks = mockk<KeyEventHandler.LearningHooks>(relaxed = true)
+        handler.learningHooks = hooks
+        every { hooks.canUndoTypedAutocorrect(conn, info) } returns true
+        every { recv.getLastAutoInsertedWord() } returns "mleko"
+        every { recv.getLastAutocorrectOriginalWord() } returns "mlekoo"
+        every { conn.commitText(any(), any()) } returns false
+        every { handler.send_key_down_up(KeyEvent.KEYCODE_DEL) } answers {
+            text = text.dropLast(1); caret(text.length)
+        }
+        tapBackspace()
+        assertEquals("olej mleko", text)
+        verify(exactly = 1) { conn.commitText("mlekoo ", 1) }
+        verify(exactly = 0) { conn.deleteSurroundingText(any(), any()) }
+        verify(exactly = 0) { hooks.onAutocorrectUndoRestored(any(), any(), any(), any(), any()) }
+    }
     @Test fun swipeUndoCannotEraseAMatchingSuffixInsideAnotherWord() = withTapMode(2) {
         text = "olej niemleko "; caret(text.length)
         every { recv.getLastAutoInsertedWord() } returns "mleko"

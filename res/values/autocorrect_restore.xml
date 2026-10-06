@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="edit_typed_autocorrect_restore_help">Immediately after autocorrection of a word typed letter by letter, the first short Backspace restores the original word and keeps its space. An unknown word can then be added from the suggestion bar. The next Backspace follows the selected action.</string>
+</resources>

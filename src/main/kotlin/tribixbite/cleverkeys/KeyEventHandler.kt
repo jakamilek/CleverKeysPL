@@ -456,11 +456,14 @@ class KeyEventHandler(
                     }
                     val undo = key.getKeyevent() == KeyEvent.KEYCODE_DEL && !isKeyRepeat &&
                         EditorSpacingPolicy.allowsAutomaticSpacing(recv.getCurrentEditorInfo(), allowSearch = true) &&
-                        when ((Config.globalConfigOrNull()?.edit_behavior ?: EditBehaviorOptions()).tapMode) {
+                        (if (learningHooks?.canUndoTypedAutocorrect(
+                            recv.getCurrentInputConnection(), recv.getCurrentEditorInfo()
+                        ) == true) handleBackspaceUndoAutocorrect(requireExplicitMode = false)
+                        else when ((Config.globalConfigOrNull()?.edit_behavior ?: EditBehaviorOptions()).tapMode) {
                             1 -> handleBackspaceUndoAutocorrect()
                             2 -> handleBackspaceUndoSwipe()
                             else -> false
-                        }
+                        })
                     if (!undo) send_key_down_up(key.getKeyevent())
                     // Handle backspace for word prediction
                     if (key.getKeyevent() == KeyEvent.KEYCODE_DEL && !undo) {
@@ -891,13 +894,12 @@ class KeyEventHandler(
     }
 
     /**
-     * #110: If backspace_undo_autocorrect is enabled and an autocorrect just happened,
-     * revert to the original word on immediate backspace (GBoard-style).
-     * Does NOT add the original word to dictionary — that's the suggestion bar undo's role.
+     * Undo an immediate typed correction, or the explicitly selected autocorrect mode.
+     * Keep its existing separator; adding the restored word is a separate bar action.
      */
-    private fun handleBackspaceUndoAutocorrect(): Boolean {
+    private fun handleBackspaceUndoAutocorrect(requireExplicitMode: Boolean = true): Boolean {
         val config = Config.globalConfig() ?: return false
-        if ((config.edit_behavior ?: EditBehaviorOptions()).tapMode != 1) return false
+        if (requireExplicitMode && (config.edit_behavior ?: EditBehaviorOptions()).tapMode != 1) return false
 
         val originalWord = recv.getLastAutocorrectOriginalWord() ?: return false
         val correctedWord = recv.getLastAutoInsertedWord() ?: return false
@@ -910,7 +912,10 @@ class KeyEventHandler(
         val verified = conn.getTextBeforeCursor(correctedWord.length + 2, 0)?.toString() ?: return false
         val withoutSpace = verified.removeSuffix(" ")
         if (!withoutSpace.endsWith(correctedWord) ||
-            withoutSpace.length > correctedWord.length && !withoutSpace[withoutSpace.length - correctedWord.length - 1].isWhitespace()) return false
+            withoutSpace.length > correctedWord.length &&
+            withoutSpace[withoutSpace.length - correctedWord.length - 1].let {
+                it.isLetterOrDigit() || SuggestionHandler.isIntraWordJoiner(it)
+            }) return false
         // Verify the corrected word is still at cursor position (handles cursor-move edge case)
         val beforeCursor = conn.getTextBeforeCursor(correctedWord.length + 1, 0)?.toString() ?: ""
         val charsToDelete = when {
@@ -952,7 +957,12 @@ class KeyEventHandler(
         learningHooks?.onAutocorrectUndone(
             correctedWord, originalWord, originalCompleted = charsToDelete > correctedWord.length
         )
-        recv.handle_backspace()
+        // This rewrote a word; it did not delete a character from the prediction tracker.
+        learningHooks?.onAutocorrectUndoRestored(
+            originalWord, conn, recv.getCurrentEditorInfo(),
+            originalCompleted = charsToDelete > correctedWord.length,
+            expectedCursor = start + replacement.length
+        )
         autocap.event_sent(KeyEvent.KEYCODE_DEL, 0)
         return true
     }
@@ -1369,6 +1379,13 @@ class KeyEventHandler(
          * [originalCompleted] is true when the restored word kept its trailing space.
          */
         fun onAutocorrectUndone(correctedWord: String, originalWord: String, originalCompleted: Boolean)
+
+        /** Default character mode has one exception: the immediately preceding typed correction. */
+        fun canUndoTypedAutocorrect(ic: InputConnection?, info: EditorInfo?): Boolean = false
+
+        /** Publish the restored live token without going through ordinary character deletion. */
+        fun onAutocorrectUndoRestored(originalWord: String, ic: InputConnection,
+            info: EditorInfo?, originalCompleted: Boolean, expectedCursor: Int) {}
     }
 
     interface IReceiver {

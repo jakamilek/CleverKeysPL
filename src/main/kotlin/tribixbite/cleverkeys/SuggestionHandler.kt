@@ -509,6 +509,51 @@ class SuggestionHandler(
     private var cancelPendingHerbert: (() -> Unit)? = null
     internal var liveEditorProvider: (() -> Pair<InputConnection?, EditorInfo?>)? = null
 
+    // A short-lived editor bookmark, never logged or persisted. A suffix match alone is
+    // insufficient: another field or another occurrence of the same word must not undo it.
+    private data class AutocorrectBookmark(
+        val connection: InputConnection, val info: EditorInfo?, val word: String,
+        val separator: String, val cursor: Int, val original: String? = null
+    )
+    private var typedAutocorrectBookmark: AutocorrectBookmark? = null
+    private var restoredAutocorrectOffer: AutocorrectBookmark? = null
+
+    private fun bookmarkMatches(bookmark: AutocorrectBookmark?, ic: InputConnection?, info: EditorInfo?): Boolean {
+        if (bookmark == null || ic !== bookmark.connection || info !== bookmark.info || ic == null || isPasswordMode ||
+            !EditorSpacingPolicy.allowsAutomaticSpacing(info, allowSearch = true)) return false
+        return try {
+            val selection = herbertSelection(ic) ?: return false
+            if (selection.selectionStart < 0 || selection.selectionStart != selection.selectionEnd ||
+                selection.startOffset + selection.selectionStart != bookmark.cursor ||
+                !ic.getSelectedText(0).isNullOrEmpty()) return false
+            val token = bookmark.word + bookmark.separator
+            val before = ic.getTextBeforeCursor(token.length + 1, 0)?.toString() ?: return false
+            if (!before.endsWith(token)) return false
+            val preceding = before.dropLast(token.length).lastOrNull()
+            if (preceding != null && (preceding.isLetterOrDigit() || isIntraWordJoiner(preceding))) return false
+            if (bookmark.separator.isEmpty()) {
+                val after = ic.getTextAfterCursor(1, 0)?.firstOrNull()
+                if (after != null && (after.isLetterOrDigit() || isIntraWordJoiner(after))) return false
+            }
+            true
+        } catch (_: Exception) { false }
+    }
+
+    private fun clearAutocorrectBookmarks() {
+        typedAutocorrectBookmark = null
+        restoredAutocorrectOffer = null
+    }
+
+    private fun preserveAutocorrectPrompt(ic: InputConnection?, info: EditorInfo?): Boolean {
+        if (bookmarkMatches(restoredAutocorrectOffer, ic, info)) return specialPromptActive
+        val bookmark = typedAutocorrectBookmark
+        if (!bookmarkMatches(bookmark, ic, info)) return false
+        contextTracker.setLastAutoInsertedWord(bookmark!!.word)
+        contextTracker.setLastAutocorrectOriginalWord(bookmark.original)
+        contextTracker.setLastCommitSource(PredictionSource.AUTOCORRECT)
+        return true
+    }
+
     fun onEditorCursorChanged() {
         // Harmless delayed editor notifications must not lose a swiped word that is still waiting.
         pendingHerbertFallback?.invoke()
@@ -516,6 +561,10 @@ class SuggestionHandler(
         cancelPendingHerbert?.invoke()
         cancelPendingHerbert = null
         pendingHerbertFallback = null
+        liveEditorProvider?.invoke()?.let { (ic, info) ->
+            if (!bookmarkMatches(typedAutocorrectBookmark, ic, info)) typedAutocorrectBookmark = null
+            if (!bookmarkMatches(restoredAutocorrectOffer, ic, info)) restoredAutocorrectOffer = null
+        }
     }
 
     /** Finish before the next keyboard touch, preserving input order without waiting for native SI. */
@@ -789,6 +838,7 @@ class SuggestionHandler(
      */
     fun setPasswordMode(enabled: Boolean) {
         onEditorCursorChanged()
+        clearAutocorrectBookmarks()
         isPasswordMode = enabled
         if (enabled) {
             // Clear predictions when entering password mode
@@ -909,6 +959,7 @@ class SuggestionHandler(
     ) {
         // Swipe results replace whatever the bar shows — any next-word display state ends here,
         onEditorCursorChanged()
+        clearAutocorrectBookmarks()
         // and so does an undoable "Added …" confirmation (the user moved on).
         nextWordSuggestionsActive = false
         suggestionBar?.dismissUndoableMessage()
@@ -1448,6 +1499,7 @@ class SuggestionHandler(
             is SelectionRoute.CommitWord -> Unit
         }
 
+        clearAutocorrectBookmarks()
         // Check if this is an autocorrect undo (user tapped the original word after autocorrect)
         val lastAutocorrectOriginal = contextTracker.getLastAutocorrectOriginalWord()
         if (contextTracker.getLastCommitSource() == PredictionSource.AUTOCORRECT &&
@@ -1999,6 +2051,7 @@ class SuggestionHandler(
      */
     fun handleCursorParkPrediction(editorInfo: EditorInfo?, ic: InputConnection? = null) {
         onEditorCursorChanged()
+        if (preserveAutocorrectPrompt(ic, editorInfo)) return
         // W5: no word before the cursor — nothing typed is pending any more. (A joiner stem
         // survives: right after typing "don'" the sync parks here too; completion re-checks the
         // stem against the editor before learning it.)
@@ -2421,7 +2474,8 @@ class SuggestionHandler(
         // cached tracker lengths (which can describe text from before cut/paste).
         // Reject a stale chip rather than adding a word unrelated to the live token.
         val matches = try {
-            exactWordMatchesEditor(
+            (restoredAutocorrectOffer?.word == exactWord &&
+                bookmarkMatches(restoredAutocorrectOffer, ic, editorInfo)) || exactWordMatchesEditor(
                 exactWord,
                 ic?.getTextBeforeCursor(exactWord.length + 2, 0)?.toString(),
                 ic?.getTextAfterCursor(exactWord.length + 1, 0)?.toString(),
@@ -2429,6 +2483,7 @@ class SuggestionHandler(
             )
         } catch (_: Exception) { false }
         if (!matches) {
+            restoredAutocorrectOffer = null
             specialPromptActive = false
             suggestionBar?.clearSuggestions()
             return
@@ -2437,6 +2492,7 @@ class SuggestionHandler(
         // Add to user dictionary
         val inserted = predictionCoordinator.getDictionaryManager()?.addUserWord(exactWord) ?: false
         predictionCoordinator.refreshCustomWords()
+        restoredAutocorrectOffer = null
 
         // Keep the typed word pending until its ordinary completion; adding to the
         // dictionary neither completes a word nor changes the editor or caret.
@@ -2648,6 +2704,7 @@ class SuggestionHandler(
      */
     fun flushTypedWordOnFinishInput(ic: InputConnection?) {
         onEditorCursorChanged()
+        clearAutocorrectBookmarks()
         specialPromptActive = false
         flushPendingTypedWord(ic)
         // Leaving the field ends every pending swipe correction (a kept re-swipe is recorded; its
@@ -2667,6 +2724,7 @@ class SuggestionHandler(
      * the same way sentence-final punctuation does (audit §4.6 — no bigram across it).
      */
     override fun onEditorWordBoundary(ic: InputConnection?) {
+        clearAutocorrectBookmarks()
         if (!isPasswordMode) suggestionBar?.resetScrollPosition()
         flushPendingTypedWord(ic)
         predictionCoordinator.getWordPredictor()?.onSentenceBoundary()
@@ -2697,6 +2755,51 @@ class SuggestionHandler(
         }
     }
 
+    override fun canUndoTypedAutocorrect(ic: InputConnection?, info: EditorInfo?): Boolean =
+        bookmarkMatches(typedAutocorrectBookmark, ic, info) &&
+            contextTracker.getLastCommitSource() == PredictionSource.AUTOCORRECT &&
+            contextTracker.getLastAutoInsertedWord() == typedAutocorrectBookmark?.word &&
+            contextTracker.getLastAutocorrectOriginalWord() == typedAutocorrectBookmark?.original
+
+    override fun onAutocorrectUndoRestored(originalWord: String, ic: InputConnection,
+        info: EditorInfo?, originalCompleted: Boolean, expectedCursor: Int) {
+        onEditorCursorChanged()
+        predictionTasks.cancelCurrent()
+        clearAutocorrectBookmarks()
+        contextTracker.clearCurrentWord()
+        contextTracker.clearLastAutoInsertedWord()
+        contextTracker.clearAutocorrectTracking()
+        contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
+        pendingTypedWord = null
+        pendingJoinerStem = null
+        nextWordSuggestionsActive = false
+        specialPromptActive = false
+        val bookmark = AutocorrectBookmark(ic, info, originalWord,
+            if (originalCompleted) " " else "", expectedCursor)
+        if (!bookmarkMatches(bookmark, ic, info)) {
+            suggestionBar?.clearSuggestions()
+            return
+        }
+        val predictor = predictionCoordinator.getWordPredictor()
+        val dictionary = predictionCoordinator.getDictionaryManager()
+        // Selection history just learned the restored word. It must not masquerade
+        // as an explicit dictionary entry and suppress this add action.
+        val known = predictor?.isInDictionary(originalWord, false) ?: true
+        if (!isPasswordMode && config.word_prediction_enabled && config.show_exact_typed_word && originalWord.length >= 2 &&
+            !known && dictionary?.isUserWordIgnoringCase(originalWord) != true &&
+            predictor?.isWordDisabled(originalWord) != true) {
+            restoredAutocorrectOffer = bookmark
+            specialPromptActive = true
+            suggestionBar?.setSuggestionsWithScores(
+                listOf(Suggestion.ExactAdd(originalWord).wire), listOf(0),
+                listOf(SuggestionMeta(SuggestionOrigin.EXACT_ADD))
+            )
+            if ((config.edit_behavior ?: EditBehaviorOptions()).resetSuggestionsOnDelete) {
+                suggestionBar?.resetScrollPosition()
+            }
+        } else suggestionBar?.clearSuggestions()
+    }
+
     /**
      * Handle regular typing predictions (non-swipe).
      * Updates predictions as user types each character.
@@ -2707,6 +2810,7 @@ class SuggestionHandler(
      */
     fun handleRegularTyping(text: String, ic: InputConnection?, editorInfo: EditorInfo?) {
         onEditorCursorChanged()
+        clearAutocorrectBookmarks()
         // Any typing dismisses an undoable "Added …" confirmation — BEFORE the prediction update
         // below, which a showing bar message would otherwise swallow.
         suggestionBar?.dismissUndoableMessage()
@@ -2859,10 +2963,14 @@ class SuggestionHandler(
                                 // - We need to delete both the word AND the space, then insert corrected word + space
 
                                 // Delete the typed word + space (already committed)
+                                val selection = try { herbertSelection(inputConnection) } catch (_: Exception) { null }
+                                val beforeCorrectionCursor = selection?.takeIf {
+                                    it.selectionStart >= 0 && it.selectionStart == it.selectionEnd
+                                }?.let { it.startOffset + it.selectionStart }
                                 inputConnection.deleteSurroundingText(completedWord.length + 1, 0)
 
                                 // Insert the corrected word WITH trailing space (normal apps only)
-                                inputConnection.commitText("$correctedWord ", 1)
+                                val correctionAccepted = inputConnection.commitText("$correctedWord ", 1)
                                 keyeventhandler.noteEditorTextMutation(inputConnection)
 
                                 // Update context with corrected word (learn-once: typed words only)
@@ -2880,6 +2988,11 @@ class SuggestionHandler(
                                 contextTracker.setLastAutoInsertedWord(correctedWord)
                                 contextTracker.setLastCommitSource(PredictionSource.AUTOCORRECT)
                                 contextTracker.setLastAutocorrectOriginalWord(completedWord)
+                                if (correctionAccepted && beforeCorrectionCursor != null) {
+                                    typedAutocorrectBookmark = AutocorrectBookmark(inputConnection, editorInfo,
+                                        correctedWord, " ", beforeCorrectionCursor - completedWord.length + correctedWord.length,
+                                        completedWord)
+                                }
 
                                 vlog { "AUTOCORRECT: '$completedWord' → '$correctedWord' (tracking for undo)" }
 
@@ -3040,6 +3153,7 @@ class SuggestionHandler(
      */
     fun handleBackspace() {
         onEditorCursorChanged()
+        clearAutocorrectBookmarks()
         specialPromptActive = false
         swipePreferenceOffer = null
         suggestionBar?.dismissUndoableMessage()
@@ -3116,6 +3230,10 @@ class SuggestionHandler(
         // in handleRegularTyping and handlePredictionResults). synchronizeWithCursor already skips
         // password input types, so currentWord is normally empty here — this is defence in depth.
         if (isPasswordMode) return
+        liveEditorProvider?.invoke()?.let { (ic, info) ->
+            if (preserveAutocorrectPrompt(ic, info)) return
+        }
+        clearAutocorrectBookmarks()
         specialPromptActive = false
         swipePreferenceOffer = null
         // W5/W7: cursor-sync REPLACED the tracker word with the word at the cursor. Typing a

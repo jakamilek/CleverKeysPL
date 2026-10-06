@@ -1,10 +1,13 @@
 package tribixbite.cleverkeys
 
 import android.content.res.Resources
+import android.content.Context
 import android.text.InputType
 import android.util.Log
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import android.view.inputmethod.ExtractedText
+import android.view.inputmethod.ExtractedTextRequest
 import com.google.common.truth.Truth.assertWithMessage
 import io.mockk.every
 import io.mockk.just
@@ -63,6 +66,7 @@ class LearningFunnelBookkeepingTest {
     private lateinit var personalization: PersonalizationEngine
     private lateinit var adaptation: UserAdaptationManager
     private lateinit var coordinator: PredictionCoordinator
+    private lateinit var dictionary: DictionaryManager
     private lateinit var bar: SuggestionBar
     private lateinit var inputCoordinator: InputCoordinator
     private lateinit var resources: Resources
@@ -126,7 +130,7 @@ class LearningFunnelBookkeepingTest {
         every { predictor.reset() } just runs
 
         adaptation = mockk(relaxed = true)
-        val dictionary = mockk<DictionaryManager>(relaxed = true)
+        dictionary = mockk<DictionaryManager>(relaxed = true)
         every { dictionary.getCurrentLanguage() } returns "en"
         coordinator = mockk(relaxed = true)
         every { coordinator.getWordPredictor() } returns predictor
@@ -267,6 +271,98 @@ class LearningFunnelBookkeepingTest {
         bigramStore.getAllBigrams("en", w1).firstOrNull { it.word2 == w2 }?.frequency ?: 0
 
     private fun learnWindow(): List<String> = predictor.getRecentWords()
+
+    private fun attachAutocorrectEditor(): EditorInfo {
+        val field = textField()
+        handler.liveEditorProvider = { ic to field }
+        handler.setField("herbertExtractionRequest", mockk<ExtractedTextRequest>(relaxed = true))
+        every { ic.getExtractedText(any(), any()) } answers {
+            objenesis.newInstance(ExtractedText::class.java).apply {
+                startOffset = 0
+                selectionStart = editor.length
+                selectionEnd = editor.length
+            }
+        }
+        every { ic.getSelectedText(0) } returns null
+        config.show_exact_typed_word = true
+        every { predictor.isInDictionary("grzeje", false) } returns false
+        val context = mockk<Context>(relaxed = true)
+        every { context.getString(any(), *anyVararg()) } returns "Added"
+        handler.setField("context", context)
+        return field
+    }
+
+    @Test fun typedCorrectionSurvivesItsCursorAcknowledgementButNotAChangeOfEditor() {
+        val field = attachAutocorrectEditor()
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect(any()) } answers { firstArg() }
+        every { predictor.autoCorrect("grzeje") } returns "grzeją"
+        type("grzeje ", field)
+        assertWithMessage("correction was committed").that(editor.toString()).isEqualTo("grzeją ")
+        assertWithMessage("immediate BS exception").that(handler.canUndoTypedAutocorrect(ic, field)).isTrue()
+        tracker.synchronizeWithCursor(ic, "en", field)
+        handler.handleCursorParkPrediction(field, ic)
+        assertWithMessage("editor acknowledgement is harmless").that(handler.canUndoTypedAutocorrect(ic, field)).isTrue()
+        assertWithMessage("same word in another field cannot be undone")
+            .that(handler.canUndoTypedAutocorrect(ic, textField())).isFalse()
+        editor.append("x")
+        handler.onEditorCursorChanged()
+        editor.setLength(editor.length - 1)
+        assertWithMessage("changed text permanently disarms the bookmark")
+            .that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+    }
+
+    @Test fun restoredUnknownWordSurvivesCursorSyncAndAddingItNeverChangesTextOrSpace() {
+        val field = attachAutocorrectEditor()
+        editor.append("fix grzeje ")
+        handler.onAutocorrectUndone("grzeją", "grzeje", originalCompleted = true)
+        handler.onAutocorrectUndoRestored("grzeje", ic, field, true, editor.length)
+        val chip = Suggestion.ExactAdd("grzeje").wire
+        assertWithMessage("restored original is the first add chip").that(barWords).containsExactly(chip)
+        verify(exactly = 0) { dictionary.addUserWord(any()) }
+        tracker.synchronizeWithCursor(ic, "en", field)
+        tracker.clearAutocorrectTracking()
+        tracker.clearLastAutoInsertedWord()
+        handler.handleCursorParkPrediction(field, ic)
+        assertWithMessage("normal cursor acknowledgement retains the offer").that(barWords).containsExactly(chip)
+        tap(chip, field)
+        verify(exactly = 1) { dictionary.addUserWord("grzeje") }
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+        verify(exactly = 0) { ic.deleteSurroundingText(any(), any()) }
+        verify(exactly = 0) { ic.setSelection(any(), any()) }
+        assertWithMessage("adding is storage only").that(editor.toString()).isEqualTo("fix grzeje ")
+    }
+
+    @Test fun staleRestoredWordOfferCannotAddOrModifyACutAndPastedToken() {
+        val field = attachAutocorrectEditor()
+        editor.append("grzeje ")
+        handler.onAutocorrectUndoRestored("grzeje", ic, field, true, editor.length)
+        editor.setLength(0)
+        editor.append("inny ")
+        tap(Suggestion.ExactAdd("grzeje").wire, field)
+        verify(exactly = 0) { dictionary.addUserWord(any()) }
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+        verify(exactly = 0) { ic.deleteSurroundingText(any(), any()) }
+        assertWithMessage("cut/paste is preserved").that(editor.toString()).isEqualTo("inny ")
+    }
+
+    @Test fun movingTheCaretOrSelectingTextDisarmsTypedAutocorrect() {
+        val field = attachAutocorrectEditor()
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect(any()) } answers { firstArg() }
+        every { predictor.autoCorrect("grzeje") } returns "grzeją"
+        type("grzeje ", field)
+        every { ic.getSelectedText(0) } returns "grzeją"
+        assertWithMessage("selection is not immediate undo").that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+        every { ic.getSelectedText(0) } returns null
+        every { ic.getExtractedText(any(), any()) } answers {
+            objenesis.newInstance(ExtractedText::class.java).apply {
+                startOffset = 0; selectionStart = 1; selectionEnd = 1
+            }
+        }
+        handler.onEditorCursorChanged()
+        assertWithMessage("moved caret is not immediate undo").that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+    }
 
     // ================================================================ W1
 

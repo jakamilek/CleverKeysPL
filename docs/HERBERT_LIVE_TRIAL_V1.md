@@ -7,6 +7,28 @@ nieudane bramki INT8 / distilHerBERT pozostają zapisane; nie stają się wynika
 
 ## Obsługa
 
+### Cofanie autokorekty słowa wpisanego literami
+
+Bezpośrednio po autokorekcie pierwszy krótki BS przywraca wpisany oryginał
+ze spacją, która już była w polu. Ten wyjątek działa też przy domyślnej opcji
+usuwania pojedynczego znaku. Następny BS usuwa znak/spację zgodnie z wybraną
+opcją. Przytrzymanie i przeciąganie BS pozostają osobnymi gestami.
+
+Jeśli oryginału nie ma w słowniku, przy włączonym „Pokazuj dokładnie wpisane
+słowo” pierwsza podpowiedź pozwala go dodać. Dodawanie nie wpisuje słowa
+ponownie, nie usuwa go i nie rusza kursora. Normalne potwierdzenie pozycji
+kursora po zamianie zachowuje podpowiedź. Zmiana pola, tekstu lub pozycji
+kursora unieważnia cofnięcie; nie jest to reguła dla konkretnego słowa „grzeje”.
+
+Próba po udanym buildzie: wpisz literami słowo spoza słownika, zakończ spacją
+i sprawdź, że autokorekta je zmieniła. Pierwszy BS: oryginał + istniejąca
+spacja, podpowiedź dodania; dodanie: tekst identyczny. Powtórz i zamiast
+dodawać naciśnij drugi BS: zwykłe usunięcie spacji. Sprawdź też, że po
+przesunięciu kursora albo wklejeniu innego tekstu stara podpowiedź nie edytuje
+tekstu ani nie dodaje nieaktualnego słowa. Ta poprawka wymaga CI i próby telefonu.
+
+### Włączenie SI
+
 1. Zaktualizuj APK z gałęzi `trial/herbert-live-v1`, zachowując dane aplikacji.
    Budowa i kontrole CI muszą zakończyć się powodzeniem przed instalacją.
 2. Ustawienia → menedżery funkcji → **SI HerBERT — test w klawiaturze**.

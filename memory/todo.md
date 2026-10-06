@@ -1,5 +1,16 @@
 # Current work queue
 
+## Immediate typed-autocorrect BS restore (2026-10-06)
+
+- First short BS after a verified typed correction restores original + kept space, including default character mode.
+- Unknown original gets guarded first ExactAdd; explicit adding stays storage-only; second BS normal.
+- Same caret/editor acknowledgements preserve the offer; edits/cut-paste/field/selection/move disarm it.
+- Seven registered mock cases added; local Android execution unavailable, CI/phone pending.
+- Prior live run 37507317429 FAILED compile: enabled setter/setEnabled JVM signature collision.
+  Corrected by naming the activity action setLiveEnabled; full gates must rerun, no APK success claimed.
+- [ ] Translate edit_typed_autocorrect_restore_help in other locales later (base/Polish complete).
+- [ ] After updated live APK preparation, global dictionary remains next.
+
 ## Current priority — HerBERT live test and BS haptics (2026-10-06)
 
 - User explicitly authorizes isolated original HerBERT FP32 live case-pair test; SI default off.

@@ -17,6 +17,7 @@ import tribixbite.cleverkeys.ui.settings.saveSetting
 internal fun SettingsActivity.BackspaceEditingControls() {
     Text(stringResource(R.string.edit_backspace_header))
     Text(stringResource(R.string.edit_backspace_help))
+    Text(stringResource(R.string.edit_typed_autocorrect_restore_help))
     SettingsDropdown(
         title = stringResource(R.string.edit_backspace_tap_mode_title), description = "",
         options = listOf(stringResource(R.string.edit_tap_character),

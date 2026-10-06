@@ -278,6 +278,34 @@ runtime results and phone checks remain separately pending here.
 
 ## Configuration
 
+### Immediate typed-autocorrect restoration (2026-10-06)
+
+The first non-repeated short Backspace immediately after a TAP-typed autocorrection
+restores the original token and preserves the existing trailing space, including in
+default character mode. This is a narrowly verified exception, not swipe undo and
+not a new default preference value. Subsequent Backspace follows `backspace_tap_mode`.
+Hold and shared-slider drag keep their current pointer/haptic paths.
+
+SuggestionHandler keeps an in-memory connection/EditorInfo/collapsed-caret/token
+bookmark, checked against live editor text. Another field, changed text, selection,
+cursor move, typing, swipe or field exit disarms it. An editor acknowledgement at
+the same live position keeps the undo prompt. A refused replacement restores the
+caret, never deletes the word first and never retries the same restore twice.
+
+Successful restoration uses the LearningHooks notification, rather than ordinary
+character-deletion tracking. With Show Exact Typed Word enabled, an unknown original
+is offered first as ExactAdd. Dictionary membership excludes learned selection history
+so learning the restored token does not hide an explicit add action. The completed
+token's guarded bookmark permits ExactAdd after the kept space. Adding stays storage
+only; no delete/recommit/selection changes. Cursor park/sync acknowledgements preserve
+the offer; stale offers cannot rewrite text or add a different live token.
+
+Seven new registered mock cases in BackspaceHoldTest/LearningFunnelBookkeepingTest
+cover restore + next tap, stale eligibility, refused commit, cursor acknowledgement,
+field/selection/caret invalidation, cut/paste and add-without-text-mutation. Android
+compilation and test execution remain pending. Base/Polish helper text explains the
+exception; other locale translations are deferred.
+
 ### Polish trial v15 — new-word suggestion viewport
 
 `SuggestionBar.resetScrollPosition` posts a reset on its current parent

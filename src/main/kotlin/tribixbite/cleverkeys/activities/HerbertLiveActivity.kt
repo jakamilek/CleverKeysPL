@@ -26,7 +26,7 @@ class HerbertLiveActivity : ComponentActivity() {
     private val prefs by lazy { DirectBootAwarePreferences.get_shared_preferences(this) }
     private val importModel = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            setEnabled(false); busy = true; message = R.string.herbert_live_importing
+            setLiveEnabled(false); busy = true; message = R.string.herbert_live_importing
             HerbertLiveRuntime.importBundle(this, uri) { success ->
                 if (!isDestroyed) { busy = false; message = if (success) R.string.herbert_live_imported else R.string.herbert_benchmark_import_failed }
             }
@@ -68,7 +68,7 @@ class HerbertLiveActivity : ComponentActivity() {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(stringResource(R.string.herbert_live_enable), Modifier.weight(1f))
                             Switch(checked = enabled, enabled = !busy && hasModel && state != HerbertLiveRuntime.State.LOADING,
-                                onCheckedChange = { setEnabled(it); message = 0 })
+                                onCheckedChange = { setLiveEnabled(it); message = 0 })
                         }
                         Text(stringResource(R.string.herbert_live_context, words))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -87,13 +87,13 @@ class HerbertLiveActivity : ComponentActivity() {
                             importModel.launch(arrayOf("application/zip", "application/x-zip-compressed"))
                         }) { Text(stringResource(R.string.herbert_benchmark_import)) }
                         OutlinedButton(enabled = !busy && state != HerbertLiveRuntime.State.LOADING && hasModel, onClick = {
-                            setEnabled(false); busy = true
+                            setLiveEnabled(false); busy = true
                             HerbertLiveRuntime.remove(this@HerbertLiveActivity) {
                                 if (!isDestroyed) { busy = false; message = 0 }
                             }
                         }) { Text(stringResource(R.string.herbert_benchmark_remove)) }
                         OutlinedButton(onClick = {
-                            setEnabled(false)
+                            setLiveEnabled(false)
                             prefs.edit().remove("herbert_live_enabled").remove("herbert_context_words").remove("herbert_wait_ms").apply()
                             readSettings(); refreshConfig()
                         }, enabled = !busy) { Text(stringResource(R.string.herbert_live_reset)) }
@@ -115,7 +115,7 @@ class HerbertLiveActivity : ComponentActivity() {
         waitMs = Config.safeGetInt(prefs, "herbert_wait_ms", Defaults.HERBERT_WAIT_MS).coerceIn(100, 1000)
     }
     private fun refreshConfig() { Config.globalConfigOrNull()?.refresh(resources, null) }
-    private fun setEnabled(value: Boolean) {
+    private fun setLiveEnabled(value: Boolean) {
         enabled = value; prefs.edit().putBoolean("herbert_live_enabled", value).apply()
         refreshConfig(); HerbertLiveRuntime.configure(this, value)
     }
