@@ -1261,7 +1261,7 @@ class SuggestionHandler(
         return ic.getExtractedText(request, 0)
     }
 
-    /** Bounded pre-commit trial: source pair only, original editor bytes and snapshot identity. */
+    /** Bounded pre-commit trial: source group only, original editor bytes and snapshot identity. */
     private fun tryHerbertSwipe(
         slate: SwipeSurfaceVariants.Slate, ic: InputConnection?, info: EditorInfo?,
         language: String?, provider: LanguageIntelligenceProvider?, protectedCase: Boolean,
@@ -1274,7 +1274,7 @@ class SuggestionHandler(
             !EditorSpacingPolicy.allowsAutomaticSpacing(info, false) || isTermuxEditor(info) ||
             liveEditorProvider == null) return false
         if (HerbertLiveRuntime.state != HerbertLiveRuntime.State.READY) return false
-        val pair = HerbertLiveSlate.pair(slate) ?: return false
+        val group = HerbertLiveSlate.group(slate) ?: return false
         val raw = try { ic.getTextBeforeCursor(HerbertContextWindow.MAX_UNITS + 1, 0)?.toString() } catch (_: Exception) { null }
             ?: return false
         val et = try { herbertSelection(ic) } catch (_: Exception) { null }
@@ -1300,7 +1300,7 @@ class SuggestionHandler(
         val identity = HerbertRequestIdentity(revision, revision, anchor, anchor, revision, "pl",
             provider.packageInfo().toString(), modelRevision, contextText)
         val deadline = System.nanoTime() + wait * 1_000_000L
-        val decision = HerbertSwipeDecision(slate, pair, identity, deadline)
+        val decision = HerbertSwipeDecision(slate, group, identity, deadline)
         fun current(): HerbertRequestIdentity? = try {
             val live = liveEditorProvider?.invoke()
             val currentLanguage = predictionCoordinator.getDictionaryManager()?.getCurrentLanguage()
@@ -1328,7 +1328,7 @@ class SuggestionHandler(
             publish(result)
         }
         timeout = Runnable { finish(null) }
-        if (!HerbertLiveRuntime.rank(contextText, pair, words) { scores, token ->
+        if (!HerbertLiveRuntime.rank(contextText, group, words) { scores, token ->
                 if (token == modelRevision) finish(scores) else decision.cancel()
             }) return false
         suggestionBar?.clearSuggestions()

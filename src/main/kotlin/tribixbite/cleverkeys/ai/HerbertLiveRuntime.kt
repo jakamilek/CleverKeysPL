@@ -123,7 +123,7 @@ internal object HerbertLiveRuntime {
     }
 
     /** At most one score is in flight: busy/loading/off gives immediate geometric fallback. */
-    fun rank(context: String, pair: HerbertCasePair, words: Int, complete: (Map<String, Float>?, Long) -> Unit): Boolean {
+    fun rank(context: String, group: HerbertFormGroup, words: Int, complete: (Map<String, Float>?, Long) -> Unit): Boolean {
         if (state != State.READY || !scoring.compareAndSet(false, true)) return false
         val token = revision
         worker.execute {
@@ -132,7 +132,7 @@ internal object HerbertLiveRuntime {
             try {
                 if (token == revision && state == State.READY) {
                     val b = bundle ?: error("No bundle")
-                    scores = scorer?.score(b.tokenizer.prepare(context, pair.surfaces, words))
+                    scores = scorer?.score(b.tokenizer.prepare(context, group.surfaces, words))
                     analyses++
                     lastMs = (System.nanoTime() - start) / 1_000_000.0
                 }

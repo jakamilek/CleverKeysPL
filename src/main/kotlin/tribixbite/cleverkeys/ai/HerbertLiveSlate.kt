@@ -3,8 +3,21 @@ package tribixbite.cleverkeys.ai
 import java.util.Locale
 import tribixbite.cleverkeys.SwipeSurfaceVariants
 
-/** No additions, removed keys, score mixing or language changes: only the first source pair moves. */
+/** Only a bounded source group moves; each word travels with all its parallel metadata. */
 internal object HerbertLiveSlate {
+    fun group(slate: SwipeSurfaceVariants.Slate): HerbertFormGroup? {
+        val size = slate.words.size
+        val count = slate.exactCase.takeWhile { it }.size
+        if (count !in 2..SwipeSurfaceVariants.MAX_GROUP_SURFACES ||
+            slate.exactCase.size != size || slate.exactCase.drop(count).any { it } ||
+            slate.scores.size != size ||
+            slate.languages?.let { it.size != size || it.take(count).any { lang -> lang != "pl" } } == true) return null
+        val indices = (0 until count).groupBy { slate.words[it].lowercase(Locale.ROOT) }
+        if (indices.values.any { positions -> positions.map { slate.scores[it] }.distinct().size != 1 }) return null
+        return try { HerbertFormGroup(slate.words.take(count)) }
+        catch (_: IllegalArgumentException) { null }
+    }
+
     fun pair(slate: SwipeSurfaceVariants.Slate): HerbertCasePair? {
         if (slate.words.size < 2 || slate.exactCase.count { it } != 2 ||
             !slate.exactCase.take(2).all { it } || slate.scores.size != slate.words.size ||
@@ -15,7 +28,12 @@ internal object HerbertLiveSlate {
     }
 
     fun ordered(slate: SwipeSurfaceVariants.Slate, surfaces: List<String>): SwipeSurfaceVariants.Slate {
-        require(surfaces.size == 2 && surfaces.toSet() == slate.words.take(2).toSet())
-        return slate.copy(words = surfaces + slate.words.drop(2))
+        val count = surfaces.size
+        require(count in 2..SwipeSurfaceVariants.MAX_GROUP_SURFACES &&
+            surfaces.distinct().size == count && surfaces.toSet() == slate.words.take(count).toSet())
+        val order = surfaces.map { slate.words.take(count).indexOf(it) } + (count until slate.words.size)
+        return slate.copy(words = order.map { slate.words[it] }, scores = order.map { slate.scores[it] },
+            languages = slate.languages?.let { languages -> order.map { languages[it] } },
+            exactCase = order.map { slate.exactCase[it] })
     }
 }

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="herbert_live_title">SI HerBERT — test w klawiaturze</string>
-    <string name="herbert_live_explanation">Test lokalnej SI dla pierwszej pary pisowni ze słownika, np. łódź / Łódź. Obie formy pozostają do wyboru. Słowa rozpoznaje dekoder geometryczny. Kontekst pochodzi wyłącznie z bieżącego pola i zachowuje wielkość liter oraz interpunkcję. Hasła, pola prywatne, wyszukiwarki, adresy WWW i e-mail są pomijane. FP32 zużywał na telefonie testowym około 2,1 GiB pamięci całego procesu — to wersja eksperymentalna. Osobno zaimportuj zweryfikowany ZIP testowy FP32. Model i wpisywany kontekst nie trafiają do kopii zapasowych.</string>
+    <string name="herbert_live_explanation">Test lokalnej SI dla małej grupy bliskich form ze słownika, np. malina / Malina / maliną / Maliną. SI porównuje najwyżej cztery formy. Alternatywy pozostają do wyboru także bez SI. Słowa rozpoznaje dekoder geometryczny. Kontekst pochodzi wyłącznie z bieżącego pola i zachowuje wielkość liter oraz interpunkcję. Hasła, pola prywatne, wyszukiwarki, adresy WWW i e-mail są pomijane. FP32 zużywał na telefonie testowym około 2,1 GiB pamięci całego procesu — to wersja eksperymentalna. Osobno zaimportuj zweryfikowany ZIP testowy FP32. Model i wpisywany kontekst nie trafiają do kopii zapasowych.</string>
     <string name="herbert_live_enable">SI w podpowiedziach (test)</string>
     <string name="herbert_live_absent">Brak zaimportowanego modelu. Działają podpowiedzi geometryczne.</string>
     <string name="herbert_live_off">SI wyłączona. Zaimportowany plik pozostaje dostępny.</string>

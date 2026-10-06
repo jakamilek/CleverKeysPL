@@ -1,5 +1,25 @@
 # Current work queue
 
+## Approved live case-family-v2 — 2026-10-06
+
+Maintainer reports positive live v1 behavior and missing capitalized instrumental Maliną.
+Actual authenticated v5 contains both malina/Malina and maliną/Maliną; no producer edits.
+Approved bounded extension: first decoded key plus one Polish same-fold key among first
+five decoder candidates, maximum four source surfaces. Fold only Polish diacritics;
+not proof of a common lemma. Alternatives are adjacent even when SI is off. Each surface
+keeps its own key's geometry/language/exact-case flag; remainder order unchanged.
+Original WWM mean-logp scoring, verified FP32 trust/native fixtures, one worker,
+32-word default/350ms and all stale/private/Shift/one-shot guards preserved.
+Registered actual-source/presentation, aligned reordering, four-form real-tokenizer feeds,
+precommit editor integration, SI-off and timeout/late-callback regressions added.
+No local Android/Kotlin toolchain: compilation/tests/lint/APK and phone quality/performance
+are pending fresh CI. Four-form latency/PSS is unmeasured; no production-quality claim.
+Historical v1 CI37512331919/37512337696 PASS; phone generally positive, not benchmark.
+Polish/base explanation updated; other locales remain translation backlog.
+Global dictionary coverage (nine reported absent keys), independent family quality,
+stationary BS timing preferences and punctuation SI remain later work.
+Guide: docs/HERBERT_LIVE_TRIAL_V1.md. Artifact identity now case-family-v2.
+
 ## Live CI repairs after run37510369362/37510378362 (2026-10-06)
 
 - [x] Android compilation and original native conformance PASS; standalone APK not uploaded.
@@ -431,4 +451,5 @@ Do not commit, tag, push, publish, or open external issues without explicit user
   findings and one low esbuild finding. These are recorded separately; the unchanged
   CI gate excludes unfixed findings. A newer npm http-cache-semantics release exists,
   but its repair of this advisory is not verified here.
+
 

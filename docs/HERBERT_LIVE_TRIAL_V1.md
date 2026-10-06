@@ -46,12 +46,36 @@ tekstu ani nie dodaje nieaktualnego słowa. Ta poprawka wymaga CI i próby telef
    100–1000 ms). Wyniki pomiaru Nubii: około 66–83 ms dla krótkich par,
    około 228 ms dla 32 słów i 328 ms dla 48 słów; nowa obsługa wymaga próby telefonu.
 
-SI porządkuje tylko dwie formy pierwszego słowa potwierdzone w metadanych
-słownika, np. `łódź` / `Łódź`. Nie dodaje wpisów do słownika, nie opisuje ręcznie
-znaczeń i nie zmienia wag geometrycznych ani innych słów. Obie formy pozostają
-na pierwszych dwóch miejscach. Jawny Shift, Caps Lock, kapitalizacja początku
-zdania i istniejąca preferencja pisowni mają pierwszeństwo. Interpunkcja SI
-i porządkowanie różnych słów są poza zakresem tej próby.
+## Rozszerzenie case-family-v2 — 2026-10-06
+
+SI porównuje najwyżej cztery potwierdzone formy z dwóch rozpoznanych kluczy,
+np. `malina / Malina / maliną / Maliną`. Do pierwszego klucza można dołączyć
+jeden z pierwszych pięciu kandydatów dekodera, jeżeli różni się wyłącznie
+polskimi znakami diakrytycznymi i należy do tego samego polskiego języka.
+Wszystkie pisownie muszą już istnieć w metadanych zaimportowanego słownika.
+Nie tworzymy odmian ani dodatkowych wpisów i nie przeszukujemy całego słownika.
+
+To zgrupowanie bliskich pisowni, a nie dowód wspólnego lematu: np. `laska`
+i `łaska` mają różne znaczenia, choć ich ścieżka na klawiaturze jest taka sama.
+SI może uporządkować tylko tę małą grupę. Każda forma zachowuje wagę swojego
+klucza dekodera, język i znacznik pisowni; pozostałe kandydatury zachowują
+kolejność. Wynik SI nie jest dodawany do wagi geometrycznej. Model nadal zwraca
+średni logarytm prawdopodobieństwa całego zamaskowanego słowa, bez zmiany
+normalizacji dla odmian o różnej liczbie tokenów. Jakość tej metody w grupach
+między różnymi kluczami wymaga osobnej oceny; testy algorytmu jej nie dowodzą.
+
+Również przy wyłączonej SI formy grupy pozostają obok siebie. Cztery formy nie
+zmieszczą się wszystkie w pierwszej trójce: celem testu jest poprawna forma w
+Top3. Brak `maliną` w pierwszych pięciu zdekodowanych kandydatach lub brak jej
+metadanych oznacza brak tej alternatywy w grupie. `łódź → łodzi` wymaga innych
+liter, więc nie jest objęte tym rozszerzeniem. Jawny Shift, Caps Lock,
+kapitalizacja początku zdania i zastosowana preferencja pisowni nadal wyłączają
+ranking SI. Interpunkcja SI pozostaje poza zakresem.
+
+Nie zmieniamy modelu, 32 słów kontekstu ani 350 ms oczekiwania. Poprzednie
+pomiary dotyczyły dwóch form; czas i PSS dla czterech nie zostały zmierzone na
+telefonie. Dłuższy kontekst może częściej kończyć się powrotem do kolejności
+bazowej. Ten powrót także zachowuje wszystkie formy grupy.
 
 Słowo jest wstawiane przez dotychczasową ścieżkę podpowiedzi po analizie lub po
 limicie czasu. Następne dotknięcie klawiatury kończy oczekiwanie i wstawia słowo
@@ -89,6 +113,10 @@ dotychczasowe. Oddzielne ustawienia tych czasów pozostają na liście dalszych 
 
 - W środku zdania: `Na jeziorze płynie łódź`, `Naszym celem podróży jest Łódź`;
   sprawdź parę na pasku i zastąpienie pierwszej formy drugą bez utraty tekstu.
+- `Jutro będę widział się z Maliną`, `Ciasto smakuje maliną`,
+  `Rozmawiałem z Maliną o pracy`, `To jest świeża malina`: maznij ostatnie słowo
+  i oceń poprawną formę w pierwszej trójce. Zapisz osobno słowo wstawione i
+  kolejność na pasku. Porównaj z wyłączoną SI; alternatywy mają pozostać.
 - Analogicznie `malina / Malina`, `warszawska / Warszawska`, `łodzi / Łodzi`,
   jeżeli bieżący pakiet zawiera potwierdzone pary. Brak pary oznacza brak analizy SI.
 - Wprowadź kolejny gest szybko, użyj BS, Shift, kropek, przenieś kursor,

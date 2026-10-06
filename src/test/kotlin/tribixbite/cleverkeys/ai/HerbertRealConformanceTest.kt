@@ -36,4 +36,28 @@ class HerbertRealConformanceTest {
         assertEquals(532, vectors.sumOf { it.batch.size })
         println("HerBERT original conformance: 2471 token vectors; 232 batches / 532 candidates / five inputs PASS")
     }
+
+    @Test fun fourFamilySurfacesHaveTheSameUnpaddedFeedsAsSeparateOriginalTokenizerRequests() {
+        val tokenizer = ByteArrayInputStream(bytes("portable-tokenizer.json")).reader(Charsets.UTF_8).use { HerbertTokenizer.parse(it) }
+        val forms = listOf("malina", "Malina", "maliną", "Maliną")
+        val batch = tokenizer.prepare("Jutro będę widział się z ", forms, 32)
+        assertEquals(4, batch.size)
+        assertEquals(forms, batch.surfaces)
+        for ((row, surface) in forms.withIndex()) {
+            val single = tokenizer.prepare("Jutro będę widział się z ", listOf(surface), 32)
+            val ids = batch.inputIds(); val attention = batch.attentionMask()
+            val active = (0 until batch.sequence).filter { attention[row * batch.sequence + it] == 1L }
+                .map { ids[row * batch.sequence + it] }.toLongArray()
+            assertArrayEquals(single.inputIds(), active)
+            val mask = batch.targetMask(); val target = batch.targetTokenIds()
+            val indices = (0 until batch.targets).filter { mask[row * batch.targets + it] == 1f }
+            val targetIds = indices.map { target[row * batch.targets + it] }.toLongArray()
+            assertArrayEquals(tokenizer.encode(surface), targetIds)
+            assertArrayEquals(single.targetTokenIds(), targetIds)
+            assertArrayEquals(single.targetPositions(), indices.map {
+                batch.targetPositions()[row * batch.targets + it]
+            }.toLongArray())
+            assertTrue(indices.isNotEmpty())
+        }
+    }
 }

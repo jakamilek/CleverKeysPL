@@ -5,6 +5,45 @@ import org.junit.Test
 import tribixbite.cleverkeys.SwipeSurfaceVariants
 
 class LanguageIntelligenceTest {
+    private fun familyProvider(): LanguageIntelligenceProvider = IntelligenceJson.parse(
+        javaClass.getResource("/polish-surface-family-v5.json")!!.readText(Charsets.UTF_8).reader(),
+        "pl", 5, setOf("capitalization", "metadata"))
+
+    @Test fun decodedDiacriticAlternativeExpandsUsingActualV5SourceAndKeepsBothWeights() {
+        val data = familyProvider()
+        assertTrue(data.lookup("maliną")!!.metadataJson!!.contains("Malina:Sf"))
+        val slate = SwipeSurfaceVariants.expand(listOf("Malina", "mamoną", "maliną", "Maliną"),
+            listOf(220, 190, 160, 150), listOf("pl", "pl", "pl", "pl"), data, false, false)
+        assertEquals(listOf("Malina", "malina", "maliną", "Maliną", "mamoną"), slate.words)
+        assertEquals(listOf(220, 220, 160, 160, 190), slate.scores)
+        assertEquals(listOf(true, true, true, true, false), slate.exactCase)
+        assertEquals(List(5) { "pl" }, slate.languages)
+    }
+
+    @Test fun groupNeverInventsMissingDecodedOrSourceFormsAndIgnoresAnotherLanguage() {
+        val data = familyProvider()
+        assertEquals(listOf("malina", "Malina", "mamoną"), SwipeSurfaceVariants.expand(
+            listOf("malina", "mamoną"), listOf(100, 90), null, data, false, false).words)
+        assertEquals(listOf("malina", "Malina", "maliną"), SwipeSurfaceVariants.expand(
+            listOf("malina", "maliną"), listOf(100, 90), listOf("pl", "en"), data, false, false).words)
+        assertEquals(listOf(true, true, false), SwipeSurfaceVariants.expand(
+            listOf("malina", "maliną"), listOf(100, 90), null, provider(), false, false).exactCase)
+        assertEquals(listOf("malina", "maliną"), SwipeSurfaceVariants.expand(
+            listOf("malina", "maliną"), listOf(100, 90), null, null, false, false).words)
+    }
+
+    @Test fun searchAndSurfaceBoundsKeepOtherDecodedKeysInTheirExistingOrder() {
+        val data = familyProvider()
+        val bounded = SwipeSurfaceVariants.expand(listOf("laska", "łaska", "laską", "łaską"),
+            listOf(100, 90, 80, 70), null, data, false, false)
+        assertEquals(listOf("laska", "Laska", "łaska", "Łaska", "laską", "łaską"), bounded.words)
+        assertEquals(listOf(true, true, true, true, false, false), bounded.exactCase)
+        assertEquals(listOf(100, 100, 90, 90, 80, 70), bounded.scores)
+        val far = listOf("malina", "kot", "dom", "pies", "mamoną", "maliną")
+        assertEquals(listOf("malina", "Malina") + far.drop(1), SwipeSurfaceVariants.expand(
+            far, listOf(100, 90, 80, 70, 60, 50), null, data, false, false).words)
+    }
+
     private fun provider(json: String = fixture()): LanguageIntelligenceProvider =
         IntelligenceJson.parse(json.reader(), "pl", 3, setOf("capitalization", "metadata"))
 

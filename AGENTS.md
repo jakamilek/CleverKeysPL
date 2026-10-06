@@ -123,9 +123,14 @@ add and editor/cursor/prediction consistency guards are unconditional fixes, not
 
 ## 6. Polish contextual SI preparation (2026-10-04)
 
-Canonical spec: docs/specs/polish-context-ai.md. Prepared ai/HerbertCasePolicy,
-HerbertPreparedBatch and real HerbertOnnxScorer are not yet wired into the IME.
-Geometric stays the decoder; first live scope is source-confirmed case-pair order only.
+Canonical spec: docs/specs/polish-context-ai.md. The maintainer-authorized opt-in
+live trial uses HerbertLiveRuntime and the original verified HerbertOnnxScorer.
+Geometric stays the decoder. The approved case-family-v2 scope is at most two
+already decoded Polish keys among the first five, identical after Polish diacritic
+folding, and at most four source-confirmed surfaces. Folding is not lemma evidence.
+Never invent inflections or scan the dictionary for undeclared decoder alternatives.
+Keep each key's weight/language/exact-case flags aligned when the group moves;
+outside candidates retain their order. Family presentation also works without SI.
 Use a separate bounded live editor context preserving case/punctuation, never the
 lowercase two-word PredictionContextTracker history. Preserve all source variants,
 keys/scores/languages and the single SuggestionHandler presentation/commit pipeline.

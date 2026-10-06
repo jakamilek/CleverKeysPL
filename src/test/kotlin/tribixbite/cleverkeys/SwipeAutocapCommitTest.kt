@@ -4,7 +4,7 @@ import android.os.Handler
 import android.view.inputmethod.ExtractedText
 import android.view.inputmethod.ExtractedTextRequest
 import tribixbite.cleverkeys.ai.HerbertLiveRuntime
-import tribixbite.cleverkeys.ai.HerbertCasePair
+import tribixbite.cleverkeys.ai.HerbertFormGroup
 import tribixbite.cleverkeys.langpack.*
 import io.mockk.*
 import android.content.res.Resources
@@ -61,6 +61,7 @@ class SwipeAutocapCommitTest {
     /** The words the handler last pushed to the bar; getTopSuggestion answers from it. */
     private var barWords: List<String> = emptyList()
     private var barMetas: List<SuggestionMeta> = emptyList()
+    private var barScores: List<Int> = emptyList()
 
     @Before
     fun setup() {
@@ -97,11 +98,13 @@ class SwipeAutocapCommitTest {
         barWords = emptyList()
         bar = mockk(relaxed = true)
         barMetas = emptyList()
+        barScores = emptyList()
         every { bar.getMetaForSuggestion(any()) } answers {
             barMetas.getOrNull(barWords.indexOf(firstArg<String>()))
         }
         every { bar.setSuggestionsWithScores(any(), any(), any()) } answers {
             barWords = firstArg<List<String>>().toList()
+            barScores = secondArg<List<Int>>().toList()
             barMetas = thirdArg<List<SuggestionMeta>>().toList()
         }
         every { bar.getTopSuggestion() } answers { barWords.firstOrNull() }
@@ -157,7 +160,7 @@ class SwipeAutocapCommitTest {
         )
     }
 
-    private fun liveFixture(): Pair<SuggestionHandler, EditorInfo> {
+    private fun liveFixture(family: Boolean = false): Pair<SuggestionHandler, EditorInfo> {
         config.herbert_live_enabled = true
         config.herbert_context_words = 32
         config.herbert_wait_ms = 350
@@ -165,7 +168,9 @@ class SwipeAutocapCommitTest {
         config.auto_space_before_suggestion = true
         config.edit_behavior = EditBehaviorOptions()
         every { dictionary.getCurrentLanguage() } returns "pl"
-        val provider = LanguageIntelligenceProvider(IntelligencePackageInfo("pl", 5, null),
+        val provider = if (family) IntelligenceJson.parse(
+            javaClass.getResource("/polish-surface-family-v5.json")!!.readText(Charsets.UTF_8).reader(),
+            "pl", 5, setOf("capitalization", "metadata")) else LanguageIntelligenceProvider(IntelligencePackageInfo("pl", 5, null),
             setOf("capitalization"), mapOf("łódź" to LanguageIntelligence("łódź", null,
                 CapitalizationInfo("łódź", listOf(SurfaceVariant("łódź", "lower"), SurfaceVariant("Łódź", "title"))), null)))
         every { dictionary.getLanguageIntelligenceProvider("pl") } returns provider
@@ -186,6 +191,58 @@ class SwipeAutocapCommitTest {
         every { HerbertLiveRuntime.revision } returns 7L
         every { HerbertLiveRuntime.noteResult(any()) } just Runs
         return h to info
+    }
+
+    private fun familySwipe(h: SuggestionHandler, info: EditorInfo) {
+        h.handleSwipePredictionResults(listOf("Malina", "maliną", "mamoną"), listOf(220, 160, 150),
+            ic, info, resources, false, false, inputCoordinator, SuggestionOrigin.GEOMETRIC)
+    }
+
+    @Test fun liveFamilyRanksFourActualSourceFormsAndCommitsInstrumentalNameOnce() {
+        val (h, info) = liveFixture(family = true)
+        var complete: ((Map<String, Float>?, Long) -> Unit)? = null
+        every { HerbertLiveRuntime.rank(any(), any(), any(), any()) } answers {
+            assertWithMessage("source group sent to worker").that(arg<HerbertFormGroup>(1).surfaces)
+                .containsExactly("Malina", "malina", "maliną", "Maliną").inOrder()
+            complete = arg(3); true
+        }
+        familySwipe(h, info)
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+        complete!!(mapOf("Malina" to -6f, "malina" to -8f, "maliną" to -3f, "Maliną" to -1f), 7L)
+        verify(exactly = 1) { ic.commitText("Maliną ", 1) }
+        assertWithMessage("all alternatives survive").that(barWords)
+            .containsExactly("Maliną", "maliną", "Malina", "malina", "mamoną").inOrder()
+        assertWithMessage("each word keeps its decoder score").that(barScores)
+            .containsExactly(160, 160, 220, 220, 150).inOrder()
+        complete!!(mapOf("Malina" to -1f, "malina" to -8f, "maliną" to -3f, "Maliną" to -6f), 7L)
+        verify(exactly = 1) { ic.commitText(any(), any()) }
+    }
+
+    @Test fun familyAlternativesRemainAvailableWithoutLiveSI() {
+        val (h, info) = liveFixture(family = true)
+        config.herbert_live_enabled = false
+        familySwipe(h, info)
+        verify(exactly = 0) { HerbertLiveRuntime.rank(any(), any(), any(), any()) }
+        verify(exactly = 1) { ic.commitText("Malina ", 1) }
+        assertWithMessage("no SI needed to offer the source forms").that(barWords)
+            .containsExactly("Malina", "malina", "maliną", "Maliną", "mamoną").inOrder()
+    }
+
+    @Test fun familyDeadlineFallsBackOnceAndLateCallbackCannotReplaceText() {
+        val (h, info) = liveFixture(family = true)
+        val timeout = slot<Runnable>()
+        val main = mockk<Handler>(relaxed = true)
+        h.setField("mainHandler", main)
+        every { main.postDelayed(capture(timeout), any<Long>()) } returns true
+        var complete: ((Map<String, Float>?, Long) -> Unit)? = null
+        every { HerbertLiveRuntime.rank(any(), any(), any(), any()) } answers { complete = arg(3); true }
+        familySwipe(h, info)
+        timeout.captured.run()
+        complete!!(mapOf("Malina" to -6f, "malina" to -8f, "maliną" to -3f, "Maliną" to -1f), 7L)
+        verify(exactly = 1) { ic.commitText("Malina ", 1) }
+        verify(exactly = 1) { ic.commitText(any(), any()) }
+        assertWithMessage("fallback retains the four choices").that(barWords.take(4))
+            .containsExactly("Malina", "malina", "maliną", "Maliną").inOrder()
     }
 
     private fun liveSwipe(h: SuggestionHandler, info: EditorInfo, shift: Boolean = false) {
