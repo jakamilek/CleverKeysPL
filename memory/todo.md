@@ -1,5 +1,18 @@
 # Current work queue
 
+## Live CI repairs after run37510369362/37510378362 (2026-10-06)
+
+- [x] Android compilation and original native conformance PASS; standalone APK not uploaded.
+- [x] BS45, pointers26, haptic dispatch1 and editor/source mocks PASS (159 total).
+- [ ] Full pure suite: old signature scanners fixed (2857 run, 2 FAIL before fix).
+- [ ] Learning mock fixture primary language populated; password no-space expectation corrected.
+  29 run/19 FAIL before fix, 18 null-language failures; rerun required.
+- [x] Live pure gate now has explicit pipefail; earlier tee masked nonzero Gradle.
+- [x] site source-map-js resolved1.2.2 with registry/archive SHA512 verification and mapping smoke.
+- [ ] Fresh Trivy, all pure/mock/lint/APK gates and phone check still pending.
+- Evidence: docs/HERBERT_LIVE_CI_2026-10-06.md. Do not claim overall CI/APK ready.
+
+
 ## Immediate typed-autocorrect BS restore (2026-10-06)
 
 - First short BS after a verified typed correction restores original + kept space, including default character mode.

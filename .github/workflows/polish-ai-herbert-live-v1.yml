@@ -30,6 +30,7 @@ jobs:
         run: bash scripts/gradle-guard.sh compileDebugKotlin --stacktrace
       - name: Run registered pure regression suites
         run: |
+          set -euo pipefail
           bash scripts/gradle-guard.sh runPureTests --stacktrace | tee build/herbert-live-pure-tests.txt
           python3 - <<'PY'
           from pathlib import Path

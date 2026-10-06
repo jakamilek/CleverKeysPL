@@ -235,7 +235,7 @@ class BackspaceUndoTest {
         val source = readSource("KeyEventHandler.kt")
         val methodStart = source.indexOf("private fun handleBackspaceUndoSwipe()")
         assertThat(methodStart).isGreaterThan(-1)
-        val methodEnd = source.indexOf("private fun handleBackspaceUndoAutocorrect()")
+        val methodEnd = source.indexOf("private fun handleBackspaceUndoAutocorrect(")
         assertThat(methodEnd).isGreaterThan(methodStart)
         val methodBody = source.substring(methodStart, methodEnd)
         // Must not call recv.wasLastInputSwipe() as executable code (comments are ok)
@@ -249,11 +249,12 @@ class BackspaceUndoTest {
     @Test
     fun `handleBackspaceUndoAutocorrect method exists`() {
         val source = readSource("KeyEventHandler.kt")
-        assertThat(source).contains("private fun handleBackspaceUndoAutocorrect(): Boolean")
+        assertThat(source).contains("private fun handleBackspaceUndoAutocorrect(")
     }
 
     // Historical symbol retained. Character deletion is the default; optional undo
-    // requires an explicit tap-mode choice, never the legacy true/true checkboxes.
+    // requires an explicit tap-mode choice except for an immediately verified typed correction.
+    // The legacy true/true checkboxes never select a mode.
     @Test
     fun `backspace tap bypasses legacy undo interceptors`() {
         val source = readSource("KeyEventHandler.kt")

@@ -93,6 +93,7 @@ class LearningFunnelBookkeepingTest {
         // Config's prefs are @JvmField, so a relaxed mock stores real values here.
         mockkObject(Config.Companion)
         config = mockk(relaxed = true)
+        config.primary_language = "en"
         config.on_device_learning_enabled = true
         config.context_aware_predictions_enabled = true
         config.personalized_learning_enabled = true
@@ -694,8 +695,8 @@ class LearningFunnelBookkeepingTest {
 
         swipe("hunter", "hunted", field = passwordField())
 
-        assertWithMessage("the swipe still commits (user opted in)")
-            .that(editor.toString()).isEqualTo("hunter ")
+        assertWithMessage("opted-in password swipe commits without automatic spacing")
+            .that(editor.toString()).isEqualTo("hunter")
         assertWithMessage("learn window").that(learnWindow()).isEmpty()
         assertWithMessage("session context").that(tracker.getContextWords()).isEmpty()
         verify(exactly = 0) { personalization.recordWordTyped(any(), any()) }
