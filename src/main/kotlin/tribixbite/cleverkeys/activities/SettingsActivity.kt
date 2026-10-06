@@ -665,6 +665,7 @@ class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPreferen
             // ===== Hand-maintained NON-control entries (activity navigation, FAQ) =====
             // Titles are the screens' own string resources, so they read exactly like the
             // screen they open, in the UI language.
+            searchEntry(R.string.herbert_live_title, listOf("si", "ai", "herbert", "kontekst", "context", "model"), "activities", HerbertLiveActivity::class.java),
             searchEntry(R.string.activities_theme_title, listOf("color", "dark mode", "light", "appearance", "theme"), "activities", ThemeSettingsActivity::class.java),
             searchEntry(R.string.activities_dictionary_title, listOf("words", "custom", "disabled", "vocabulary"), "activities", DictionaryManagerActivity::class.java),
             searchEntry(R.string.activities_layout_title, listOf("keyboard layout", "qwerty", "azerty"), "activities", LayoutManagerActivity::class.java),

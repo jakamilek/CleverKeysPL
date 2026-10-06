@@ -15,7 +15,7 @@ import java.security.MessageDigest
 /**
  * Actual CPU ONNX implementation of the frozen WWM graph. Call only on a dedicated worker.
  * No logging or editor access. Close is serialized with inference; the global environment
- * is borrowed and never closed here. Deliberately not wired into the live suggestion path yet.
+ * is borrowed and never closed here. Live trial uses the same verified graph and scoring contract.
  */
 internal class HerbertOnnxScorer private constructor(
     private val environment: OrtEnvironment,

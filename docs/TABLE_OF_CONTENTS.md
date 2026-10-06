@@ -1,3 +1,5 @@
+# Current Polish trial: [HerBERT live SI and BS haptics](HERBERT_LIVE_TRIAL_V1.md) — 2026-10-06, CI/phone pending; then global swipe dictionary coverage.
+
 # CleverKeys Documentation - Table of Contents
 
 Trial v15: [New-word suggestion viewport](wiki/specs/settings/input-behavior-spec.md#polish-trial-v15--new-word-suggestion-viewport).

@@ -1281,7 +1281,7 @@ class Pointers(
         ptr.backspaceMode = if (drag) BackspaceGesture.Mode.DRAG else BackspaceGesture.Mode.WORD_PREVIEW
         ptr.backspaceMotion = SliderMotion(ptr.downX, ptr.downY, ptr.snap.slide_step_px,
             ptr.snap.slider_speed_smoothing, ptr.snap.slider_speed_max)
-        _handler.onPointerFlagsChanged(HapticEvent.TRACKPOINT_ACTIVATE)
+        _handler.onPointerFlagsChanged(if (drag) HapticEvent.TRACKPOINT_ACTIVATE else null)
         if (!drag) scheduleBackspaceRepeat(ptr, BackspaceGesture.WORD_PREVIEW_MS)
         return true
     }

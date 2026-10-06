@@ -1,5 +1,18 @@
 # Current work queue
 
+## Current priority — HerBERT live test and BS haptics (2026-10-06)
+
+- User explicitly authorizes isolated original HerBERT FP32 live case-pair test; SI default off.
+- Implementation and phone steps: docs/HERBERT_LIVE_TRIAL_V1.md; branch trial/herbert-live-v1.
+- [ ] Mandatory Android compilation, pure original-tokenizer conformance, editor/BS/mock/lint/APK CI.
+- [ ] Phone: pair choice, next-touch/timeout fallback, stale edits, private/search skip, BS haptic gates.
+- [ ] After app preparation, return to GLOBAL swipe dictionary coverage: dodam, grzeje, kasami,
+  nawilżane, odpowiadam, patrzysz, poczekaj, podpowie, pozdrawiam. Exact producer drop causes pending.
+- High FP32 PSS and historical INT8 / distilHerBERT safe-margin quality failures remain evidence;
+  no production promotion, no release/version change. Earlier v3 queue below is historical.
+- [ ] Other locales: translate all 14 herbert_live.xml keys later; Polish/base complete, no native review.
+- Three stationary BS timing preferences remain later work, without changing accepted space-like drag.
+
 ## Fresh Polish case v3 launched (2026-10-05)
 
 - Frozen producer c1e9d3a7895f2a380bc75772985c88a53db32a4b, branch experiment/polish-mlm-fresh-v3,

@@ -1,6 +1,6 @@
 # Feature specification: Polish contextual SI
 
-**Priority:** P1. **Status:** phase-v2 CI/native PASS; v1 DistilRoBERTa rejected; smaller MLM v2 technically PASS; distilHerBERT exploratory case candidate with mixed quality; fresh case v3 launched, license review deferred by maintainer.
+**Priority:** P1. **Status:** maintainer authorizes isolated HerBERT FP32 live trial v1 plus BS haptics on 2026-10-06; CI and phone verification pending. Historical failed quality/INT8 gates remain failed.
 **Target version:** isolated trial, no release/version change. Created 2026-10-04.
 
 ## Overview and motivation
@@ -468,3 +468,40 @@ License review explicitly deferred by maintainer; not a license grant, no weight
 No ONNX/APK/live dispatcher/punctuation/default32 change; previous INT8 FAIL immutable.
 After user reports completion: verify complete artifacts, recompute exact collector and inspect regressions.
 Then assess whether export/native phone performance is justified; <=60s TOTAL Actions monitoring.
+
+## Maintainer-authorized live trial v1 (2026-10-06)
+
+Current explicit instruction supersedes the earlier preparation-only / smaller-model-next
+sequence for this isolated test. [Phone instructions and scope](../HERBERT_LIVE_TRIAL_V1.md).
+HerbertLiveRuntime owns trusted persistent noBackup staging, hash checks, all original
+2471 tokenizer and 232/532 five-input/native-score/rank conformance, one serial worker,
+score/open/close/delete ownership and process-local counts with no editor strings.
+The immutable original benchmark-only manifest remains unchanged; no production readiness
+or passing INT8/distilHerBERT margin gates is claimed.
+
+SuggestionHandler dispatches only the first source-backed geometric case pair before
+its single presentation/commit continuation. Geometric weights, other words, languages,
+exact-case flags and provenance stay aligned. Editor/session/revision/selection/context,
+provider snapshot, settings and model generation are rechecked. Shift/caps/sentence and
+user case preferences win. Pending results resolve exactly once; deadline or next keyboard
+touch uses baseline, a stale editor drops the request. Harmless editor callbacks flush
+baseline before invalidation, preventing pending swipe loss. No retroactive replacement.
+Excluded fields are rejected before context capture. Native work never runs on the UI thread.
+
+Opt-in defaults: herbert_live_enabled=false, herbert_context_words=32 (1..64 bounded read;
+UI 16/32/64), herbert_wait_ms=350 (100..1000). The deadline follows the measured Nubia
+32/64 p95 of 229/329 ms and is experimental, not an unmeasured responsiveness claim.
+Typed settings backup/defaults/ranges, navigation search and scoped reset are implemented.
+Polish/base trial strings are complete; new other-locale translations remain deferred.
+
+BS word preview and successful selection deletion use dedicated HapticEvents through
+VibratorCompat, gated by the existing master + long-press toggles/custom duration.
+Success feedback follows editor acceptance, including timed repeat and release, never
+cancel/refusal; haptic failure does not abort editing. Character dragging retains v13 motion.
+Registered tests cover one-shot order/deadline/stale identities, actual swipe continuation,
+next-touch fallback, editor/field protection and real BS/feedback dispatch. CI compile,
+original tokenizer conformance, editor/pointer/BS tests, lint and APK audit are required;
+only local XML/Polish format/YAML/Python syntax checks have run here. No local SDK.
+
+Next after app preparation: global swipe dictionary coverage, nine reported absent keys;
+not manual exceptions. No merge, release, tag or application version changes.

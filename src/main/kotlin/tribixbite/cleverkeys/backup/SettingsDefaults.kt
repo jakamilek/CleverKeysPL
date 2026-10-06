@@ -44,6 +44,9 @@ import tribixbite.cleverkeys.Defaults
  *     stringly-typed values for backwards compat with legacy XML prefs).
  */
 internal val SETTINGS_DEFAULTS: Map<String, PrefValue> = mapOf(
+    "herbert_live_enabled" to PrefValue.Bool(Defaults.HERBERT_LIVE_ENABLED),
+    "herbert_context_words" to PrefValue.IntV(Defaults.HERBERT_CONTEXT_WORDS),
+    "herbert_wait_ms" to PrefValue.IntV(Defaults.HERBERT_WAIT_MS),
     "backspace_tap_mode" to PrefValue.IntV(Defaults.BACKSPACE_TAP_MODE),
     "backspace_hold_select" to PrefValue.Bool(Defaults.BACKSPACE_HOLD_SELECT),
     "backspace_release_delete" to PrefValue.Bool(Defaults.BACKSPACE_RELEASE_DELETE),

@@ -292,6 +292,8 @@ object SettingsValidation {
      * accepted unchanged, matching the legacy validator's `else -> true`.
      */
     private val INT_RANGES: Map<String, IntRange> = buildMap {
+        put("herbert_context_words", 1..64)
+        put("herbert_wait_ms", 100..1000)
         put("backspace_tap_mode", EditBehaviorRanges.BACKSPACE_TAP_MODE)
         // CTC beam width. Bounds mirror CtcEngineAdapter's own coerceIn(10, 300) at read
         // time, so a hostile or hand-edited backup cannot smuggle a value the engine will
@@ -484,6 +486,7 @@ object SettingsValidation {
      * type-mismatch detection when a Bool is passed for an int-allowlisted key).
      */
     private fun isIntKey(key: String): Boolean = when (key) {
+        "herbert_context_words", "herbert_wait_ms" -> true
         "backspace_tap_mode" -> true
         "label_brightness", "keyboard_opacity", "key_opacity",
         "key_activated_opacity", "suggestion_bar_opacity",

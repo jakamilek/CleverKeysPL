@@ -66,6 +66,47 @@ class BackspaceHoldTest {
         handler.selection_updated(11, a, 11, b)
     }
 
+    @Test fun wordFeedbackFollowsAcceptedPreviewAndDeletionIncludingRelease() {
+        val events = mutableListOf<HapticEvent>()
+        handler.backspaceHaptic = { events.add(it) }
+        assertTrue(handler.beginBackspaceHold())
+        assertEquals(listOf(HapticEvent.BACKSPACE_WORD_SELECT), events)
+        assertTrue(handler.deleteBackspaceHoldWord())
+        assertTrue(handler.previewPreviousBackspaceWord())
+        handler.finishBackspaceHold(true)
+        assertEquals(listOf(HapticEvent.BACKSPACE_WORD_SELECT, HapticEvent.BACKSPACE_WORD_DELETE,
+            HapticEvent.BACKSPACE_WORD_SELECT, HapticEvent.BACKSPACE_WORD_DELETE), events)
+        assertEquals("", text)
+    }
+
+    @Test fun failedOrCancelledEditorOperationsHaveNoSuccessFeedback() {
+        val events = mutableListOf<HapticEvent>()
+        handler.backspaceHaptic = { events.add(it) }
+        every { conn.setSelection(any(), any()) } returns false
+        assertFalse(handler.beginBackspaceHold())
+        assertTrue(events.isEmpty())
+        every { conn.setSelection(any(), any()) } answers { a = firstArg(); b = secondArg(); true }
+        assertTrue(handler.beginBackspaceHold())
+        handler.finishBackspaceHold(false)
+        assertEquals(listOf(HapticEvent.BACKSPACE_WORD_SELECT), events)
+        assertTrue(handler.beginBackspaceHold())
+        every { conn.commitText(any(), any()) } returns false
+        assertFalse(handler.deleteBackspaceHoldWord())
+        assertEquals(2, events.size)
+        assertTrue(events.all { it == HapticEvent.BACKSPACE_WORD_SELECT })
+    }
+
+    @Test fun dragHasNoWordPreviewTickAndFeedbackFailureCannotStopDeletion() {
+        val events = mutableListOf<HapticEvent>()
+        handler.backspaceHaptic = { events.add(it); throw IllegalStateException("feedback") }
+        assertTrue(handler.beginBackspaceDrag())
+        assertTrue(events.isEmpty())
+        assertTrue(handler.stepBackspaceHold(-1))
+        handler.finishBackspaceHold(true)
+        assertEquals(listOf(HapticEvent.BACKSPACE_WORD_DELETE), events)
+        assertEquals("olej mleko", text)
+    }
+
     @Test fun diagnosticsExplainReleaseBlockedByChangedConnectionWithoutEditorText() {
         val trace = mutableListOf<String>()
         handler.backspaceTrace = { trace.add(it) }

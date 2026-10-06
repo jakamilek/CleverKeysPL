@@ -17,6 +17,9 @@ import tribixbite.cleverkeys.prefs.LayoutsPreference
  * Both Config.kt and SettingsActivity.kt should reference these constants.
  */
 object Defaults {
+    const val HERBERT_LIVE_ENABLED = false
+    const val HERBERT_CONTEXT_WORDS = 32
+    const val HERBERT_WAIT_MS = 350
     const val BACKSPACE_TAP_MODE = 0
     const val BACKSPACE_HOLD_SELECT = true
     const val BACKSPACE_RELEASE_DELETE = true
@@ -677,6 +680,9 @@ class Config private constructor(
     @JvmField var swipe_show_debug_scores = false
     @JvmField var suggestion_provenance_markers = false // Opt-in origin markers in the suggestion bar (audit §2.3 Tier 2)
     @JvmField var show_exact_typed_word = true  // #42: Tap-to-add exact typed word to dictionary
+    @JvmField var herbert_live_enabled = Defaults.HERBERT_LIVE_ENABLED
+    @JvmField var herbert_context_words = Defaults.HERBERT_CONTEXT_WORDS
+    @JvmField var herbert_wait_ms = Defaults.HERBERT_WAIT_MS
     @JvmField var word_prediction_enabled = false
     @JvmField var suggestion_bar_opacity = 0
 
@@ -1082,6 +1088,9 @@ class Config private constructor(
         termux_mode_enabled = _prefs.getBoolean("termux_mode_enabled", Defaults.TERMUX_MODE_ENABLED)
         auto_space_after_suggestion = _prefs.getBoolean("auto_space_after_suggestion", Defaults.AUTO_SPACE_AFTER_SUGGESTION)
         auto_space_before_suggestion = _prefs.getBoolean("auto_space_before_suggestion", Defaults.AUTO_SPACE_BEFORE_SUGGESTION)
+        herbert_live_enabled = safeGetBoolean(_prefs, "herbert_live_enabled", Defaults.HERBERT_LIVE_ENABLED)
+        herbert_context_words = safeGetInt(_prefs, "herbert_context_words", Defaults.HERBERT_CONTEXT_WORDS).coerceIn(1, 64)
+        herbert_wait_ms = safeGetInt(_prefs, "herbert_wait_ms", Defaults.HERBERT_WAIT_MS).coerceIn(100, 1000)
         edit_behavior = readEditBehaviorPreferences(_prefs)
         swipe_debug_detailed_logging = _prefs.getBoolean("swipe_debug_detailed_logging", Defaults.SWIPE_DEBUG_DETAILED_LOGGING)
         // L1: canonicalize case at read — an imported/hand-edited "CTC" must drive the

@@ -114,6 +114,11 @@ class KeyEventHandler(
         backspaceHold = null
     }
 
+    internal var backspaceHaptic: ((HapticEvent) -> Unit)? = null
+    private fun confirmBackspace(event: HapticEvent) {
+        try { backspaceHaptic?.invoke(event) } catch (_: Exception) { /* Feedback cannot abort editing. */ }
+    }
+
     override fun beginBackspaceHold(): Boolean = beginBackspaceSelection(previewWord = true)
 
     override fun beginBackspaceDrag(): Boolean = beginBackspaceSelection(previewWord = false)
@@ -154,6 +159,7 @@ class KeyEventHandler(
                 traceBackspace("begin blocked: setSelection refused"); backspaceHold = null; return false
             }
             traceBackspace("begin accepted: anchor=$anchor start=${base + start} length=${before.length - start}")
+            if (previewWord && start < before.length) confirmBackspace(HapticEvent.BACKSPACE_WORD_SELECT)
             cursorWordCapitalization.disarm()
             lastTypedChar = '\u0000'
             try { autocap.stop() } catch (_: Exception) { /* Keep the preview owned. */ }
@@ -250,6 +256,7 @@ class KeyEventHandler(
                 backspaceHold = s
                 return false
             }
+            confirmBackspace(HapticEvent.BACKSPACE_WORD_SELECT)
             traceHold(next, "repeat word preview: length=${before.length - start}")
             true
         } catch (e: Exception) {
@@ -282,6 +289,7 @@ class KeyEventHandler(
             val accepted = s.connection.commitText("", 1)
             traceBackspace("release commitText accepted=$accepted length=${deleted.length}")
             if (!accepted) { backspaceHold = null; return false }
+            confirmBackspace(HapticEvent.BACKSPACE_WORD_DELETE)
             noteEditorTextMutation(s.connection)
             recv.setLastSpaceAutoInserted(false)
             recv.clearSwipeUndoState()

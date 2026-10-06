@@ -643,6 +643,8 @@ class CleverKeysService : InputMethodService(),
     }
 
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
+        if (::_suggestionHandler.isInitialized) _suggestionHandler.onEditorCursorChanged()
+        tribixbite.cleverkeys.ai.HerbertLiveRuntime.configure(this, _config?.herbert_live_enabled == true)
         traceBackspaceGesture("LIFECYCLE start restarting=$restarting")
         // NOTE: Config refresh is handled by SharedPreferences listener (onSharedPreferenceChanged)
         // We only do initial config load here if config is completely null (shouldn't happen normally)
@@ -839,6 +841,7 @@ class CleverKeysService : InputMethodService(),
         candidatesEnd: Int
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        if (::_suggestionHandler.isInitialized) _suggestionHandler.onEditorCursorChanged()
         _keyeventhandler.selection_updated(oldSelStart, newSelStart, oldSelEnd, newSelEnd)
         if ((oldSelStart == oldSelEnd) != (newSelStart == newSelEnd)) {
             _keyboardView.set_selection_state(newSelStart != newSelEnd)
@@ -857,6 +860,10 @@ class CleverKeysService : InputMethodService(),
         } else {
             _inputCoordinator.cancelPendingCursorSync()
         }
+    }
+
+    fun flushPendingHerbertSwipe() {
+        if (::_suggestionHandler.isInitialized) _suggestionHandler.flushPendingHerbertSwipe()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {

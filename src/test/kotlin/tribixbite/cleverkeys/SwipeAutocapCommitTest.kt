@@ -1,5 +1,12 @@
 package tribixbite.cleverkeys
 
+import android.os.Handler
+import android.view.inputmethod.ExtractedText
+import android.view.inputmethod.ExtractedTextRequest
+import tribixbite.cleverkeys.ai.HerbertLiveRuntime
+import tribixbite.cleverkeys.ai.HerbertCasePair
+import tribixbite.cleverkeys.langpack.*
+import io.mockk.*
 import android.content.res.Resources
 import android.text.InputType
 import android.text.TextUtils
@@ -148,6 +155,90 @@ class SwipeAutocapCommitTest {
             listOf("bowie", "bowls"), listOf(100, 90), ic, editorInfo, resources,
             shiftActive, shiftLocked, inputCoordinator
         )
+    }
+
+    private fun liveFixture(): Pair<SuggestionHandler, EditorInfo> {
+        config.herbert_live_enabled = true
+        config.herbert_context_words = 32
+        config.herbert_wait_ms = 350
+        config.autocapitalisation = false
+        config.auto_space_before_suggestion = true
+        config.edit_behavior = EditBehaviorOptions()
+        every { dictionary.getCurrentLanguage() } returns "pl"
+        val provider = LanguageIntelligenceProvider(IntelligencePackageInfo("pl", 5, null),
+            setOf("capitalization"), mapOf("łódź" to LanguageIntelligence("łódź", null,
+                CapitalizationInfo("łódź", listOf(SurfaceVariant("łódź", "lower"), SurfaceVariant("Łódź", "title"))), null)))
+        every { dictionary.getLanguageIntelligenceProvider("pl") } returns provider
+        every { ic.getTextBeforeCursor(any(), any()) } returns "Jedziemy do "
+        every { ic.getTextAfterCursor(any(), any()) } returns ""
+        val selection = objenesis.newInstance(ExtractedText::class.java).apply {
+            startOffset = 0; selectionStart = 12; selectionEnd = 12
+        }
+        every { ic.getExtractedText(any(), any()) } returns selection
+        val h = handler()
+        val info = noCapsField()
+        h.liveEditorProvider = { ic to info }
+        h.setField("fieldAllowsPersonalizedLearning", true)
+        h.setField("herbertExtractionRequest", objenesis.newInstance(ExtractedTextRequest::class.java))
+        h.setField("mainHandler", mockk<Handler>(relaxed = true))
+        mockkObject(HerbertLiveRuntime)
+        every { HerbertLiveRuntime.state } returns HerbertLiveRuntime.State.READY
+        every { HerbertLiveRuntime.revision } returns 7L
+        every { HerbertLiveRuntime.noteResult(any()) } just Runs
+        return h to info
+    }
+
+    private fun liveSwipe(h: SuggestionHandler, info: EditorInfo, shift: Boolean = false) {
+        h.handleSwipePredictionResults(listOf("łódź", "kosz"), listOf(190, 129), ic, info,
+            resources, shift, false, inputCoordinator, SuggestionOrigin.GEOMETRIC)
+    }
+
+    @Test fun liveHerbertOrdersBothSourceFormsBeforeTheSingleCommit() {
+        val (h, info) = liveFixture()
+        var complete: ((Map<String, Float>?, Long) -> Unit)? = null
+        every { HerbertLiveRuntime.rank(any(), any(), any(), any()) } answers { complete = arg(3); true }
+        liveSwipe(h, info)
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+        complete!!(mapOf("łódź" to -8f, "Łódź" to -2f), 7L)
+        verify(exactly = 1) { ic.commitText("Łódź ", 1) }
+        assertWithMessage("both source forms remain first").that(barWords.take(2)).containsExactly("Łódź", "łódź").inOrder()
+        complete!!(mapOf("łódź" to -1f, "Łódź" to -9f), 7L)
+        verify(exactly = 1) { ic.commitText(any(), any()) }
+    }
+
+    @Test fun nextTouchCommitsBaselineOnceAndIgnoresLateModelResult() {
+        val (h, info) = liveFixture()
+        var complete: ((Map<String, Float>?, Long) -> Unit)? = null
+        every { HerbertLiveRuntime.rank(any(), any(), any(), any()) } answers { complete = arg(3); true }
+        liveSwipe(h, info)
+        h.flushPendingHerbertSwipe()
+        complete!!(mapOf("łódź" to -8f, "Łódź" to -2f), 7L)
+        verify(exactly = 1) { ic.commitText("łódź ", 1) }
+        verify(exactly = 1) { ic.commitText(any(), any()) }
+    }
+
+    @Test fun changedEditorCannotReceiveALateResultOrTimeoutCommit() {
+        val (h, info) = liveFixture()
+        var complete: ((Map<String, Float>?, Long) -> Unit)? = null
+        every { HerbertLiveRuntime.rank(any(), any(), any(), any()) } answers { complete = arg(3); true }
+        liveSwipe(h, info)
+        h.liveEditorProvider = { mockk<InputConnection>(relaxed = true) to info }
+        h.onEditorCursorChanged()
+        complete!!(mapOf("łódź" to -8f, "Łódź" to -2f), 7L)
+        h.flushPendingHerbertSwipe()
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+    }
+
+    @Test fun explicitShiftAndPrivateFieldsSkipTheModelBeforeReadingContext() {
+        val (h, info) = liveFixture()
+        every { HerbertLiveRuntime.rank(any(), any(), any(), any()) } returns false
+        liveSwipe(h, info, shift = true)
+        verify(exactly = 0) { HerbertLiveRuntime.rank(any(), any(), any(), any()) }
+        info.imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+        clearMocks(ic, answers = false)
+        liveSwipe(h, info)
+        verify(exactly = 0) { ic.getTextBeforeCursor(4097, 0) }
+        verify(exactly = 0) { HerbertLiveRuntime.rank(any(), any(), any(), any()) }
     }
 
     // ------------------------------------------------------------------ the gap

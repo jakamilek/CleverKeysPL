@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="herbert_live_title">HerBERT SI — live keyboard test</string>
+    <string name="herbert_live_explanation">Offline test of the first source-backed spelling pair, such as łódź / Łódź. Both forms remain available. The geometric decoder supplies words. Context comes only from the current field, preserving case and punctuation. Password, private, search, URL and email fields are excluded. FP32 used about 2.1 GiB for the whole process on the test phone; this is an experiment. Import the verified FP32 test ZIP separately. No weights or typed context are included in backups.</string>
+    <string name="herbert_live_enable">SI in suggestions (test)</string>
+    <string name="herbert_live_absent">No imported model. Geometric suggestions remain active.</string>
+    <string name="herbert_live_off">SI off. The imported file remains available.</string>
+    <string name="herbert_live_loading">Loading / verifying the model. Geometric suggestions remain active until verification completes.</string>
+    <string name="herbert_live_ready">SI ready — verified tokenizer, 232 native batches and model hash.</string>
+    <string name="herbert_live_failed">SI unavailable. Turn it off and on to retry, or import the verified ZIP again. Suggestions use the geometric order.</string>
+    <string name="herbert_live_importing">Importing and checking the verified test ZIP…</string>
+    <string name="herbert_live_imported">Model imported. Enable SI to run native verification and the live test.</string>
+    <string name="herbert_live_context">SI context: up to %1$d preceding words</string>
+    <string name="herbert_live_wait">Maximum wait: %1$d ms. Timeout or the next keyboard touch commits the existing suggestion order.</string>
+    <string name="herbert_live_statistics">Analyses: %1$d; accepted on time: %2$d; fallback: %3$d; latest analysis: %4$.1f ms. Counts only; no typed text.</string>
+    <string name="herbert_live_reset">Reset SI settings</string>
+</resources>

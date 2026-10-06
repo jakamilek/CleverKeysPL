@@ -592,6 +592,7 @@ tasks.register('runPureTests', JavaExec) {
   description = 'Run pure JVM tests via JUnitCore (works on ARM64)'
 
   def pureTestClasses = [
+    'tribixbite.cleverkeys.ai.HerbertSwipeDecisionTest',
     'tribixbite.cleverkeys.ai.HerbertCasePolicyTest',
     'tribixbite.cleverkeys.ai.HerbertPreparedBatchTest',
     'tribixbite.cleverkeys.ai.HerbertTokenizerTest',
@@ -1153,6 +1154,7 @@ tasks.register('runMockTests', JavaExec) {
   jvmArgs '-XX:+EnableDynamicAgentLoading'
 
   def mockTestClasses = [
+    'tribixbite.cleverkeys.BackspaceHapticRoutingTest',
     'tribixbite.cleverkeys.BackspaceHoldTest',
     'tribixbite.cleverkeys.EditingSettingsReadTest',
     'tribixbite.cleverkeys.PointersBackspaceHoldTest',

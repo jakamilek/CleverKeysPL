@@ -1296,6 +1296,7 @@ class Keyboard2View @JvmOverloads constructor(
                 _pointers.onTouchUp(event.getPointerId(event.actionIndex))
             }
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                _keyboard2?.flushPendingHerbertSwipe()
                 val p = event.actionIndex
                 val tx = event.getX(p)
                 val ty = event.getY(p)

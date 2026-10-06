@@ -5,6 +5,8 @@ import android.content.res.Resources
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import tribixbite.cleverkeys.ai.*
+import tribixbite.cleverkeys.langpack.LanguageIntelligenceProvider
 import android.util.Log
 import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
@@ -503,7 +505,22 @@ class SuggestionHandler(
     // Cancellation cannot recall a result already queued on the UI thread.
     private var editorPredictionRevision = 0L
 
-    fun onEditorCursorChanged() { editorPredictionRevision++ }
+    private var pendingHerbertFallback: (() -> Unit)? = null
+    private var cancelPendingHerbert: (() -> Unit)? = null
+    internal var liveEditorProvider: (() -> Pair<InputConnection?, EditorInfo?>)? = null
+
+    fun onEditorCursorChanged() {
+        // Harmless delayed editor notifications must not lose a swiped word that is still waiting.
+        pendingHerbertFallback?.invoke()
+        editorPredictionRevision++
+        cancelPendingHerbert?.invoke()
+        cancelPendingHerbert = null
+        pendingHerbertFallback = null
+    }
+
+    /** Finish before the next keyboard touch, preserving input order without waiting for native SI. */
+    fun flushPendingHerbertSwipe() { pendingHerbertFallback?.invoke() }
+
 
     // WP9 R-1 step 6 (D5): single ML-capture implementation for the swipe auto-insert path —
     // the same collector SuggestionBridge uses for the tap path (privacy-gated internally).
@@ -584,7 +601,9 @@ class SuggestionHandler(
      * @param newConfig Updated configuration
      */
     fun setConfig(newConfig: Config) {
+        onEditorCursorChanged()
         config = newConfig
+        HerbertLiveRuntime.configure(context, newConfig.herbert_live_enabled)
     }
 
     /** Verbose-only debug log; message lambda is not evaluated unless verbose logging is enabled. */
@@ -596,6 +615,7 @@ class SuggestionHandler(
      */
     fun shutdown() {
         onEditorCursorChanged()
+        if (config.herbert_live_enabled) HerbertLiveRuntime.configure(context, false)
         predictionTasks.shutdown()
         mainHandler.removeCallbacksAndMessages(null)
     }
@@ -977,202 +997,294 @@ class SuggestionHandler(
             provider.takeIf { (config.edit_behavior ?: EditBehaviorOptions()).showCaseVariants },
             shiftActive || autocapAtCursor, shiftLocked,
         )
-        val barWords = surfaceSlate.words.toMutableList()
-        val barScores = surfaceSlate.scores.toMutableList()
-        val engineWordCount = barWords.size
-        val barLanguages = surfaceSlate.languages
-        // Metadata only: do not add editor text to logs from arbitrary app fields.
-        sendDebugLog(
-            "TRIAL word-strip-v15 app=${BuildConfig.APPLICATION_ID} " +
-                "autocap=${config.autocapitalisation} capAtCursor=$autocapAtCursor " +
-                "before=${config.auto_space_before_suggestion} after=${config.auto_space_after_suggestion} " +
-                "format=${!passwordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo, (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields)} " +
-                "language=$topLanguage provider=${provider != null} " +
-                "exactForms=${surfaceSlate.exactCase.count { it }}\n"
-        )
-        if (barLanguages != null) {
-            augmentPredictionsWithPossessives(barWords, barScores, barLanguages)
-        } else if (shouldAugmentPossessives(activeLanguage)) {
-            augmentPredictionsWithPossessives(barWords, barScores, null)
-        }
-
-        // Task B: provenance metas — engine outputs first, then any appended
-        // possessive forms (augment appends at the end, so index >= engineWordCount
-        // means POSSESSIVE). M2: prefer the routed-engine origin threaded by the
-        // caller; the mode-derived fallback only covers legacy callers.
-        val swipeOrigin = origin ?: SuggestionOrigin.forSwipeEngineMode(config.swipe_engine_mode)
-        val barMetas = MutableList(barWords.size) { i ->
-            SuggestionMeta(
-                if (i < engineWordCount) swipeOrigin else SuggestionOrigin.POSSESSIVE,
-                preserveExactCase = surfaceSlate.exactCase.getOrElse(i) { false },
+        fun publishSwipeSlate(surfaceSlate: SwipeSurfaceVariants.Slate) {
+            val barWords = surfaceSlate.words.toMutableList()
+            val barScores = surfaceSlate.scores.toMutableList()
+            val engineWordCount = barWords.size
+            val barLanguages = surfaceSlate.languages
+            // Metadata only: do not add editor text to logs from arbitrary app fields.
+            sendDebugLog(
+                "TRIAL word-strip-v15 app=${BuildConfig.APPLICATION_ID} " +
+                    "autocap=${config.autocapitalisation} capAtCursor=$autocapAtCursor " +
+                    "before=${config.auto_space_before_suggestion} after=${config.auto_space_after_suggestion} " +
+                    "format=${!passwordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo, (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields)} " +
+                    "language=$topLanguage provider=${provider != null} " +
+                    "exactForms=${surfaceSlate.exactCase.count { it }}\n"
             )
-        }
-        // §6.5: a context-promoted rank 1 carries a note, so a misbehaving promotion is
-        // diagnosable from the long-press sheet instead of being invisible. The engine ORIGIN is
-        // deliberately kept — the word still came from the decoder; context only moved it.
-        if (promotedIndex != null && barMetas.isNotEmpty()) {
-            barMetas[0] = barMetas[0].copy(note = ProvenanceNote.PromotedByLearnedContext)
-        }
+            if (barLanguages != null) {
+                augmentPredictionsWithPossessives(barWords, barScores, barLanguages)
+            } else if (shouldAugmentPossessives(activeLanguage)) {
+                augmentPredictionsWithPossessives(barWords, barScores, null)
+            }
 
-        suggestionBar?.let { bar ->
-            bar.setShowDebugScores(config.swipe_show_debug_scores)
-            bar.setShowOriginMarkers(config.suggestion_provenance_markers)
-            bar.setSuggestionsWithScores(barWords, barScores, barMetas)
-
-            // Auto-insert the top (highest-scoring) prediction through THE single commit engine
-            // (step 6): haptic + manual-typing termination + tracking clear were absorbed verbatim
-            // from the deleted InputCoordinator.autoInsertTopSuggestion.
-            bar.getTopSuggestion()?.takeIf { it.isNotEmpty() }?.let { topPrediction ->
-                inputCoordinator.triggerSwipeCompleteHaptic()
-
-                // Typed chars are already committed via KeyEventHandler.send_text(). End their
-                // tracking here, but let the shared commit below decide the separator from the
-                // actual editor text, field and preferences. A separate space commit bypassed
-                // those rules, including in search/password fields and with leading space off.
-                // W5 (audit 2026-09-26): the swipe ENDS whatever the user was typing (a word, or a
-                // joiner stem like "kids'"), exactly as a typed space would — so it goes through the
-                // learn funnel first, BEFORE the swiped word, and the context LM records
-                // typed→swiped in order. Previously it was never learned. No-op when nothing is
-                // pending. Take the typing-in-progress test first: a successful flush clears
-                // the tracker's word. Cursor synchronization can also populate this buffer;
-                // its presence alone is never evidence that a separator is missing.
-                val typingInProgress = contextTracker.getCurrentWordLength() > 0
-                flushPendingTypedWord(ic)
-                if (typingInProgress && ic != null) {
-                    contextTracker.clearCurrentWord()
-                    contextTracker.clearLastAutoInsertedWord()
-                    contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
-                }
-
-                // A new swipe supersedes a swipe-correction offer the bar was showing.
-                if (swipePreferenceOffer != null) {
-                    swipePreferenceOffer = null
-                    specialPromptActive = false
-                }
-
-                // Clear tracking BEFORE the commit so consecutive swipes APPEND (the replace branch
-                // in onSuggestionSelected must not fire on an auto-insert).
-                contextTracker.clearLastAutoInsertedWord()
-                contextTracker.setLastCommitSource(PredictionSource.UNKNOWN)
-
-                // D5: snapshot swipe state before the commit resets wasLastInputSwipe.
-                val wasSwipeAutoInsert = contextTracker.wasLastInputSwipe()
-                val swipeData = inputCoordinator.getCurrentSwipeData()
-
-                // Swipe Playground (2026-09-03): enrich the capture with the ranking the bar
-                // displays and the swipe-end→results latency BEFORE either store runs, so
-                // both the gated global row (MLDataCollector copies enrichment over) and the
-                // playground row carry them. timestampUtc is set at capture time (swipe end),
-                // so the delta here is decode + routing + presentation.
-                swipeData?.let {
-                    it.setCandidates(barWords, barScores)
-                    it.setDecodeLatencyMs(System.currentTimeMillis() - it.timestampUtc)
-                }
-
-                val committedWord = onSuggestionSelected(
-                    topPrediction, ic, editorInfo, resources, isManualSelection = false
+            // Task B: provenance metas — engine outputs first, then any appended
+            // possessive forms (augment appends at the end, so index >= engineWordCount
+            // means POSSESSIVE). M2: prefer the routed-engine origin threaded by the
+            // caller; the mode-derived fallback only covers legacy callers.
+            val swipeOrigin = origin ?: SuggestionOrigin.forSwipeEngineMode(config.swipe_engine_mode)
+            val barMetas = MutableList(barWords.size) { i ->
+                SuggestionMeta(
+                    if (i < engineWordCount) swipeOrigin else SuggestionOrigin.POSSESSIVE,
+                    preserveExactCase = surfaceSlate.exactCase.getOrElse(i) { false },
                 )
+            }
+            // §6.5: a context-promoted rank 1 carries a note, so a misbehaving promotion is
+            // diagnosable from the long-press sheet instead of being invisible. The engine ORIGIN is
+            // deliberately kept — the word still came from the decoder; context only moved it.
+            if (promotedIndex != null && barMetas.isNotEmpty()) {
+                barMetas[0] = barMetas[0].copy(note = ProvenanceNote.PromotedByLearnedContext)
+            }
 
-                // D5 LANDED (step 6): swipe ML capture through MLDataCollector — the single
-                // implementation the tap path (SuggestionBridge) already uses.
-                //
-                // 2026-09-09: the `&& config.swipe_debug_detailed_logging` conjunct was REMOVED
-                // (maintainer report: "broken collection toggle"). It was inherited verbatim from
-                // IC's old inline debug block, but it is a DEVELOPER flag: default-off, and only
-                // rendered at all after Swipe Debug mode is switched on in the Advanced section.
-                // Its presence here meant the documented privacy control governed nothing on the
-                // auto-insert path — the dominant path for swipe input — so a user who enabled
-                // "Swipe Pattern Data" and swiped normally stored zero rows while the section's
-                // own empty state told them to "Enable collection above to start storing
-                // patterns". The tap-a-suggestion path (SuggestionBridge) never carried the
-                // conjunct, which is why collection looked half-alive rather than dead.
-                //
-                // Gating is now data availability only. Consent is NOT weakened: the collector
-                // re-checks PrivacyManager.canCollectSwipeData() (the master on-device-learning
-                // gate ANDed with privacy_collect_swipe, both default-safe) before touching the
-                // store, and it owns the daily retention sweep + MAX_STORED_ROWS cap that keep
-                // the database bounded now that the path is actually reachable.
-                // W8 (audit 2026-09-26): a swipe trace in a password field IS the password — it is
-                // never captured, whatever the collection consent says.
-                // Feature B (swipe-correction resolution): keep the stored row's trace id so a
-                // later correction of this swipe relabels exactly that row.
-                var storedTraceId: String? = null
-                val storedGlobally =
-                    if (wasSwipeAutoInsert && swipeData != null && !passwordField) {
-                        mlDataCollector.collectAndStoreSwipeData(
-                            committedWord ?: topPrediction,
-                            swipeData,
-                            inputCoordinator.keyboardHeightPx(),
-                            predictionCoordinator.getMlDataStore(),
-                            onStored = { storedTraceId = it }
-                        )
-                    } else {
-                        false
-                    }
-
-                // Swipe Playground: while the playground activity is open (debug mode on),
-                // persist the enriched trace (skipped when the global path above already
-                // stored this swipe — no duplicate rows) and push the live panel payload.
-                // Explicit-session recording — see PlaygroundTraceRecorder's KDoc for why
-                // this deliberately sits outside LearningGate.canCollectSwipeMl.
-                if (debugMode && !passwordField) {
-                    PlaygroundTraceRecorder.recordAndBroadcast(
-                        context,
-                        swipeData,
-                        committedWord ?: topPrediction.removePrefix("raw:"),
-                        engineWordCount,
-                        storedGlobally
-                    )
-                }
-                inputCoordinator.resetSwipeData()
-
-                // Clear the latched shift indicator after a shift+swipe commit; caps lock stays
-                // until the user unlocks it (was IC.onSuggestionSelected's post-commit clearing).
-                if (shiftActive && !shiftLocked) {
-                    inputCoordinator.clearLatchedShiftAfterSwipe()
-                }
-
-                // Track the auto-inserted word so tapping an alternate replaces ONLY this word.
-                // Resolved 2026-08-06 (was a TODO carried from the deleted IC engine): the word
-                // actually sitting in the editor is onSuggestionSelected's RETURN — final
-                // autocorrect and I-word handling may have rewritten the raw prediction, and the
-                // REPLACE branch deletes lastAutoInsertedWord.length + 1 chars, so tracking the
-                // raw word desynced deletion counts whenever the correction changed the length.
-                // (The learn funnel was already correct either way: updateContext() inside
-                // onSuggestionSelected records the post-autocorrect word.) A null return means
-                // nothing was committed (no InputConnection) — fall back to the raw prediction
-                // so the tracking state stays populated exactly as before.
-                contextTracker.setLastAutoInsertedWord(
-                    committedWord ?: topPrediction.removePrefix("raw:")
-                )
-                contextTracker.setLastCommitSource(PredictionSource.SWIPE)
-
-                // Swipe-correction tracking: remember this auto-insert (the word in the editor,
-                // the engine slate it came from, its ML row) so a bar tap or backspace undo that
-                // rejects it can be recorded as a correction.
-                noteSwipeAutoInsert(
-                    committedWord ?: topPrediction.removePrefix("raw:"),
-                    rescoredPredictions, storedTraceId, ic, editorInfo
-                )
-
-                // Re-display the augmented+transformed correction list (D1: possessives persist in
-                // the final swipe bar).
+            suggestionBar?.let { bar ->
+                bar.setShowDebugScores(config.swipe_show_debug_scores)
+                bar.setShowOriginMarkers(config.suggestion_provenance_markers)
                 bar.setSuggestionsWithScores(barWords, barScores, barMetas)
 
-                // Next-word call-site 3 (audit §4.4): keep the swipe ALTERNATES
-                // (the user may still correct the swipe) and APPEND up to
-                // MAX_SWIPE_APPEND next-word candidates. Per-suggestion NEXT_WORD
-                // metas make the tap path append-after (not replace) for these
-                // entries. Generation runs on the predictionTasks executor (L3 —
-                // the first lookup of a language lazily loads its persisted
-                // n-gram blobs, which janked the UI thread when this ran inline).
-                // W8: no next-word candidates in a password field (the tier gate only sees
-                // the tracked mode, which lags the live EditorInfo before onStartInputView).
-                if (!passwordField) {
-                    appendNextWordToSwipeAlternates(bar, barWords, barScores, barMetas, editorInfo)
+                // Auto-insert the top (highest-scoring) prediction through THE single commit engine
+                // (step 6): haptic + manual-typing termination + tracking clear were absorbed verbatim
+                // from the deleted InputCoordinator.autoInsertTopSuggestion.
+                bar.getTopSuggestion()?.takeIf { it.isNotEmpty() }?.let { topPrediction ->
+                    inputCoordinator.triggerSwipeCompleteHaptic()
+
+                    // Typed chars are already committed via KeyEventHandler.send_text(). End their
+                    // tracking here, but let the shared commit below decide the separator from the
+                    // actual editor text, field and preferences. A separate space commit bypassed
+                    // those rules, including in search/password fields and with leading space off.
+                    // W5 (audit 2026-09-26): the swipe ENDS whatever the user was typing (a word, or a
+                    // joiner stem like "kids'"), exactly as a typed space would — so it goes through the
+                    // learn funnel first, BEFORE the swiped word, and the context LM records
+                    // typed→swiped in order. Previously it was never learned. No-op when nothing is
+                    // pending. Take the typing-in-progress test first: a successful flush clears
+                    // the tracker's word. Cursor synchronization can also populate this buffer;
+                    // its presence alone is never evidence that a separator is missing.
+                    val typingInProgress = contextTracker.getCurrentWordLength() > 0
+                    flushPendingTypedWord(ic)
+                    if (typingInProgress && ic != null) {
+                        contextTracker.clearCurrentWord()
+                        contextTracker.clearLastAutoInsertedWord()
+                        contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
+                    }
+
+                    // A new swipe supersedes a swipe-correction offer the bar was showing.
+                    if (swipePreferenceOffer != null) {
+                        swipePreferenceOffer = null
+                        specialPromptActive = false
+                    }
+
+                    // Clear tracking BEFORE the commit so consecutive swipes APPEND (the replace branch
+                    // in onSuggestionSelected must not fire on an auto-insert).
+                    contextTracker.clearLastAutoInsertedWord()
+                    contextTracker.setLastCommitSource(PredictionSource.UNKNOWN)
+
+                    // D5: snapshot swipe state before the commit resets wasLastInputSwipe.
+                    val wasSwipeAutoInsert = contextTracker.wasLastInputSwipe()
+                    val swipeData = inputCoordinator.getCurrentSwipeData()
+
+                    // Swipe Playground (2026-09-03): enrich the capture with the ranking the bar
+                    // displays and the swipe-end→results latency BEFORE either store runs, so
+                    // both the gated global row (MLDataCollector copies enrichment over) and the
+                    // playground row carry them. timestampUtc is set at capture time (swipe end),
+                    // so the delta here is decode + routing + presentation.
+                    swipeData?.let {
+                        it.setCandidates(barWords, barScores)
+                        it.setDecodeLatencyMs(System.currentTimeMillis() - it.timestampUtc)
+                    }
+
+                    val committedWord = onSuggestionSelected(
+                        topPrediction, ic, editorInfo, resources, isManualSelection = false
+                    )
+
+                    // D5 LANDED (step 6): swipe ML capture through MLDataCollector — the single
+                    // implementation the tap path (SuggestionBridge) already uses.
+                    //
+                    // 2026-09-09: the `&& config.swipe_debug_detailed_logging` conjunct was REMOVED
+                    // (maintainer report: "broken collection toggle"). It was inherited verbatim from
+                    // IC's old inline debug block, but it is a DEVELOPER flag: default-off, and only
+                    // rendered at all after Swipe Debug mode is switched on in the Advanced section.
+                    // Its presence here meant the documented privacy control governed nothing on the
+                    // auto-insert path — the dominant path for swipe input — so a user who enabled
+                    // "Swipe Pattern Data" and swiped normally stored zero rows while the section's
+                    // own empty state told them to "Enable collection above to start storing
+                    // patterns". The tap-a-suggestion path (SuggestionBridge) never carried the
+                    // conjunct, which is why collection looked half-alive rather than dead.
+                    //
+                    // Gating is now data availability only. Consent is NOT weakened: the collector
+                    // re-checks PrivacyManager.canCollectSwipeData() (the master on-device-learning
+                    // gate ANDed with privacy_collect_swipe, both default-safe) before touching the
+                    // store, and it owns the daily retention sweep + MAX_STORED_ROWS cap that keep
+                    // the database bounded now that the path is actually reachable.
+                    // W8 (audit 2026-09-26): a swipe trace in a password field IS the password — it is
+                    // never captured, whatever the collection consent says.
+                    // Feature B (swipe-correction resolution): keep the stored row's trace id so a
+                    // later correction of this swipe relabels exactly that row.
+                    var storedTraceId: String? = null
+                    val storedGlobally =
+                        if (wasSwipeAutoInsert && swipeData != null && !passwordField) {
+                            mlDataCollector.collectAndStoreSwipeData(
+                                committedWord ?: topPrediction,
+                                swipeData,
+                                inputCoordinator.keyboardHeightPx(),
+                                predictionCoordinator.getMlDataStore(),
+                                onStored = { storedTraceId = it }
+                            )
+                        } else {
+                            false
+                        }
+
+                    // Swipe Playground: while the playground activity is open (debug mode on),
+                    // persist the enriched trace (skipped when the global path above already
+                    // stored this swipe — no duplicate rows) and push the live panel payload.
+                    // Explicit-session recording — see PlaygroundTraceRecorder's KDoc for why
+                    // this deliberately sits outside LearningGate.canCollectSwipeMl.
+                    if (debugMode && !passwordField) {
+                        PlaygroundTraceRecorder.recordAndBroadcast(
+                            context,
+                            swipeData,
+                            committedWord ?: topPrediction.removePrefix("raw:"),
+                            engineWordCount,
+                            storedGlobally
+                        )
+                    }
+                    inputCoordinator.resetSwipeData()
+
+                    // Clear the latched shift indicator after a shift+swipe commit; caps lock stays
+                    // until the user unlocks it (was IC.onSuggestionSelected's post-commit clearing).
+                    if (shiftActive && !shiftLocked) {
+                        inputCoordinator.clearLatchedShiftAfterSwipe()
+                    }
+
+                    // Track the auto-inserted word so tapping an alternate replaces ONLY this word.
+                    // Resolved 2026-08-06 (was a TODO carried from the deleted IC engine): the word
+                    // actually sitting in the editor is onSuggestionSelected's RETURN — final
+                    // autocorrect and I-word handling may have rewritten the raw prediction, and the
+                    // REPLACE branch deletes lastAutoInsertedWord.length + 1 chars, so tracking the
+                    // raw word desynced deletion counts whenever the correction changed the length.
+                    // (The learn funnel was already correct either way: updateContext() inside
+                    // onSuggestionSelected records the post-autocorrect word.) A null return means
+                    // nothing was committed (no InputConnection) — fall back to the raw prediction
+                    // so the tracking state stays populated exactly as before.
+                    contextTracker.setLastAutoInsertedWord(
+                        committedWord ?: topPrediction.removePrefix("raw:")
+                    )
+                    contextTracker.setLastCommitSource(PredictionSource.SWIPE)
+
+                    // Swipe-correction tracking: remember this auto-insert (the word in the editor,
+                    // the engine slate it came from, its ML row) so a bar tap or backspace undo that
+                    // rejects it can be recorded as a correction.
+                    noteSwipeAutoInsert(
+                        committedWord ?: topPrediction.removePrefix("raw:"),
+                        rescoredPredictions, storedTraceId, ic, editorInfo
+                    )
+
+                    // Re-display the augmented+transformed correction list (D1: possessives persist in
+                    // the final swipe bar).
+                    bar.setSuggestionsWithScores(barWords, barScores, barMetas)
+
+                    // Next-word call-site 3 (audit §4.4): keep the swipe ALTERNATES
+                    // (the user may still correct the swipe) and APPEND up to
+                    // MAX_SWIPE_APPEND next-word candidates. Per-suggestion NEXT_WORD
+                    // metas make the tap path append-after (not replace) for these
+                    // entries. Generation runs on the predictionTasks executor (L3 —
+                    // the first lookup of a language lazily loads its persisted
+                    // n-gram blobs, which janked the UI thread when this ran inline).
+                    // W8: no next-word candidates in a password field (the tier gate only sees
+                    // the tracked mode, which lags the live EditorInfo before onStartInputView).
+                    if (!passwordField) {
+                        appendNextWordToSwipeAlternates(bar, barWords, barScores, barMetas, editorInfo)
+                    }
                 }
             }
         }
+        if (!tryHerbertSwipe(surfaceSlate, ic, editorInfo, topLanguage, provider,
+                shiftActive || shiftLocked || autocapAtCursor || casedPredictions != predictions,
+                origin ?: SuggestionOrigin.forSwipeEngineMode(config.swipe_engine_mode), ::publishSwipeSlate)) {
+            publishSwipeSlate(surfaceSlate)
+        }
+    }
+
+    private var herbertExtractionRequest: android.view.inputmethod.ExtractedTextRequest? = null
+    private fun herbertSelection(ic: InputConnection): android.view.inputmethod.ExtractedText? {
+        val request = herbertExtractionRequest ?: android.view.inputmethod.ExtractedTextRequest().also {
+            herbertExtractionRequest = it
+        }
+        return ic.getExtractedText(request, 0)
+    }
+
+    /** Bounded pre-commit trial: source pair only, original editor bytes and snapshot identity. */
+    private fun tryHerbertSwipe(
+        slate: SwipeSurfaceVariants.Slate, ic: InputConnection?, info: EditorInfo?,
+        language: String?, provider: LanguageIntelligenceProvider?, protectedCase: Boolean,
+        origin: SuggestionOrigin, publish: (SwipeSurfaceVariants.Slate) -> Unit,
+    ): Boolean {
+        if (!config.herbert_live_enabled || protectedCase || origin != SuggestionOrigin.GEOMETRIC ||
+            language != "pl" || provider == null || ic == null || info == null ||
+            !fieldAllowsPersonalizedLearning || (info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) != 0 ||
+            isPasswordMode || SuggestionBar.isPasswordField(info) ||
+            !EditorSpacingPolicy.allowsAutomaticSpacing(info, false) || isTermuxEditor(info) ||
+            liveEditorProvider == null) return false
+        if (HerbertLiveRuntime.state != HerbertLiveRuntime.State.READY) return false
+        val pair = HerbertLiveSlate.pair(slate) ?: return false
+        val raw = try { ic.getTextBeforeCursor(HerbertContextWindow.MAX_UNITS + 1, 0)?.toString() } catch (_: Exception) { null }
+            ?: return false
+        val et = try { herbertSelection(ic) } catch (_: Exception) { null }
+            ?: return false
+        if (et.selectionStart < 0 || et.selectionStart != et.selectionEnd) return false
+        val anchor = et.startOffset + et.selectionStart
+        if (anchor < raw.length) return false
+        val after = try { ic.getTextAfterCursor(32, 0)?.toString() } catch (_: Exception) { null } ?: return false
+        if (after.firstOrNull()?.isLetterOrDigit() == true) return false
+        var safeRaw = raw
+        // A provider may return fewer bytes than requested. Discard a possibly partial oldest word.
+        if (anchor > raw.length && raw.length <= HerbertContextWindow.MAX_UNITS && raw.firstOrNull()?.isWhitespace() == false) {
+            safeRaw = raw.dropWhile { !it.isWhitespace() }
+        }
+        val words = config.herbert_context_words
+        val wait = config.herbert_wait_ms
+        val enabled = config.herbert_live_enabled
+        val showVariants = (config.edit_behavior ?: EditBehaviorOptions()).showCaseVariants
+        val contextText = HerbertContextWindow.retain(safeRaw, words)
+        if (contextText.isBlank()) return false
+        val revision = editorPredictionRevision
+        val modelRevision = HerbertLiveRuntime.revision
+        val identity = HerbertRequestIdentity(revision, revision, anchor, anchor, revision, "pl",
+            provider.packageInfo().toString(), modelRevision, contextText)
+        val deadline = System.nanoTime() + wait * 1_000_000L
+        val decision = HerbertSwipeDecision(slate, pair, identity, deadline)
+        fun current(): HerbertRequestIdentity? = try {
+            val live = liveEditorProvider?.invoke()
+            val currentLanguage = predictionCoordinator.getDictionaryManager()?.getCurrentLanguage()
+            val currentProvider = predictionCoordinator.getDictionaryManager()?.getLanguageIntelligenceProvider("pl")
+            val selection = herbertSelection(ic)
+            if (live == null || live.first !== ic || live.second !== info || editorPredictionRevision != revision ||
+                !fieldAllowsPersonalizedLearning || SuggestionBar.isPasswordField(info) ||
+                (info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) != 0 ||
+                !EditorSpacingPolicy.allowsAutomaticSpacing(info, false) ||
+                currentLanguage != "pl" || currentProvider !== provider ||
+                config.herbert_live_enabled != enabled || config.herbert_context_words != words ||
+                config.herbert_wait_ms != wait || (config.edit_behavior ?: EditBehaviorOptions()).showCaseVariants != showVariants ||
+                HerbertLiveRuntime.revision != modelRevision ||
+                selection == null || selection.startOffset + selection.selectionStart != anchor ||
+                selection.selectionStart != selection.selectionEnd ||
+                ic.getTextBeforeCursor(HerbertContextWindow.MAX_UNITS + 1, 0)?.toString() != raw ||
+                ic.getTextAfterCursor(32, 0)?.toString() != after) null else identity
+        } catch (_: Exception) { null }
+        lateinit var timeout: Runnable
+        fun finish(scores: Map<String, Float>?) {
+            val result = decision.finish(scores, current(), System.nanoTime()) ?: return
+            mainHandler.removeCallbacks(timeout)
+            cancelPendingHerbert = null; pendingHerbertFallback = null
+            HerbertLiveRuntime.noteResult(scores != null && System.nanoTime() < deadline)
+            publish(result)
+        }
+        timeout = Runnable { finish(null) }
+        if (!HerbertLiveRuntime.rank(contextText, pair, words) { scores, token ->
+                if (token == modelRevision) finish(scores) else decision.cancel()
+            }) return false
+        suggestionBar?.clearSuggestions()
+        pendingHerbertFallback = { finish(null) }
+        cancelPendingHerbert = { decision.cancel(); mainHandler.removeCallbacks(timeout) }
+        mainHandler.postDelayed(timeout, wait.toLong())
+        return true
     }
 
     /**
