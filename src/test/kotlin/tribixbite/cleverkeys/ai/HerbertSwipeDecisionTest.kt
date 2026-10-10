@@ -3,8 +3,53 @@ package tribixbite.cleverkeys.ai
 import org.junit.Assert.*
 import org.junit.Test
 import tribixbite.cleverkeys.SwipeSurfaceVariants
+import tribixbite.cleverkeys.langpack.IntelligenceJson
 
 class HerbertSwipeDecisionTest {
+    private fun sourceProvider() = IntelligenceJson.parse(
+        javaClass.getResource("/polish-surface-family-v5.json")!!.readText(Charsets.UTF_8).reader(),
+        "pl", 5, setOf("capitalization", "metadata"))
+
+    @Test fun ordinaryInflectionCanWinWithoutAnyExactCapitalizationFlags() {
+        val ordinary = SwipeSurfaceVariants.expand(listOf("kapitalizacją", "kapitalizacja", "kapitalizm"),
+            listOf(220, 190, 90), listOf("pl", "pl", "pl"), sourceProvider(), false, false)
+        val result = HerbertSwipeDecision(ordinary, HerbertLiveSlate.group(ordinary)!!, identity, 100)
+            .finish(mapOf("kapitalizacją" to -8f, "kapitalizacja" to -1f), identity, 99)!!
+        assertEquals(listOf("kapitalizacja", "kapitalizacją", "kapitalizm"), result.words)
+        assertEquals(listOf(190, 220, 90), result.scores)
+        assertEquals(ordinary.exactCase, result.exactCase)
+        assertEquals(2, result.formGroupSize)
+        assertNull(HerbertLiveSlate.group(ordinary.copy(formGroupSize = 3)))
+        assertNull(HerbertLiveSlate.group(ordinary.copy(formGroupSize = 7)))
+        assertNull(HerbertLiveSlate.group(ordinary.copy(formGroupSize = -1)))
+        assertNull(HerbertLiveSlate.group(ordinary.copy(words = ordinary.words.take(2),
+            scores = ordinary.scores.take(2), languages = ordinary.languages!!.take(2),
+            exactCase = ordinary.exactCase.take(2), formGroupSize = 3)))
+    }
+
+    @Test fun differentEndingsRequireActualSharedSourceLemmaAndKeepAlternativeWeights() {
+        val provider = sourceProvider()
+        val forms = SwipeSurfaceVariants.expand(listOf("pracy", "praca", "malina"),
+            listOf(220, 190, 90), null, provider, false, false)
+        assertNull(HerbertLiveSlate.group(forms))
+        val result = HerbertSwipeDecision(forms, HerbertLiveSlate.group(forms, provider)!!, identity, 100)
+            .finish(mapOf("pracy" to -7f, "Pracy" to -8f, "praca" to -1f, "Praca" to -6f), identity, 99)!!
+        assertEquals(listOf("praca", "Praca", "pracy", "Pracy", "malina"), result.words)
+        assertEquals(listOf(190, 190, 220, 220, 90), result.scores)
+        assertEquals(forms.exactCase, result.exactCase)
+    }
+
+    @Test fun ordinaryFormTimeoutAndStaleEditorStillCannotRewriteCommittedText() {
+        val value = SwipeSurfaceVariants.expand(listOf("kapitalizacją", "kapitalizacja"),
+            listOf(220, 190), null, sourceProvider(), false, false)
+        val group = HerbertLiveSlate.group(value)!!
+        val scores = mapOf("kapitalizacją" to -8f, "kapitalizacja" to -1f)
+        val request = HerbertSwipeDecision(value, group, identity, 100)
+        assertEquals(value, request.finish(null, identity, 1))
+        assertNull(request.finish(scores, identity, 2))
+        assertEquals(value, HerbertSwipeDecision(value, group, identity, 100).finish(scores, identity, 100))
+        assertNull(HerbertSwipeDecision(value, group, identity, 100).finish(scores, identity.copy(context = "edited"), 1))
+    }
     private val family = SwipeSurfaceVariants.Slate(
         listOf("Malina", "malina", "maliną", "Maliną", "mamoną", "Maliną"),
         listOf(220, 220, 160, 160, 190, 150), listOf("pl", "pl", "pl", "pl", "pl", "en"),

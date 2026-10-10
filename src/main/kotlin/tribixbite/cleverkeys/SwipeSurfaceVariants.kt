@@ -18,66 +18,69 @@ internal object SwipeSurfaceVariants {
     data class Slate(
         val words: List<String>, val scores: List<Int>, val languages: List<String>?,
         val exactCase: List<Boolean>,
+        // Model membership is independent of a surface's capitalization policy.
+        val formGroupSize: Int = 0,
     )
 
     fun expand(
         words: List<String>, scores: List<Int>, languages: List<String>?,
         provider: LanguageIntelligenceProvider?, capitalize: Boolean, capsLock: Boolean,
+        showCaseVariants: Boolean = true,
     ): Slate {
         fun unchanged() = Slate(words, scores, languages, List(words.size) { false })
-        if (words.isEmpty() || provider == null || capsLock || "capitalization" !in provider.capabilities()) return unchanged()
-        val primary = words.first()
-        val key = primary.lowercase(Locale.ROOT)
-        val caps = provider.lookup(primary)?.capitalization ?: return unchanged()
-        if (caps.variants.isEmpty()) return unchanged()
-        val forms = caps.variants.map { it.surface }
-        val preferred = when {
-            capitalize -> forms.firstOrNull { it.firstOrNull()?.isUpperCase() == true }
-                ?: primary // sentence capitalization also applies to single lowercase nouns
-            primary in forms && primary != key -> primary // existing user case preference
-            else -> caps.defaultSurface ?: forms.first()
+        if (words.isEmpty() || provider == null || capsLock ||
+            (languages != null && languages.size != words.size)) return unchanged()
+        val primaryKey = words.first().lowercase(Locale.ROOT)
+        data class Forms(val surfaces: List<String>, val exact: Boolean)
+        fun forms(word: String): Forms {
+            val key = word.lowercase(Locale.ROOT)
+            val caps = provider.lookup(word)?.capitalization?.takeIf {
+                showCaseVariants && "capitalization" in provider.capabilities() && it.variants.isNotEmpty()
+            } ?: return Forms(listOf(word), false)
+            val source = caps.variants.map { it.surface }
+            val preferred = when {
+                capitalize -> source.firstOrNull { it.firstOrNull()?.isUpperCase() == true } ?: word
+                word in source && word != key -> word
+                else -> caps.defaultSurface ?: source.first()
+            }
+            return Forms(if (source.size == 1) listOf(preferred) else (listOf(preferred) + source).distinct(), true)
         }
-        val surfaces = if (forms.size == 1) listOf(preferred) else (listOf(preferred) + forms).distinct()
-        val outWords = surfaces.toMutableList()
-        val outScores = MutableList(surfaces.size) { scores.firstOrNull() ?: 0 }
-        val outLanguages = languages?.let { source -> MutableList(surfaces.size) { source.first() } }
-        val exact = MutableList(surfaces.size) { true }
-        val groupKeys = mutableSetOf(key)
-        // One additional, already decoded near key; never generate an inflection or look up
-        // the whole folded dictionary. This presentation also works with SI switched off.
-        if (provider.packageInfo().languageCode == "pl" && scores.size == words.size &&
-            (languages == null || languages.size == words.size) && surfaces.size <= 2) {
+        val first = forms(words.first())
+        val outWords = first.surfaces.toMutableList()
+        val outScores = MutableList(outWords.size) { scores.firstOrNull() ?: 0 }
+        val outLanguages = languages?.let { source -> MutableList(outWords.size) { source.first() } }
+        val exact = MutableList(outWords.size) { first.exact }
+        val groupKeys = mutableSetOf(primaryKey)
+        // At most one additional decoded key: keyboard-equivalent spelling OR a source lemma.
+        // The model does not need capitalization metadata to compare ordinary word forms.
+        if (provider.packageInfo().languageCode == "pl" && scores.size == words.size && outWords.size <= 2) {
             for (i in 1 until minOf(words.size, FAMILY_SEARCH_CANDIDATES)) {
-                val otherKey = words[i].lowercase(Locale.ROOT)
-                if (otherKey in groupKeys || foldPolish(otherKey) != foldPolish(key) ||
-                    (languages != null && (languages[0] != "pl" || languages[i] != "pl"))) continue
-                val other = provider.lookup(words[i])?.capitalization ?: continue
-                val otherForms = other.variants.map { it.surface }
-                if (otherForms.isEmpty() || otherForms.size > 2 ||
-                    outWords.size + otherForms.size > MAX_GROUP_SURFACES) continue
-                val first = when {
-                    capitalize -> otherForms.firstOrNull { it.firstOrNull()?.isUpperCase() == true } ?: otherForms.first()
-                    words[i] in otherForms && words[i] != otherKey -> words[i]
-                    else -> other.defaultSurface ?: otherForms.first()
-                }
-                val expanded = (listOf(first) + otherForms).distinct()
-                outWords.addAll(expanded)
-                outScores.addAll(List(expanded.size) { scores[i] })
-                outLanguages?.addAll(List(expanded.size) { languages!![i] })
-                exact.addAll(List(expanded.size) { true })
-                groupKeys.add(otherKey)
+                val key = words[i].lowercase(Locale.ROOT)
+                if (key in groupKeys || (languages != null && (languages[0] != "pl" || languages[i] != "pl"))) continue
+                if (foldPolish(key) != foldPolish(primaryKey) && !provider.sharesSourceLemma(primaryKey, key)) continue
+                val other = forms(words[i])
+                if (outWords.size + other.surfaces.size > MAX_GROUP_SURFACES) continue
+                outWords.addAll(other.surfaces)
+                outScores.addAll(List(other.surfaces.size) { scores[i] })
+                outLanguages?.addAll(List(other.surfaces.size) { languages!![i] })
+                exact.addAll(List(other.surfaces.size) { other.exact })
+                groupKeys.add(key)
                 break
             }
         }
+        val groupSize = outWords.size
         for (i in 1 until words.size) {
-            // Do not suppress a same-spelled candidate from a different language.
-            if (words[i].lowercase(Locale.ROOT) in groupKeys &&
-                (languages == null || languages[i] == languages[0])) continue
+            // Preserve independently decoded case choices if no source expansion replaced them.
+            val key = words[i].lowercase(Locale.ROOT)
+            val sameLanguage = languages == null || languages[i] == languages[0]
+            if (key in groupKeys && sameLanguage &&
+                (words[i] in outWords || (key == primaryKey && first.exact) ||
+                    (key != primaryKey && provider.lookup(words[i])?.capitalization != null && showCaseVariants))) continue
             outWords.add(words[i])
             outScores.add(scores.getOrElse(i) { 0 })
             outLanguages?.add(languages!![i])
             exact.add(false)
         }
-        return Slate(outWords, outScores, outLanguages, exact)
+        return Slate(outWords, outScores, outLanguages, exact, groupSize)
     }
 }

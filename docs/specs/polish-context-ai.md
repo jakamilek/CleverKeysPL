@@ -525,3 +525,25 @@ Polish/base explanation updated; other locales remain translation backlog.
 Global dictionary coverage (nine reported absent keys), independent family quality,
 stationary BS timing preferences and punctuation SI remain later work.
 Guide: docs/HERBERT_LIVE_TRIAL_V1.md. Artifact identity now case-family-v2.
+
+## Approved ordinary word-form ranking v3 — 2026-10-10
+
+User confirms Maliną remains selectable after SI inserts maliną; exact strip rank/timing
+not supplied. Requests further SI work before global dictionary: swipe after
+„Tak, była w podpowiedziach właściwa” chooses kapitalizacją before kapitalizacja.
+Verified v5: kapitalizacja is CKDT key rank196, kapitalizacją absent; neither has
+capitalization metadata (sidecar16199 vs CKDT106363). Installed phone pack/custom
+words and actual native scores/deadline are uninspected. Do not claim exact phone cause.
+Previous gate definitely skipped first keys lacking capitalization metadata.
+Implemented: ordinary already-decoded same-fold forms can enter bounded group without
+case metadata; optional shared lemma/POS from existing source evidence links different
+endings. Typed immutable identities are derived at import, <=32 per key; no inferred stems
+or descriptions. Group membership independent of exact-case flag / display toggle.
+Max two keys among first five /four surfaces; SI worker/trust/32 words/350ms unchanged.
+Eleven registered regressions added: missing metadata, source lemma/POS/immutability,
+case toggle, language/decoded-only bounds, order/score guards, real original tokenizer feeds,
+actual handler precommit. Compilation/tests/lint/APK and phone quality pending new CI.
+Other locales remain translation backlog; Polish/base explanation updated.
+Global dictionary task includes kapitalizacją/kapitalizacje coverage alongside earlier nine.
+No producer/model/langpack data edits, merge/release/version bump; Actions wait<=60s.
+

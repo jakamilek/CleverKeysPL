@@ -125,12 +125,18 @@ add and editor/cursor/prediction consistency guards are unconditional fixes, not
 
 Canonical spec: docs/specs/polish-context-ai.md. The maintainer-authorized opt-in
 live trial uses HerbertLiveRuntime and the original verified HerbertOnnxScorer.
-Geometric stays the decoder. The approved case-family-v2 scope is at most two
-already decoded Polish keys among the first five, identical after Polish diacritic
-folding, and at most four source-confirmed surfaces. Folding is not lemma evidence.
-Never invent inflections or scan the dictionary for undeclared decoder alternatives.
-Keep each key's weight/language/exact-case flags aligned when the group moves;
-outside candidates retain their order. Family presentation also works without SI.
+Geometric stays the decoder. The approved word-forms-v3 scope is at most two
+already decoded Polish keys among the first five, and at most four surfaces.
+Relate keys by identical Polish diacritic folding (not lemma evidence), or a shared
+case-sensitive source lemma/POS from existing metadata. Source identities are parsed
+once at import, immutable and bounded; never derive stems or parse JSON at gesture time.
+Ordinary decoded forms do not need capitalization metadata. Add case variants only
+when declared by source and enabled in the display setting. formGroupSize is separate
+from exact-case policy; moving a word moves its score/language/case flag. Outside order
+is preserved. No invented inflections or scanning the whole dictionary.
+Family presentation also works without SI; disabling case variants leaves ordinary
+form ranking available. Model/trust/default32/deadline350ms and editor/privacy guards
+remain; no raw model-score mixing or retroactive edits.
 Use a separate bounded live editor context preserving case/punctuation, never the
 lowercase two-word PredictionContextTracker history. Preserve all source variants,
 keys/scores/languages and the single SuggestionHandler presentation/commit pipeline.

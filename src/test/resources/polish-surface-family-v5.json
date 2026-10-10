@@ -385,6 +385,165 @@
       "surfaceKey": "maliną"
     },
     {
+      "canonicalForm": "praca",
+      "capitalization": {
+        "defaultSurface": "praca",
+        "variants": [
+          {
+            "casePolicy": "lowercase",
+            "surface": "praca"
+          },
+          {
+            "casePolicy": "capitalized",
+            "surface": "Praca"
+          }
+        ]
+      },
+      "metadata": {
+        "sourceEvidence": {
+          "lexicalReadings": [
+            {
+              "labels": [],
+              "lemma": "Praca",
+              "nameClasses": [
+                "nazwa_geograficzna"
+              ],
+              "partOfSpeech": "subst",
+              "surfaces": [
+                "Praca"
+              ]
+            },
+            {
+              "labels": [],
+              "lemma": "praca",
+              "nameClasses": [
+                "nazwa_pospolita"
+              ],
+              "partOfSpeech": "subst",
+              "surfaces": [
+                "praca"
+              ]
+            }
+          ],
+          "variantCategoryIds": {
+            "Praca": [
+              "NAME:nazwa_geograficzna"
+            ],
+            "praca": [
+              "NAME:nazwa_pospolita"
+            ]
+          }
+        }
+      },
+      "surfaceKey": "praca"
+    },
+    {
+      "canonicalForm": "pracy",
+      "capitalization": {
+        "defaultSurface": "pracy",
+        "variants": [
+          {
+            "casePolicy": "lowercase",
+            "surface": "pracy"
+          },
+          {
+            "casePolicy": "capitalized",
+            "surface": "Pracy"
+          }
+        ]
+      },
+      "metadata": {
+        "sourceEvidence": {
+          "lexicalReadings": [
+            {
+              "labels": [],
+              "lemma": "Praca",
+              "nameClasses": [
+                "nazwa_geograficzna"
+              ],
+              "partOfSpeech": "subst",
+              "surfaces": [
+                "Pracy"
+              ]
+            },
+            {
+              "labels": [],
+              "lemma": "praca",
+              "nameClasses": [
+                "nazwa_pospolita"
+              ],
+              "partOfSpeech": "subst",
+              "surfaces": [
+                "pracy"
+              ]
+            }
+          ],
+          "variantCategoryIds": {
+            "Pracy": [
+              "NAME:nazwa_geograficzna"
+            ],
+            "pracy": [
+              "NAME:nazwa_pospolita"
+            ]
+          }
+        }
+      },
+      "surfaceKey": "pracy"
+    },
+    {
+      "canonicalForm": "pracą",
+      "capitalization": {
+        "defaultSurface": "pracą",
+        "variants": [
+          {
+            "casePolicy": "lowercase",
+            "surface": "pracą"
+          },
+          {
+            "casePolicy": "capitalized",
+            "surface": "Pracą"
+          }
+        ]
+      },
+      "metadata": {
+        "sourceEvidence": {
+          "lexicalReadings": [
+            {
+              "labels": [],
+              "lemma": "Praca",
+              "nameClasses": [
+                "nazwa_geograficzna"
+              ],
+              "partOfSpeech": "subst",
+              "surfaces": [
+                "Pracą"
+              ]
+            },
+            {
+              "labels": [],
+              "lemma": "praca",
+              "nameClasses": [
+                "nazwa_pospolita"
+              ],
+              "partOfSpeech": "subst",
+              "surfaces": [
+                "pracą"
+              ]
+            }
+          ],
+          "variantCategoryIds": {
+            "Pracą": [
+              "NAME:nazwa_geograficzna"
+            ],
+            "pracą": [
+              "NAME:nazwa_pospolita"
+            ]
+          }
+        }
+      },
+      "surfaceKey": "pracą"
+    },
+    {
       "canonicalForm": "łaska",
       "capitalization": {
         "defaultSurface": "łaska",

@@ -3,8 +3,8 @@ package tribixbite.cleverkeys.ai
 import java.util.Locale
 import tribixbite.cleverkeys.SwipeSurfaceVariants
 
-/** Up to two decoded Polish keys and four source-confirmed surfaces. No decoder-score mixing. */
-internal class HerbertFormGroup(surfaces: List<String>) {
+/** Two decoded Polish keys at most; declared case variants or unchanged decoded surfaces. */
+internal class HerbertFormGroup(surfaces: List<String>, sharedSourceLemma: Boolean = false) {
     val surfaces: List<String> = java.util.Collections.unmodifiableList(ArrayList(surfaces))
 
     init {
@@ -13,7 +13,7 @@ internal class HerbertFormGroup(surfaces: List<String>) {
         require(this.surfaces.all { it.isNotBlank() && it.length <= 96 })
         val keys = this.surfaces.groupBy { it.lowercase(Locale.ROOT) }
         require(keys.size in 1..2 && keys.values.all { it.size <= 2 })
-        require(keys.keys.map(SwipeSurfaceVariants::foldPolish).distinct().size == 1)
+        require(keys.keys.map(SwipeSurfaceVariants::foldPolish).distinct().size == 1 || sharedSourceLemma)
         require(this.surfaces.all {
             val key = it.lowercase(Locale.ROOT)
             it == key || it == key.replaceFirstChar { first -> first.titlecase(Locale.ROOT) }

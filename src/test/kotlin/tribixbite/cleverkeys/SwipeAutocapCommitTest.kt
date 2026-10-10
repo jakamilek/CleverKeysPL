@@ -160,7 +160,7 @@ class SwipeAutocapCommitTest {
         )
     }
 
-    private fun liveFixture(family: Boolean = false): Pair<SuggestionHandler, EditorInfo> {
+    private fun liveFixture(family: Boolean = false, contextText: String = "Jedziemy do "): Pair<SuggestionHandler, EditorInfo> {
         config.herbert_live_enabled = true
         config.herbert_context_words = 32
         config.herbert_wait_ms = 350
@@ -174,10 +174,10 @@ class SwipeAutocapCommitTest {
             setOf("capitalization"), mapOf("łódź" to LanguageIntelligence("łódź", null,
                 CapitalizationInfo("łódź", listOf(SurfaceVariant("łódź", "lower"), SurfaceVariant("Łódź", "title"))), null)))
         every { dictionary.getLanguageIntelligenceProvider("pl") } returns provider
-        every { ic.getTextBeforeCursor(any(), any()) } returns "Jedziemy do "
+        every { ic.getTextBeforeCursor(any(), any()) } returns contextText
         every { ic.getTextAfterCursor(any(), any()) } returns ""
         val selection = objenesis.newInstance(ExtractedText::class.java).apply {
-            startOffset = 0; selectionStart = 12; selectionEnd = 12
+            startOffset = 0; selectionStart = contextText.length; selectionEnd = contextText.length
         }
         every { ic.getExtractedText(any(), any()) } returns selection
         val h = handler()
@@ -191,6 +191,46 @@ class SwipeAutocapCommitTest {
         every { HerbertLiveRuntime.revision } returns 7L
         every { HerbertLiveRuntime.noteResult(any()) } just Runs
         return h to info
+    }
+
+    @Test fun ordinarySwipeFormsAreRankedBeforeCommitEvenWhenCaseVariantsAreDisabled() {
+        val (h, info) = liveFixture(family = true, contextText = "Tak, była w podpowiedziach właściwa ")
+        config.edit_behavior = EditBehaviorOptions(showCaseVariants = false)
+        var complete: ((Map<String, Float>?, Long) -> Unit)? = null
+        every { HerbertLiveRuntime.rank(any(), any(), any(), any()) } answers {
+            assertWithMessage("original editor context reaches the model").that(arg<String>(0))
+                .isEqualTo("Tak, była w podpowiedziach właściwa ")
+            assertWithMessage("ordinary decoded surfaces only").that(arg<HerbertFormGroup>(1).surfaces)
+                .containsExactly("kapitalizacją", "kapitalizacja").inOrder()
+            complete = arg(3); true
+        }
+        h.handleSwipePredictionResults(listOf("kapitalizacją", "kapitalizacja", "kapitalizm"),
+            listOf(220, 190, 90), ic, info, resources, false, false, inputCoordinator, SuggestionOrigin.GEOMETRIC)
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+        complete!!(mapOf("kapitalizacją" to -8f, "kapitalizacja" to -1f), 7L)
+        verify(exactly = 1) { ic.commitText("kapitalizacja ", 1) }
+        assertWithMessage("both original forms remain selectable").that(barWords)
+            .containsExactly("kapitalizacja", "kapitalizacją", "kapitalizm").inOrder()
+        assertWithMessage("geometry travels with the form").that(barScores).containsExactly(190, 220, 90).inOrder()
+        assertWithMessage("no invented capitalization policy").that(barMetas.map { it.preserveExactCase })
+            .containsExactly(false, false, false).inOrder()
+    }
+
+    @Test fun actualSourceLemmaAllowsAnEndingChangeThroughTheSingleCommitPath() {
+        val (h, info) = liveFixture(family = true, contextText = "To jest bardzo ważna ")
+        var complete: ((Map<String, Float>?, Long) -> Unit)? = null
+        every { HerbertLiveRuntime.rank(any(), any(), any(), any()) } answers {
+            assertWithMessage("source-confirmed endings reach SI").that(arg<HerbertFormGroup>(1).surfaces)
+                .containsExactly("pracy", "Pracy", "praca", "Praca").inOrder()
+            complete = arg(3); true
+        }
+        h.handleSwipePredictionResults(listOf("pracy", "praca", "malina"), listOf(220, 190, 90),
+            ic, info, resources, false, false, inputCoordinator, SuggestionOrigin.GEOMETRIC)
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+        complete!!(mapOf("pracy" to -7f, "Pracy" to -8f, "praca" to -1f, "Praca" to -6f), 7L)
+        verify(exactly = 1) { ic.commitText("praca ", 1) }
+        assertWithMessage("ending alternatives stay available").that(barWords)
+            .containsExactly("praca", "Praca", "pracy", "Pracy", "malina").inOrder()
     }
 
     private fun familySwipe(h: SuggestionHandler, info: EditorInfo) {

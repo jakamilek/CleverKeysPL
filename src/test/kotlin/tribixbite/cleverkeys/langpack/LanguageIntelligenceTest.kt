@@ -9,6 +9,78 @@ class LanguageIntelligenceTest {
         javaClass.getResource("/polish-surface-family-v5.json")!!.readText(Charsets.UTF_8).reader(),
         "pl", 5, setOf("capitalization", "metadata"))
 
+    @Test fun ordinaryDecodedFormsDoNotNeedCapitalizationMetadataAndNeverInventCaseVariants() {
+        val data = familyProvider()
+        assertNull(data.lookup("kapitalizacja"))
+        val result = SwipeSurfaceVariants.expand(listOf("kapitalizacją", "kapitalizacja", "kapitalizm"),
+            listOf(220, 190, 90), listOf("pl", "pl", "pl"), data, false, false)
+        assertEquals(listOf("kapitalizacją", "kapitalizacja", "kapitalizm"), result.words)
+        assertEquals(listOf(220, 190, 90), result.scores)
+        assertEquals(listOf(false, false, false), result.exactCase)
+        assertEquals(2, result.formGroupSize)
+        assertEquals(1, SwipeSurfaceVariants.expand(listOf("kapitalizacją", "kapitalizm"),
+            listOf(220, 190), null, data, false, false).formGroupSize)
+    }
+
+    @Test fun sourceLemmaLinksActualInflectionsWithoutRemovingLettersOrGuessingStems() {
+        val data = familyProvider()
+        assertTrue(data.sharesSourceLemma("praca", "pracy"))
+        assertFalse(data.sharesSourceLemma("praca", "malina"))
+        assertFalse(data.sharesSourceLemma("kapitalizacja", "kapitalizacji"))
+        assertTrue(data.lookup("pracy")!!.sourceLemmas.contains(SourceLemma("praca", "subst")))
+        val result = SwipeSurfaceVariants.expand(listOf("pracy", "malina", "praca"),
+            listOf(220, 190, 160), null, data, false, false)
+        assertEquals(listOf("pracy", "Pracy", "praca", "Praca", "malina"), result.words)
+        assertEquals(listOf(220, 220, 160, 160, 190), result.scores)
+        assertEquals(4, result.formGroupSize)
+    }
+
+    @Test fun lemmaRelationRequiresDeclaredMetadataAndImmutableSurfaceMatchedEvidence() {
+        val json = javaClass.getResource("/polish-surface-family-v5.json")!!.readText(Charsets.UTF_8)
+        val capsOnly = IntelligenceJson.parse(json.reader(), "pl", 5, setOf("capitalization"))
+        assertFalse(capsOnly.sharesSourceLemma("praca", "pracy"))
+        val provider = familyProvider()
+        try {
+            (provider.lookup("praca")!!.sourceLemmas as MutableSet<SourceLemma>).clear()
+            fail("source identities must be immutable")
+        } catch (_: UnsupportedOperationException) { }
+        assertTrue(provider.sharesSourceLemma("praca", "pracy"))
+        val root = IntelligenceJson.document(json.reader())
+        for (entry in root.getAsJsonArray("entries")) {
+            val obj = entry.asJsonObject
+            if (obj.get("surfaceKey").asString != "pracy") continue
+            for (reading in obj.getAsJsonObject("metadata").getAsJsonObject("sourceEvidence")
+                .getAsJsonArray("lexicalReadings")) {
+                reading.asJsonObject.addProperty("partOfSpeech", "other-pos")
+            }
+        }
+        val changedPos = IntelligenceJson.parse(root.toString().reader(), "pl", 5, setOf("metadata"))
+        assertFalse(changedPos.sharesSourceLemma("praca", "pracy"))
+    }
+
+    @Test fun capitalizationDisplayToggleDoesNotTurnOffInflectionGroupsOrDeleteDecodedCaseChoices() {
+        val data = familyProvider()
+        val result = SwipeSurfaceVariants.expand(listOf("pracy", "Pracy", "praca"),
+            listOf(220, 200, 160), null, data, false, false, showCaseVariants = false)
+        assertEquals(listOf("pracy", "praca", "Pracy"), result.words)
+        assertEquals(listOf(220, 160, 200), result.scores)
+        assertEquals(listOf(false, false, false), result.exactCase)
+        assertEquals(2, result.formGroupSize)
+        assertEquals(listOf("malina", "Malina", "maliną"), SwipeSurfaceVariants.expand(
+            listOf("malina", "Malina", "maliną"), listOf(220, 200, 160), null, data,
+            false, true, showCaseVariants = false).words)
+    }
+
+    @Test fun anotherLanguageAndAbsentDecodedInflectionNeverEnterOrdinaryGroups() {
+        val data = familyProvider()
+        val result = SwipeSurfaceVariants.expand(listOf("kapitalizacją", "kapitalizacja"),
+            listOf(220, 190), listOf("pl", "en"), data, false, false)
+        assertEquals(1, result.formGroupSize)
+        assertEquals(listOf("kapitalizacją", "kapitalizacja"), result.words)
+        assertEquals(listOf("praca", "Praca"), SwipeSurfaceVariants.expand(listOf("praca"),
+            listOf(220), null, data, false, false).words)
+    }
+
     @Test fun decodedDiacriticAlternativeExpandsUsingActualV5SourceAndKeepsBothWeights() {
         val data = familyProvider()
         assertTrue(data.lookup("maliną")!!.metadataJson!!.contains("Malina:Sf"))

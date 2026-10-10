@@ -1045,8 +1045,8 @@ class SuggestionHandler(
         }
         val surfaceSlate = SwipeSurfaceVariants.expand(
             rescoredPredictions, rescoredScores, rescored.languages,
-            provider.takeIf { (config.edit_behavior ?: EditBehaviorOptions()).showCaseVariants },
-            shiftActive || autocapAtCursor, shiftLocked,
+            provider, shiftActive || autocapAtCursor, shiftLocked,
+            (config.edit_behavior ?: EditBehaviorOptions()).showCaseVariants,
         )
         fun publishSwipeSlate(surfaceSlate: SwipeSurfaceVariants.Slate) {
             val barWords = surfaceSlate.words.toMutableList()
@@ -1274,7 +1274,7 @@ class SuggestionHandler(
             !EditorSpacingPolicy.allowsAutomaticSpacing(info, false) || isTermuxEditor(info) ||
             liveEditorProvider == null) return false
         if (HerbertLiveRuntime.state != HerbertLiveRuntime.State.READY) return false
-        val group = HerbertLiveSlate.group(slate) ?: return false
+        val group = HerbertLiveSlate.group(slate, provider) ?: return false
         val raw = try { ic.getTextBeforeCursor(HerbertContextWindow.MAX_UNITS + 1, 0)?.toString() } catch (_: Exception) { null }
             ?: return false
         val et = try { herbertSelection(ic) } catch (_: Exception) { null }

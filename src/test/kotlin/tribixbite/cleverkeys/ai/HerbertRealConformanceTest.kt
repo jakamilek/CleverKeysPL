@@ -38,13 +38,21 @@ class HerbertRealConformanceTest {
     }
 
     @Test fun fourFamilySurfacesHaveTheSameUnpaddedFeedsAsSeparateOriginalTokenizerRequests() {
+        checkUnpaddedFeeds(listOf("malina", "Malina", "maliną", "Maliną"), "Jutro będę widział się z ")
+    }
+
+    @Test fun ordinaryAndSourceLemmaEndingsUseOriginalTokenizerWithoutUnknownTargetsOrLostMasks() {
+        checkUnpaddedFeeds(listOf("kapitalizacją", "kapitalizacja"), "Tak, była w podpowiedziach właściwa ")
+        checkUnpaddedFeeds(listOf("pracy", "Pracy", "praca", "Praca"), "To jest bardzo ważna ")
+    }
+
+    private fun checkUnpaddedFeeds(forms: List<String>, context: String) {
         val tokenizer = ByteArrayInputStream(bytes("portable-tokenizer.json")).reader(Charsets.UTF_8).use { HerbertTokenizer.parse(it) }
-        val forms = listOf("malina", "Malina", "maliną", "Maliną")
-        val batch = tokenizer.prepare("Jutro będę widział się z ", forms, 32)
-        assertEquals(4, batch.size)
+        val batch = tokenizer.prepare(context, forms, 32)
+        assertEquals(forms.size, batch.size)
         assertEquals(forms, batch.surfaces)
         for ((row, surface) in forms.withIndex()) {
-            val single = tokenizer.prepare("Jutro będę widział się z ", listOf(surface), 32)
+            val single = tokenizer.prepare(context, listOf(surface), 32)
             val ids = batch.inputIds(); val attention = batch.attentionMask()
             val active = (0 until batch.sequence).filter { attention[row * batch.sequence + it] == 1L }
                 .map { ids[row * batch.sequence + it] }.toLongArray()

@@ -76,7 +76,8 @@ jobs:
                           producerCommit='d831e17b6cb99590d6ba036e92a72b6c3fd0cc7c',
                           producerRun=37230171787, modelArtifact=11312693984,
                           contextDefaultWords=32, availableWordLimits=[16,32,64], waitDefaultMs=350,
-                          liveRevision='case-family-v2', maxLiveSurfaces=4, familySearchCandidates=5,
+                          liveRevision='word-forms-v3', maxLiveSurfaces=4, familySearchCandidates=5,
+                          ordinaryDecodedForms=True, sharedSourceLemma=True,
                           backspaceWordHaptics=True, nativeConformanceBeforeLive=True)
           Path('build/outputs/apk/debug/herbert-live-apk.json').write_text(json.dumps(identity,indent=2)+'\n')
           print(json.dumps(identity,indent=2))

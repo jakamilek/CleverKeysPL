@@ -2,19 +2,23 @@ package tribixbite.cleverkeys.ai
 
 import java.util.Locale
 import tribixbite.cleverkeys.SwipeSurfaceVariants
+import tribixbite.cleverkeys.langpack.LanguageIntelligenceProvider
 
 /** Only a bounded source group moves; each word travels with all its parallel metadata. */
 internal object HerbertLiveSlate {
-    fun group(slate: SwipeSurfaceVariants.Slate): HerbertFormGroup? {
+    fun group(slate: SwipeSurfaceVariants.Slate, provider: LanguageIntelligenceProvider? = null): HerbertFormGroup? {
         val size = slate.words.size
-        val count = slate.exactCase.takeWhile { it }.size
-        if (count !in 2..SwipeSurfaceVariants.MAX_GROUP_SURFACES ||
+        if (slate.formGroupSize < 0) return null
+        val count = if (slate.formGroupSize > 0) slate.formGroupSize else slate.exactCase.takeWhile { it }.size
+        if (count !in 2..SwipeSurfaceVariants.MAX_GROUP_SURFACES || count > size ||
             slate.exactCase.size != size || slate.exactCase.drop(count).any { it } ||
             slate.scores.size != size ||
             slate.languages?.let { it.size != size || it.take(count).any { lang -> lang != "pl" } } == true) return null
         val indices = (0 until count).groupBy { slate.words[it].lowercase(Locale.ROOT) }
         if (indices.values.any { positions -> positions.map { slate.scores[it] }.distinct().size != 1 }) return null
-        return try { HerbertFormGroup(slate.words.take(count)) }
+        val keys = indices.keys.toList()
+        val shared = keys.size == 2 && provider?.sharesSourceLemma(keys[0], keys[1]) == true
+        return try { HerbertFormGroup(slate.words.take(count), shared) }
         catch (_: IllegalArgumentException) { null }
     }
 

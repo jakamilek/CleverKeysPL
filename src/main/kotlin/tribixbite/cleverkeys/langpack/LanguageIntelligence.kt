@@ -13,12 +13,14 @@ import java.util.Locale
 
 data class SurfaceVariant(val surface: String, val casePolicy: String)
 data class CapitalizationInfo(val defaultSurface: String?, val variants: List<SurfaceVariant>)
+data class SourceLemma(val lemma: String, val partOfSpeech: String)
 data class LanguageIntelligence(
     val surfaceKey: String,
     val canonicalForm: String?,
     val capitalization: CapitalizationInfo?,
     // Opaque, immutable source data. Stage 1 does not infer meanings or run a model.
     val metadataJson: String?,
+    val sourceLemmas: Set<SourceLemma> = emptySet(),
 )
 data class IntelligenceMember(val file: String, val schemaVersion: Int, val sha256: String)
 data class IntelligencePackageInfo(val languageCode: String, val version: Int, val provenanceJson: String?)
@@ -34,6 +36,13 @@ class LanguageIntelligenceProvider internal constructor(
     fun capabilities(): Set<String> = supported
     fun packageInfo(): IntelligencePackageInfo = info
     fun lookup(surface: String): LanguageIntelligence? = index[surface.lowercase(Locale.ROOT)]
+    /** Source identities are case-sensitive and include POS; never guess a lemma from a suffix. */
+    fun sharesSourceLemma(first: String, second: String): Boolean {
+        if ("metadata" !in supported) return false
+        val a = lookup(first)?.sourceLemmas ?: return false
+        val b = lookup(second)?.sourceLemmas ?: return false
+        return a.any { it in b }
+    }
 }
 
 /** Bounded strict JSON, including duplicate members which Gson's tree parser would overwrite. */
@@ -42,6 +51,34 @@ internal object IntelligenceJson {
     const val MAX_BYTES = 32L * 1024 * 1024
     private const val MAX_NODES = 1_000_000
     private const val MAX_ENTRIES = 120_000
+
+    /** Optional typed view of existing Morfeusz evidence; opaque metadata stays unchanged. */
+    private fun sourceLemmas(metadata: JsonElement?, key: String): Set<SourceLemma> {
+        val evidence = metadata?.takeIf { it.isJsonObject }?.asJsonObject
+            ?.get("sourceEvidence")?.takeIf { it.isJsonObject }?.asJsonObject ?: return emptySet()
+        val out = LinkedHashSet<SourceLemma>()
+        fun text(obj: JsonObject, name: String): String? = obj.get(name)
+            ?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
+        for (name in listOf("lexicalReadings", "generatedFormProofs", "interpretations")) {
+            val rows = evidence.get(name)?.takeIf { it.isJsonArray }?.asJsonArray ?: continue
+            for (raw in rows) {
+                val row = raw.takeIf { it.isJsonObject }?.asJsonObject ?: continue
+                val surfaces = row.get("surfaces")?.takeIf { it.isJsonArray }?.asJsonArray
+                val matches = text(row, "form")?.lowercase(Locale.ROOT) == key ||
+                    surfaces?.any { it.isJsonPrimitive && it.asJsonPrimitive.isString &&
+                        it.asString.lowercase(Locale.ROOT) == key } == true
+                if (!matches) continue
+                val lemma = text(row, "lemma") ?: continue
+                val pos = text(row, "partOfSpeech") ?: text(row, "tag")?.substringBefore(':') ?: continue
+                if (lemma.isNotBlank() && lemma.length <= 96 && pos.isNotBlank() && pos.length <= 32) {
+                    out.add(SourceLemma(lemma, pos))
+                    // Optional relation evidence must remain cheap at gesture time.
+                    if (out.size > 32) return emptySet()
+                }
+            }
+        }
+        return Collections.unmodifiableSet(out)
+    }
 
     fun document(reader: Reader): JsonObject = JsonReader(reader).use { input ->
         input.isLenient = false
@@ -155,7 +192,8 @@ internal object IntelligenceJson {
             val canonical = entry.get("canonicalForm")?.takeUnless { it.isJsonNull }?.let {
                 string(entry, "canonicalForm").also { value -> require(value.length in 1..96) }
             }
-            index[key] = LanguageIntelligence(key, canonical, caps, entry.get("metadata")?.toString())
+            val metadata = entry.get("metadata")
+            index[key] = LanguageIntelligence(key, canonical, caps, metadata?.toString(), sourceLemmas(metadata, key))
         }
         return LanguageIntelligenceProvider(
             IntelligencePackageInfo(language, version, obj.get("provenance")?.toString()), capabilities, index
