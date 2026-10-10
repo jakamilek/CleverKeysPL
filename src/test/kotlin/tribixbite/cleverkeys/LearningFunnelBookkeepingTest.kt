@@ -215,6 +215,139 @@ class LearningFunnelBookkeepingTest {
         verify(exactly = 3) { bar.resetScrollPosition() }
     }
 
+    @Test fun explicitWholeEmailAddKeepsTextAndSpaceAndSurvivesCursorSync() {
+        val field = attachAutocorrectEditor()
+        val word = "przykład.ten@gmail.com"
+        every { predictor.isInDictionary(word, false) } returns false
+        type(word + " ", field)
+        assertWithMessage("whole email add offered").that(barWords).containsExactly(Suggestion.ExactAdd(word).wire)
+        tracker.synchronizeWithCursor(ic, "en", field)
+        handler.handleCursorParkPrediction(field, ic)
+        assertWithMessage("idle sync retains whole offer").that(barWords).containsExactly(Suggestion.ExactAdd(word).wire)
+        tap(Suggestion.ExactAdd(word).wire, field)
+        verify(exactly = 1) { dictionary.addUserWord(word) }
+        verify(exactly = 0) { dictionary.addUserWord("com") }
+        assertWithMessage("add never rewrites email or space").that(editor.toString()).isEqualTo(word + " ")
+    }
+
+    @Test fun hyphenatedWordIsExplicitlyOfferedWholeBeforeCompletion() {
+        val field = attachAutocorrectEditor()
+        val word = "czarno-biały"
+        every { predictor.isInDictionary(word, false) } returns false
+        type(word, field)
+        assertWithMessage("hyphenated full entry").that(barWords).containsExactly(Suggestion.ExactAdd(word).wire)
+        handler.handleCursorSyncPrediction()
+        tap(Suggestion.ExactAdd(word).wire, field)
+        verify(exactly = 1) { dictionary.addUserWord(word) }
+        assertWithMessage("typed joiner preserved").that(editor.toString()).isEqualTo(word)
+    }
+
+    @Test fun changedEmailOrEditorRejectsStaleWholeEntryAdd() {
+        val field = attachAutocorrectEditor()
+        val word = "przykład.ten@gmail.com"
+        every { predictor.isInDictionary(word, false) } returns false
+        type(word, field)
+        editor.setLength(0); editor.append("inny@host.pl")
+        tap(Suggestion.ExactAdd(word).wire, field)
+        verify(exactly = 0) { dictionary.addUserWord(any()) }
+        editor.setLength(0); editor.append(word)
+        handler.handleCursorSyncPrediction()
+        val other = textField()
+        handler.liveEditorProvider = { ic to other }
+        tap(Suggestion.ExactAdd(word).wire, other)
+        verify(exactly = 0) { dictionary.addUserWord(any()) }
+        assertWithMessage("stale add never deletes text").that(editor.toString()).isEqualTo(word)
+    }
+
+    @Test fun savedWholeEntriesDoNotGetAnotherAddOffer() {
+        val field = attachAutocorrectEditor()
+        val word = "czarno-biały"
+        every { predictor.isInDictionary(word, false) } returns false
+        every { dictionary.isUserWordIgnoringCase(word) } returns true
+        type(word, field)
+        assertWithMessage("known explicit entry not offered").that(barWords).doesNotContain(Suggestion.ExactAdd(word).wire)
+    }
+
+    private fun startupUi(): MutableList<Runnable> {
+        val posts = mutableListOf<Runnable>()
+        val main = mockk<android.os.Handler>(relaxed = true)
+        every { main.post(any()) } answers { posts.add(firstArg()); true }
+        handler.setField("mainHandler", main)
+        val tasks = mockk<PredictionTaskRunner>(relaxed = true)
+        every { tasks.cancelAndSubmit(any()) } answers { firstArg<Runnable>().run() }
+        handler.setField("predictionTasks", tasks)
+        every { predictor.getStartupWords(any(), any()) } returns listOf("tak", "dzięki", "cześć")
+        return posts
+    }
+
+    @Test fun startupWordsSurviveInitialParkAndAppendOnTap() {
+        val field = attachAutocorrectEditor()
+        val posts = startupUi()
+        handler.startStartupWords(ic, field)
+        handler.handleCursorParkPrediction(field, ic)
+        while (posts.isNotEmpty()) posts.removeAt(0).run()
+        assertWithMessage("startup top words").that(barWords).containsExactly("tak", "dzięki", "cześć").inOrder()
+        tap("tak", field)
+        assertWithMessage("startup word appends").that(editor.toString()).isEqualTo("tak ")
+        assertWithMessage("tagged as next word").that(tracker.getLastCommitSource()).isEqualTo(PredictionSource.NEXT_WORD)
+    }
+
+    @Test fun aQueuedStartupResultCannotOverwriteFirstTypedWord() {
+        val field = attachAutocorrectEditor()
+        val posts = startupUi()
+        handler.startStartupWords(ic, field)
+        posts.removeAt(0).run() // Result is now queued on main.
+        type("g", field)
+        while (posts.isNotEmpty()) posts.removeAt(0).run()
+        assertWithMessage("startup superseded by typing").that(barWords).doesNotContain("tak")
+        assertWithMessage("typed word intact").that(editor.toString()).isEqualTo("g")
+    }
+
+    @Test fun aQueuedStartupResultCannotCrossToAnotherEditor() {
+        val field = attachAutocorrectEditor()
+        val posts = startupUi()
+        handler.startStartupWords(ic, field)
+        posts.removeAt(0).run()
+        handler.liveEditorProvider = { ic to textField() }
+        while (posts.isNotEmpty()) posts.removeAt(0).run()
+        assertWithMessage("different editor blocks stale words").that(barWords).isEmpty()
+    }
+
+    @Test fun privateStartupPassesClosedPersonalReadGateAndPasswordsDoNotQuery() {
+        val field = attachAutocorrectEditor().apply { imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING }
+        val posts = startupUi()
+        handler.startStartupWords(ic, field)
+        while (posts.isNotEmpty()) posts.removeAt(0).run()
+        verify(exactly = 1) { predictor.getStartupWords(3, false) }
+        field.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        handler.startStartupWords(ic, field)
+        while (posts.isNotEmpty()) posts.removeAt(0).run()
+        verify(exactly = 1) { predictor.getStartupWords(any(), any()) }
+    }
+
+    @Test fun startupBackendRanksActualCountsAndActiveLexiconOnly() {
+        predictor.setField("dictionary", java.util.concurrent.atomic.AtomicReference(mutableMapOf("tak" to 100, "boston" to 1, "nie" to 90)))
+        predictor.setField("customAndUserWords", emptySet<String>())
+        predictor.setField("userWordOriginalCase", ConcurrentHashMap(mapOf("boston" to "Boston")))
+        every { personalization.getTopWords(any()) } returns listOf(
+            tribixbite.cleverkeys.personalization.UserWordUsage("tak", 2, 0),
+            tribixbite.cleverkeys.personalization.UserWordUsage("boston", 10, 0),
+            tribixbite.cleverkeys.personalization.UserWordUsage("foreign", 100, 0))
+        assertWithMessage("counts then dictionary fallback").that(predictor.getStartupWords(3, true)).containsExactly("Boston", "tak", "nie").inOrder()
+    }
+
+    @Test fun startupBackendDoesNotReadUsageWithLearningOffOrPrivateField() {
+        predictor.setField("dictionary", java.util.concurrent.atomic.AtomicReference(mutableMapOf("tak" to 100)))
+        predictor.setField("customAndUserWords", emptySet<String>())
+        config.on_device_learning_enabled = false
+        assertWithMessage("static fallback with master off").that(predictor.getStartupWords(3, true)).containsExactly("tak")
+        config.on_device_learning_enabled = true
+        assertWithMessage("static fallback in private field").that(predictor.getStartupWords(3, false)).containsExactly("tak")
+        config.personalized_learning_enabled = false
+        predictor.getStartupWords(3, true)
+        verify(exactly = 0) { personalization.getTopWords(any()) }
+    }
+
     // ------------------------------------------------------------------ fixtures
 
     private fun textField(): EditorInfo = objenesis.newInstance(EditorInfo::class.java).apply {

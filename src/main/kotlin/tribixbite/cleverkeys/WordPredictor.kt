@@ -1126,6 +1126,22 @@ class WordPredictor : Predictor {
         return bigramModel?.getPredictions(prevWord, maxResults) ?: emptyList()
     }
 
+    /** Usage counts first, lexical frequency second; query off the UI thread. */
+    override fun getStartupWords(maxResults: Int, fieldAllowsPersonalizedLearning: Boolean): List<String> {
+        val lexicon = liveLexicon()
+        val owned = liveUserWords()
+        val usePersonal = fieldAllowsPersonalizedLearning && LearningGate.canLearnPersonalization(
+            config?.on_device_learning_enabled ?: false,
+            config?.personalized_learning_enabled ?: false
+        )
+        val personal = if (usePersonal) personalizationEngine?.getTopWords(Int.MAX_VALUE).orEmpty()
+            .filter { it.word in lexicon || it.word in owned }
+            .map { it.word to it.usageCount } else emptyList()
+        // User entries have a synthetic insertion frequency; that is not observed usage.
+        // Exclude them from the fallback rather than pretending they are frequent words.
+        return applyUserWordCaseToList(StartupWordPolicy.select(personal, lexicon, maxResults, owned) { !isWordDisabled(it) })
+    }
+
     /**
      * Personalization boost (0..6) for a word — 0 when personalization or the
      * master on-device-learning gate is off, or the word is unknown. Used by
@@ -3381,3 +3397,4 @@ class WordPredictor : Predictor {
         @JvmField val metas: List<SuggestionMeta>? = null
     )
 }
+

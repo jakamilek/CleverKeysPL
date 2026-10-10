@@ -592,6 +592,8 @@ tasks.register('runPureTests', JavaExec) {
   description = 'Run pure JVM tests via JUnitCore (works on ARM64)'
 
   def pureTestClasses = [
+    'tribixbite.cleverkeys.StartupWordPolicyTest',
+    'tribixbite.cleverkeys.PersonalDictionaryTokenTest',
     'tribixbite.cleverkeys.ai.HerbertSwipeDecisionTest',
     'tribixbite.cleverkeys.ai.HerbertCasePolicyTest',
     'tribixbite.cleverkeys.ai.HerbertPreparedBatchTest',

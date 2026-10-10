@@ -647,7 +647,10 @@ class CleverKeysService : InputMethodService(),
 
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
         _clipboardSuggestions?.stop()
-        if (::_suggestionHandler.isInitialized) _suggestionHandler.onEditorCursorChanged()
+        if (::_suggestionHandler.isInitialized) {
+            _suggestionHandler.dismissStartupWords()
+            _suggestionHandler.onEditorCursorChanged()
+        }
         tribixbite.cleverkeys.ai.HerbertLiveRuntime.configure(this, _config?.herbert_live_enabled == true)
         traceBackspaceGesture("LIFECYCLE start restarting=$restarting")
         // NOTE: Config refresh is handled by SharedPreferences listener (onSharedPreferenceChanged)
@@ -755,11 +758,17 @@ class CleverKeysService : InputMethodService(),
             _suggestionBar?.setInputConnectionProvider { currentInputConnection }
             _clipboardSuggestions = ClipboardPasteSuggestions(
                 getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager,
-                { text, paste -> _suggestionBar?.setClipboardSuggestion(text, paste) },
+                { text, paste -> _suggestionBar?.setClipboardSuggestion(text, paste) { _clipboardSuggestions?.openPanel() } },
                 { Pair(currentInputConnection, currentInputEditorInfo) },
-                { text -> _keyeventhandler.paste_from_clipboard_pane(text) }
+                { text -> _keyeventhandler.paste_from_clipboard_pane(text) },
+                { _receiver?.handle_event_key(KeyValue.Event.SWITCH_CLIPBOARD) }
             ).also { it.start(currentInputConnection, info) }
-            _keyeventhandler.onEditorTextMutation = { _clipboardSuggestions?.dismiss() }
+            _keyeventhandler.onEditorTextMutation = {
+                _clipboardSuggestions?.dismiss()
+                _suggestionHandler.dismissStartupWords()
+            }
+            _predictionCoordinator?.onTypingDictionaryReady = { _suggestionHandler.refreshStartupWords() }
+            _suggestionHandler.startStartupWords(currentInputConnection, info)
         }
 
         // Key positions are read per swipe from Keyboard2View.geometryParams()
@@ -853,7 +862,10 @@ class CleverKeysService : InputMethodService(),
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         if (oldSelStart >= 0 && oldSelEnd >= 0 &&
-            (oldSelStart != newSelStart || oldSelEnd != newSelEnd)) _clipboardSuggestions?.dismiss()
+            (oldSelStart != newSelStart || oldSelEnd != newSelEnd)) {
+            _clipboardSuggestions?.dismiss()
+            if (::_suggestionHandler.isInitialized) _suggestionHandler.dismissStartupWords()
+        }
         if (::_suggestionHandler.isInitialized) _suggestionHandler.onEditorCursorChanged()
         _keyeventhandler.selection_updated(oldSelStart, newSelStart, oldSelEnd, newSelEnd)
         if ((oldSelStart == oldSelEnd) != (newSelStart == newSelEnd)) {
@@ -880,6 +892,7 @@ class CleverKeysService : InputMethodService(),
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
+        if (::_suggestionHandler.isInitialized) _suggestionHandler.dismissStartupWords()
         _clipboardSuggestions?.stop()
         _clipboardSuggestions = null
         traceBackspaceGesture("LIFECYCLE finish finishing=$finishingInput")

@@ -1,3 +1,4 @@
 <resources>
-    <string name="clipboard_suggestion_paste">Wklej: %1$s</string>
+    <string name="clipboard_suggestion_paste">Schowek</string>
+    <string name="clipboard_suggestion_actions">Schowek. Kliknij, aby wkleić; przytrzymaj, aby otworzyć schowek.</string>
 </resources>

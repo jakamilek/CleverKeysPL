@@ -22,15 +22,37 @@ class ClipboardPasteSuggestionsTest {
     private var action: (() -> Unit)? = null
     private val pasted = mutableListOf<String>()
     private var clip: ClipData? = null
+    private var panelsOpened = 0
 
     @Before fun setup() {
         info = ObjenesisStd().newInstance(EditorInfo::class.java).apply { inputType = InputType.TYPE_CLASS_TEXT }
         current = connection to info
         every { clipboard.primaryClip } answers { clip }
         suggestions = ClipboardPasteSuggestions(clipboard, { text, paste -> offer = text; action = paste },
-            { current }, { pasted.add(it) })
+            { current }, { pasted.add(it) }, { panelsOpened++ })
     }
     @After fun teardown() { suggestions.stop(); unmockkAll() }
+    @Test fun holdingOpensPanelWithoutPastingAndDisarmsOldPasteAction() {
+        copy("tekst"); suggestions.start(connection, info)
+        val queued = action!!
+        suggestions.openPanel(); queued()
+        assertEquals(1, panelsOpened)
+        assertTrue(pasted.isEmpty())
+        assertNull(offer)
+    }
+    @Test fun holdingAfterFirstEditOrFieldSwitchDoesNotOpenPanel() {
+        copy("tekst"); suggestions.start(connection, info)
+        suggestions.dismiss(); suggestions.openPanel()
+        suggestions.start(connection, info)
+        current = mockk<InputConnection>() to info
+        suggestions.openPanel()
+        assertEquals(0, panelsOpened)
+    }
+    @Test fun holdingDoesNotOpenAnAbsentClipboard() {
+        copy("tekst"); suggestions.start(connection, info)
+        clip = null; suggestions.openPanel()
+        assertEquals(0, panelsOpened)
+    }
     private fun copy(text: String) {
         clip = mockk(relaxed = true)
         every { clip!!.itemCount } returns 1

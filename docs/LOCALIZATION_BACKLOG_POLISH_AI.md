@@ -1,12 +1,13 @@
 # Tłumaczenia ekranu testowego SI — do uzupełnienia
 
-## Podpowiedź wklejania — 2026-10-10
+## Podpowiedź schowka — 2026-10-10
 
-Nowy klucz clipboard_suggestion_paste w res/values/clipboard_suggestion.xml ma
-kompletne wersje bazową i polską („Wklej: %1$s”). Pozostałe locale wymagają późniejszego
-tłumaczenia tego klucza; obecnie użyją „Paste: %1$s”. Dowód: dodany plik zasobów
-i odpowiadający res/values-pl/clipboard_suggestion.xml. Zachować numerowany argument.
-Lokalny MissingTranslation ignore obejmuje tylko nowy plik; globalny lint bez zmian.
+Klucze `clipboard_suggestion_paste` i `clipboard_suggestion_actions` mają pełne wersje
+bazową i polską: „Clipboard” / „Schowek” oraz opis dostępności kliknięcia i przytrzymania.
+Etykieta nie pokazuje treści schowka i nie zawiera argumentu formatowania. Pozostałe locale
+wymagają późniejszego tłumaczenia obu kluczy; obecnie użyją wersji bazowej angielskiej.
+Lokalny MissingTranslation ignore obejmuje tylko plik clipboard_suggestion.xml;
+globalny lint bez zmian. Polski pozostaje priorytetem. Stary opis „Wklej: %1$s” jest zastąpiony.
 
 2026-10-04. Polski i bazowy angielski są kompletne. Użytkownik wskazał polskie
 tłumaczenia jako priorytet; pozostałe języki mają być zapisane do późniejszej poprawy.

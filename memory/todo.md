@@ -1,24 +1,23 @@
 # Current work queue
 
+## Clipboard panel, idle words and whole-entry add — 2026-10-10
+- [x] Icon + Schowek label; tap exact paste, hold existing clipboard panel.
+- [x] Three source-backed frequent idle words; usage gates, dictionary fallback, stale UI guards.
+- [x] Explicit full email/hyphenated entry add without rewriting editor; no implicit learning expansion.
+- [x] Registered pure/controller/real-handler regressions; Polish/base resources, other locales backlog.
+- [ ] Current-head CI compile/tests/lint/APK; instrumented View execution and phone check pending.
+
 ## Ordinary-field typed-autocorrect undo — 2026-10-10
 - [x] Verified correction bookmark reseeds BS pair after prediction-state resets.
-- [x] Three registered normal-field restore/add and stale typing/field/caret regressions.
-- [ ] New CI compile/tests/lint/APK and phone check; no local Kotlin/Android SDK.
+- [x] Live38057510660 / standard38057513808 SUCCESS at57c15c38; phone: works.
+- [x] 2881 pure, tokenizer2471/232/532/five-input conformance; 225/305 overlapping integration.
+- [x] Debug0error/fatal235warnings, vital lint/APK gates; View tests compiled, not run.
 
 ## Clipboard paste suggestion and search autocorrect undo — 2026-10-10
-
-- [x] Separate localized clipboard action before first editor mutation/cursor move;
-  direct exact paste, bounded preview, no learning/history; sensitive/password/private
-  guards and session/editor/clipboard revalidation; lifecycle listener cleanup.
-- [x] Typed correction stamps the verified actual separator/caret (space or none).
-  Immediate short BS restores an open original and preserves ExactAdd/cursor-sync guards.
-- [x] Eight clipboard mock cases, two real learn/BS regressions, two instrumented
-  View cases; registered mocks and current-head instrumentation compilation in CI.
-- [ ] Fresh CI compile/pure/mock/lint/APK and phone behavior. No local Kotlin/Android SDK.
-- Live38054047905/CI38054050655 stopped at missing InputType import; fixed, rerun pending.
-- [ ] Run instrumented View tests on Android; compilation alone is not a UI result.
-- [ ] Other-locale clipboard label translation (base/Polish done, recorded backlog).
-- No new settings, gesture/SI/model/langpack changes. Monitor Actions<=60s total/run.
+- [x] Exact direct paste and session/editor/clip privacy guards; newer icon/hold supersedes preview.
+- [x] Typed correction bookmark verifies actual separator/caret; short BS restores original.
+- [x] APK11670958917 / run38057510660 SHA d886cf5f98b8b5cb956c67c82de34972e3776def7f4fed7695229575bf548bef.
+- [ ] Instrumented View execution and other-locale translation remain; Actions monitoring<=60s/run.
 
 ## Compact case presentation v4 — 2026-10-10
 

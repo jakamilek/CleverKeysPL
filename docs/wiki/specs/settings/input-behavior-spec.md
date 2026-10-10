@@ -320,9 +320,10 @@ exception; other locale translations are deferred.
 
 Before the first edit of a visible field, the strip can show a separate localized
 Paste action for a single non-sensitive plain-text system clipboard item (1–65536
-UTF-16 units). Preview is bounded to64codepoints; tapping pastes the complete original
+UTF-16 units). The chip shows a simple paste icon and localized “Clipboard”/“Schowek” label; tapping pastes the complete original
 text through the direct clipboard path, without word ranking, correction, added
-spacing or learning. No clipboard history access, URI coercion or text logging.
+spacing or learning. Holding the chip opens the existing keyboard clipboard panel without pasting. The offer
+reads no clipboard history, performs no URI coercion and logs no clipboard text.
 Passwords and fields requesting no personalized learning suppress this suggestion.
 The suggestion disappears on the first mutation or cursor move; listeners stop on
 field exit/destroy. Session revision, current editor identity and re-reading the
@@ -339,6 +340,39 @@ editor; explicit legacy undo modes retain their original spacing guard. Two real
 eight clipboard controller cases and two actual-View instrumented tests cover this
 change. Kotlin compilation/test execution requires CI; instrumented UI runtime and
 phone behavior remain separate verification steps.
+
+### Idle words and explicit structured dictionary entries (2026-10-10)
+
+At a word boundary when the keyboard opens, show up to three words beside the clipboard
+chip. Personal usage counts rank first only with master learning, personalized learning
+and the field gate enabled; filter them against the active primary lexicon/user words.
+This usage store is process-wide, not a per-language counter. Fill empty slots from
+primary dictionary frequency. Synthetic user-word insertion weights are excluded from
+that fallback. Exclude disabled words and punctuated identifiers from idle suggestions.
+Work runs on the prediction executor, with main-thread editor/session checks before
+publishing. Initial park acknowledgements and asynchronous dictionary load completion
+refresh the idle session; first edit, genuine caret movement, settings change and field
+exit disarm it. Tapping uses the existing NEXT_WORD append/capitalization path. This
+opening list depends on word prediction; the contextual next-word setting still governs
+later phrase continuation. No new preference or learning write is introduced.
+
+ExactAdd can offer a whole manually typed whitespace-delimited entry containing internal
+punctuation, such as `przykład.ten@gmail.com` or `czarno-biały`, including from a middle
+caret or after one completion space. Bounded reads prove both token ends (maximum128
+UTF-16 units); incomplete punctuation endings, controls, selections and truncated reads
+are rejected. Plain words/apostrophe-only contractions retain their existing route.
+DictionaryManager already persists exact entries; there is no producer/langpack change.
+A tap revalidates editor identity, token and available absolute caret before storage;
+adding never deletes/recommits text or the separator. Cursor acknowledgements and BS
+refresh the whole offer. Saved/disabled entries are not offered. Existing exact-typed
+preference/password/Termux guards apply; explicit manual add remains distinct from
+implicit learning and non-prose autocorrect suppression. No email-fragment auto-learning
+or new mid-address completion mechanism is added.
+
+Registered pure policy/token tests and mock production-handler/controller regressions
+are added. Actual-View icon/label/tap/hold tests compile in CI; their device execution is
+still pending. CI compilation, current-head regression/lint/APK and phone behavior must
+be reported separately. Previous ordinary-field BS correction was confirmed on phone.
 
 ### Polish trial v15 — new-word suggestion viewport
 

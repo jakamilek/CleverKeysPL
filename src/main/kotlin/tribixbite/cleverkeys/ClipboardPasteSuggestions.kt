@@ -10,7 +10,8 @@ class ClipboardPasteSuggestions(
     private val clipboard: ClipboardManager,
     private val show: (String?, (() -> Unit)?) -> Unit,
     private val editor: () -> Pair<InputConnection?, EditorInfo?>,
-    private val paste: (String) -> Unit
+    private val paste: (String) -> Unit,
+    private val open: () -> Unit = {}
 ) {
     private var connection: InputConnection? = null
     private var info: EditorInfo? = null
@@ -46,6 +47,13 @@ class ClipboardPasteSuggestions(
         dismiss()
         connection = null
         info = null
+    }
+
+    /** Holding the chip opens the existing panel; it never commits clipboard text. */
+    fun openPanel() {
+        if (!currentEditorMatches() || readText() == null) { dismiss(); return }
+        dismiss()
+        open()
     }
 
     private fun currentEditorMatches(): Boolean {

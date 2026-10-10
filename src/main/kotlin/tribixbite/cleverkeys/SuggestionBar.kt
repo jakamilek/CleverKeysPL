@@ -45,15 +45,12 @@ class SuggestionBar : LinearLayout {
     private var clipboardPaste: (() -> Unit)? = null
 
     /** A separate action: clipboard text is never a word candidate or learning input. */
-    fun setClipboardSuggestion(text: String?, paste: (() -> Unit)?) {
+    fun setClipboardSuggestion(text: String?, paste: (() -> Unit)?, openClipboard: (() -> Unit)? = null) {
         clipboardPaste = if (!isPasswordMode && text != null) paste else null
         if (clipboardPaste == null) {
             clipboardChip = null
             clipboardDivider = null
         } else {
-            val full = text.orEmpty()
-            val end = full.offsetByCodePoints(0, minOf(64, full.codePointCount(0, full.length)))
-            val preview = full.substring(0, end).replace(Regex("\\s+"), " ")
             clipboardChip = TextView(context).apply {
                 layoutParams = defaultSuggestionLayoutParams()
                 gravity = Gravity.CENTER
@@ -63,12 +60,20 @@ class SuggestionBar : LinearLayout {
                 maxLines = 1
                 maxWidth = dpToPx(context, 320)
                 ellipsize = android.text.TextUtils.TruncateAt.END
-                this.text = context.getString(R.string.clipboard_suggestion_paste, preview)
-                contentDescription = this.text
+                this.text = context.getString(R.string.clipboard_suggestion_paste)
+                contentDescription = context.getString(R.string.clipboard_suggestion_actions)
+                val icon = ContextCompat.getDrawable(context, R.drawable.ic_clipboard_suggestion)?.mutate()
+                icon?.setTint(currentTextColor)
+                setCompoundDrawablesRelativeWithIntrinsicBounds(icon, null, null, null)
+                compoundDrawablePadding = dpToPx(context, 6)
                 isClickable = true
                 isFocusable = true
                 val action = clipboardPaste
                 setOnClickListener { if (clipboardChip === this) action?.invoke() }
+                setOnLongClickListener {
+                    if (clipboardChip !== this || openClipboard == null) false
+                    else { openClipboard(); true }
+                }
             }
             clipboardDivider = createDivider(context)
         }

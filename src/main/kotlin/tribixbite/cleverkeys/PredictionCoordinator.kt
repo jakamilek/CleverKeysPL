@@ -39,6 +39,7 @@ class PredictionCoordinator(
     // Prediction engines
     private var dictionaryManager: DictionaryManager? = null
     private var wordPredictor: Predictor? = null
+    var onTypingDictionaryReady: (() -> Unit)? = null
 
     // Supporting services
     private var mlDataStore: SwipeMLDataStore? = null
@@ -139,6 +140,7 @@ class PredictionCoordinator(
             Log.d(TAG, "Starting async dictionary loading for '$primaryLang'...")
             loadDictionaryAsync(context, primaryLang) {
                 Log.d(TAG, "Dictionary loaded successfully: $primaryLang")
+                onTypingDictionaryReady?.invoke()
             }
 
             // v1.1.93: Load secondary dictionary for bilingual touch typing.
@@ -195,6 +197,7 @@ class PredictionCoordinator(
             Log.i(TAG, "Primary language changed from '$oldPrimaryLang' to '$newPrimaryLang' - reloading dictionary")
             wordPredictor?.loadDictionaryAsync(context, newPrimaryLang) {
                 Log.i(TAG, "Dictionary reloaded for '$newPrimaryLang'")
+                onTypingDictionaryReady?.invoke()
             }
             dictionaryManager?.setLanguage(newPrimaryLang)
         }
@@ -218,6 +221,7 @@ class PredictionCoordinator(
         Log.i(TAG, "Reloading WordPredictor dictionary for language: $language")
         wordPredictor?.loadDictionaryAsync(context, language) {
             Log.i(TAG, "WordPredictor dictionary reloaded for '$language'")
+            onTypingDictionaryReady?.invoke()
         }
         dictionaryManager?.setLanguage(language)
     }
@@ -360,6 +364,7 @@ class PredictionCoordinator(
      * Should be called during keyboard shutdown.
      */
     fun shutdown() {
+        onTypingDictionaryReady = null
         // Checkpoint learned data (context LM bigrams + user vocabulary) BEFORE the
         // predictor/dictionary teardown below discards the live instances
         // (2026-08-06 persistence fix)
@@ -388,3 +393,4 @@ class PredictionCoordinator(
             "dictionaryManager=${if (dictionaryManager != null) "initialized" else "null"}}"
     }
 }
+

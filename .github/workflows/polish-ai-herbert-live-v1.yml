@@ -84,6 +84,9 @@ jobs:
                           compactCasePresentation=True, distinctLeadingTarget=3,
                           backspaceWordHaptics=True, nativeConformanceBeforeLive=True)
           identity['clipboardPasteSuggestion'] = True
+          identity['clipboardLabelAndHoldPanel'] = True
+          identity['startupFrequentWords'] = True
+          identity['explicitStructuredDictionaryAdd'] = True
           identity['spaceFreeTypedAutocorrectUndo'] = True
           Path('build/outputs/apk/debug/herbert-live-apk.json').write_text(json.dumps(identity,indent=2)+'\n')
           print(json.dumps(identity,indent=2))
