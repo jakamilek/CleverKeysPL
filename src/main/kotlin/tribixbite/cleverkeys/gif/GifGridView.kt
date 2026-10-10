@@ -2,7 +2,7 @@ package tribixbite.cleverkeys.gif
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.view.LayoutInflater
+import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -10,10 +10,8 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import coil.ImageLoader
 import coil.memory.MemoryCache
-import coil.request.ImageRequest
-import coil.size.Scale
+import coil.decode.ImageDecoderDecoder
 import kotlinx.coroutines.*
-import java.io.File
 
 /**
  * Manages a RecyclerView-based GIF grid with Coil image loading and pagination.
@@ -25,10 +23,8 @@ import java.io.File
  * ITEMS_PER_PAGE, the onPaginationChanged callback fires with page info for
  * the UI to show prev/next controls.
  *
- * Coil handles:
- * - Async thumbnail loading from files
- * - Memory + disk caching with configurable limits
- * - Automatic cancellation on view recycling
+ * Local animated previews load only while a tile is attached. Each holder explicitly
+ * cancels its request and stops its drawable on detach/recycle; destroy closes the pane.
  */
 class GifGridManager(
     private val context: Context,
@@ -44,6 +40,8 @@ class GifGridManager(
     private val assetManager = GifAssetManager.getInstance(context)
     private val database = GifDatabase.getInstance(context)
     private val adapter = GifRecyclerAdapter()
+    private val visibleHolders = mutableSetOf<GifViewHolder>()
+    private var destroyed = false
 
     // Audit E-1: an uncaught exception in a root coroutine of this scope reaches the default
     // handler and KILLS THE IME PROCESS (the recordGifUsage upsert crash rode exactly this
@@ -60,6 +58,11 @@ class GifGridManager(
      * so 32MB holds ~200 images — enough for two 100-item pages. Prevents IME
      * from bloating to 500MB+. */
     private val imageLoader: ImageLoader = ImageLoader.Builder(context)
+        .components {
+            // Animated WebP uses the platform decoder on API 28+. Older devices
+            // keep the existing static thumbnail without attempting full-file decode.
+            if (Build.VERSION.SDK_INT >= 28) add(ImageDecoderDecoder.Factory())
+        }
         .memoryCache {
             MemoryCache.Builder(context)
                 .maxSizeBytes(32 * 1024 * 1024) // 32 MB cap (vs ~250MB default)
@@ -69,6 +72,8 @@ class GifGridManager(
         .diskCachePolicy(coil.request.CachePolicy.DISABLED) // Files already on disk
         .crossfade(false) // Minimize animation overhead in IME
         .build()
+
+    private val previewRequests = CoilGifPreviewRequestLoader(context, imageLoader)
 
     /** Callback for GIF selection (tap). */
     var onGifSelected: ((Gif) -> Unit)? = null
@@ -235,8 +240,18 @@ class GifGridManager(
 
     /** Clean up resources. */
     fun destroy() {
+        if (destroyed) return
+        destroyed = true
+        visibleHolders.toList().forEach { it.preview.close() }
+        visibleHolders.clear()
+        recyclerView.adapter = null
         scope.cancel()
         imageLoader.shutdown()
+        gifList = emptyList()
+        onGifSelected = null
+        onGifLongPress = null
+        onPaginationChanged = null
+        onResultsChanged = null
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -245,13 +260,16 @@ class GifGridManager(
 
     private inner class GifViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val imageView: ImageView = itemView as ImageView
+        val preview = GifPreviewLoader(context.filesDir, imageView, previewRequests, Build.VERSION.SDK_INT >= 28)
 
         init {
             itemView.setOnClickListener {
                 val pos = bindingAdapterPosition
                 if (pos == RecyclerView.NO_POSITION) return@setOnClickListener
                 val gif = gifList.getOrNull(pos) ?: return@setOnClickListener
-                scope.launch { database.recordGifUsage(gif.id) }
+                // Selection closes/destroys the pane immediately. Preserve only this
+                // finite usage write; searches and preview requests still cancel.
+                scope.launch(NonCancellable) { database.recordGifUsage(gif.id) }
                 onGifSelected?.invoke(gif)
             }
             itemView.setOnLongClickListener { v ->
@@ -263,21 +281,7 @@ class GifGridManager(
             }
         }
 
-        fun bind(gif: Gif) {
-            val thumbFile = File(context.filesDir, gif.getThumbnailPath())
-
-            if (thumbFile.exists()) {
-                val request = ImageRequest.Builder(context)
-                    .data(thumbFile)
-                    .target(imageView)
-                    .scale(Scale.FILL)
-                    .size(THUMB_SIZE_PX)
-                    .build()
-                imageLoader.enqueue(request)
-            } else {
-                imageView.setImageDrawable(null)
-            }
-        }
+        fun bind(gif: Gif) = preview.bind(gif)
     }
 
     private inner class GifRecyclerAdapter : RecyclerView.Adapter<GifViewHolder>() {
@@ -302,10 +306,24 @@ class GifGridManager(
 
         override fun getItemCount(): Int = gifList.size
 
+        override fun onViewAttachedToWindow(holder: GifViewHolder) {
+            super.onViewAttachedToWindow(holder)
+            if (!destroyed) {
+                visibleHolders.add(holder)
+                holder.preview.setVisible(true)
+            }
+        }
+
+        override fun onViewDetachedFromWindow(holder: GifViewHolder) {
+            holder.preview.setVisible(false)
+            visibleHolders.remove(holder)
+            super.onViewDetachedFromWindow(holder)
+        }
+
         override fun onViewRecycled(holder: GifViewHolder) {
-            // Coil cancels requests automatically on target reuse,
-            // but clear drawable to free memory immediately
-            holder.imageView.setImageDrawable(null)
+            holder.preview.clear()
+            visibleHolders.remove(holder)
+            super.onViewRecycled(holder)
         }
     }
 
@@ -316,11 +334,9 @@ class GifGridManager(
         /** Keystroke coalescing window for search-as-you-type (issue #152). */
         private const val SEARCH_DEBOUNCE_MS = 150L
 
-        /** Thumbnail decode target size (px). Keeps Coil memory low. */
-        private const val THUMB_SIZE_PX = 200
-
         private fun dpToPx(dp: Int): Int {
             return (dp * android.content.res.Resources.getSystem().displayMetrics.density).toInt()
         }
     }
 }
+

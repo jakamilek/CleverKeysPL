@@ -95,8 +95,9 @@ dependencies {
   implementation "com.microsoft.onnxruntime:onnxruntime-android:1.21.1"
   implementation "com.google.code.gson:gson:2.10.1"
 
-  // Coil: Kotlin-native image loader with animated WebP support
+  // Coil plus matching animated WebP decoder (platform API 28+).
   implementation "io.coil-kt:coil:2.6.0"
+  implementation "io.coil-kt:coil-gif:2.6.0"
 
 
   testImplementation "junit:junit:4.13.2"
@@ -1337,6 +1338,7 @@ tasks.register('runMockTests', JavaExec) {
     'tribixbite.cleverkeys.DoubleSpacePeriodTest',
     'tribixbite.cleverkeys.gif.GifFtsSanitizerTest',
     'tribixbite.cleverkeys.gif.GifAssetManagerPartialImportTest',
+    'tribixbite.cleverkeys.gif.GifPreviewLoaderTest',
     // ARC-079 (2026-08-29): with DictionaryManager's duplicate predictor cache deleted, the
     // coordinator's flush/shutdown are the ONLY learned-data checkpoints left in the process.
     'tribixbite.cleverkeys.PredictionCoordinatorLifecycleTest',
@@ -1623,5 +1625,6 @@ tasks.configureEach { task ->
         task.finalizedBy("normalizeApkPaths")
     }
 }
+
 
 

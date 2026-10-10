@@ -54,6 +54,8 @@ jobs:
           bash scripts/gradle-guard.sh runMockTests -PtestClass=BackspaceHapticRoutingTest --stacktrace
           bash scripts/gradle-guard.sh runMockTests -PtestClass=LearningFunnelBookkeepingTest --stacktrace
           bash scripts/gradle-guard.sh runMockTests -PtestClass=WordPredictorDictionaryUpdateTest --stacktrace
+          bash scripts/gradle-guard.sh runMockTests -PtestClass=gif.GifPreviewLoaderTest --stacktrace
+          bash scripts/gradle-guard.sh runMockTests -PtestClass=KeyboardReceiverPaneHostTest --stacktrace
       - name: Debug lint
         run: bash scripts/gradle-guard.sh lintDebug --stacktrace
       - name: Release vital lint
@@ -90,6 +92,7 @@ jobs:
           identity['explicitStructuredDictionaryAdd'] = True
           identity['structuredDictionaryPrefixCompletion'] = True
           identity['suggestionHoldDictionaryRemoval'] = True
+          identity['gifAnimatedLocalPreviews'] = True
           identity['spaceFreeTypedAutocorrectUndo'] = True
           Path('build/outputs/apk/debug/herbert-live-apk.json').write_text(json.dumps(identity,indent=2)+'\n')
           print(json.dumps(identity,indent=2))
@@ -115,3 +118,4 @@ jobs:
             build/reports/lint-results*.xml
             build/herbert-live-pure-tests.txt
           retention-days: 14
+

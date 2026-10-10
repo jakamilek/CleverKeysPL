@@ -1,23 +1,22 @@
 # Current work queue
-
-## Suggestion dictionary removal and personal prefix — 2026-10-10
-- [x] Clipboard icon/hold panel, idle words, whole email/hyphen add and prefix recall; phone works.
-- [x] Prefix live38073753788/CI38073754846 SUCCESS at53767fdf;2906 pure,246/323 overlapping integration.
-- [x] APK SHA752faacfa02d4dfb0aaa2db8713f4b4227585d0ec64753b7eaedda5b75e67cee verified; phone accepted.
-- [x] Hold word now offers explicit dictionary removal; ordinary tap/clipboard hold unchanged.
-- [x] Fresh exact/unique-case personal removal, base exclusion, dynamic reload and stale callback guards.
-- [x] Eight actual handler/store regressions plus View dispatch regression; Polish/base action/help.
-- [ ] a3d4eef7 compile failed: concrete-only reload on Predictor; shared refresh/removal fixed, three real regressions; rerun/phone pending.
-- [ ] Other locales: new action and obsolete provenance-help text; keep global lint/defaults unchanged.
-- Platform user-dictionary entries retain existing custom-over-disabled policy; no cross-app row deletion.
-- Dictionary coverage, native SI RAM/quality, BS timing and other locale review remain; monitoring<=60s/run.
-
+## Animated local GIF grid — 2026-10-10
+- [x] API28+ pinned coil-gif2.6.0, local full WebP, attached tiles only; static fallback.
+- [x] Request generations/cancel/stop/recycle, bounded decode, no animated cache; receiver closes loader.
+- [x] Nine tile lifecycle/two receiver regressions and real native WebP test added; not yet executed.
+- [ ] Current-head compile/pure/mock/lint/audited ARM64 APK; native test and phone scrolling/send/reopen.
+- Static-only packs stay static; no network, corpus/model/default/version/main-code merge/release.
+## Suggestion dictionary removal and personal prefix — verified 2026-10-10
+- [x] Clipboard/idle/email/hyphen/prefix and held-word explicit removal: maintainer confirms works.
+- [x] Exact289b5a48 live38077317734/CI38077320840 SUCCESS;2906pure,270/331 overlapping integration.
+- [x] APK11679618773 SHA1c9ff8fc2fbcc0dcffc9855f5151bbef2f0a83b67e0c9e133edcf0b0dce739a1 verified.
+- [x] Predictor shared custom/user/disabled reload repairs compile; retired keys restore base/remove personal.
+- [ ] Native View execution/other-locale action/help review; custom platform overrides retain prior policy.
+- Coverage/source priors/native SI RAM-quality/BS times remain; monitor Actions<=60s TOTAL/run.
 ## Ordinary-field typed-autocorrect undo — 2026-10-10
 - [x] Verified correction bookmark reseeds BS pair after prediction-state resets.
 - [x] Live38057510660 / standard38057513808 SUCCESS at57c15c38; phone: works.
 - [x] 2881 pure, tokenizer2471/232/532/five-input conformance; 225/305 overlapping integration.
 - [x] Debug0error/fatal235warnings, vital lint/APK gates; View tests compiled, not run.
-
 ## Clipboard paste suggestion and search autocorrect undo — 2026-10-10
 - [x] Exact direct paste and session/editor/clip privacy guards; newer icon/hold supersedes preview.
 - [x] Typed correction bookmark verifies actual separator/caret; short BS restores original.
@@ -494,5 +493,6 @@ Do not commit, tag, push, publish, or open external issues without explicit user
   findings and one low esbuild finding. These are recorded separately; the unchanged
   CI gate excludes unfixed findings. A newer npm http-cache-semantics release exists,
   but its repair of this advisory is not verified here.
+
 
 
