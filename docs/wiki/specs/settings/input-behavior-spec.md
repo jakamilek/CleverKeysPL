@@ -367,7 +367,32 @@ adding never deletes/recommits text or the separator. Cursor acknowledgements an
 refresh the whole offer. Saved/disabled entries are not offered. Existing exact-typed
 preference/password/Termux guards apply; explicit manual add remains distinct from
 implicit learning and non-prose autocorrect suppression. No email-fragment auto-learning
-or new mid-address completion mechanism is added.
+is added.
+
+Follow-up: explicit saved structured entries are offered literally from their first
+typed character, including across dots, @, digits and hyphens. DictionaryManager owns
+a derived first-three-character index of the active language's explicit user entries;
+every mutation/language reload invalidates it. Locale.ROOT prefix matching preserves
+the stored spelling. At most three enabled matches lead the strip,
+ordered by shorter entry then spelling; they have no artificial frequency boost and
+never go through SI, sentence capitalization or contraction conversion. For a letters-only
+prefix, queued prose results are appended with aligned scores/metas and deduplication.
+Once the literal prefix carries punctuation/digits, the personal strip owns the display.
+
+Typing, BS and cursor sync read a bounded whole whitespace-delimited token, independent
+of the letter-only tracker. The unchanged-input/editor/collapsed absolute-caret snapshot
+protects taps; removed/disabled entries are rechecked. A tap selects both token halves
+and commits the exact saved entry atomically, without delete-before-commit. A refused
+commit restores the caret. Surrounding text is retained; trailing spacing follows the
+existing field/preference policy (none by default in email/URI/search fields). Selection,
+password, no-personalized-learning and Termux fields suppress this path. Editors without
+a readable absolute collapsed caret keep ordinary predictions. Full saved tokens remain
+on this literal path until a delimiter; neither address fragments nor completed entries
+are implicitly learned. Unknown structured entries keep the explicit whole-entry add.
+
+PersonalDictionaryCompletionTest adds ten registered pure cases and
+LearningFunnelBookkeepingTest adds eight real-handler cases, preserving the existing44.
+The new current-head Android compile/test/lint/APK and phone checks remain pending.
 
 Registered pure policy/token tests and mock production-handler/controller regressions
 are added. Actual-View icon/label/tap/hold tests compile in CI; their device execution is

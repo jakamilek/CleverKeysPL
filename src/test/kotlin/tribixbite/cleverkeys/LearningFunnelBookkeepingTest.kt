@@ -134,6 +134,7 @@ class LearningFunnelBookkeepingTest {
         adaptation = mockk(relaxed = true)
         dictionary = mockk<DictionaryManager>(relaxed = true)
         every { dictionary.getCurrentLanguage() } returns "en"
+        every { dictionary.getStructuredCompletions(any()) } returns emptyList()
         coordinator = mockk(relaxed = true)
         every { coordinator.getWordPredictor() } returns predictor
         every { coordinator.getAdaptationManager() } returns adaptation
@@ -267,6 +268,140 @@ class LearningFunnelBookkeepingTest {
         every { dictionary.isUserWordIgnoringCase(word) } returns true
         type(word, field)
         assertWithMessage("known explicit entry not offered").that(barWords).doesNotContain(Suggestion.ExactAdd(word).wire)
+    }
+
+    /** Real indexed entries and editor selection/replacement; ordinary executor remains a seam. */
+    private fun completionEditor(vararg entries: String): EditorInfo {
+        val field = attachAutocorrectEditor()
+        val index = PersonalDictionaryCompletion(entries.toList())
+        every { dictionary.getStructuredCompletions(any()) } answers { index.matches(firstArg()) }
+        var range: Pair<Int, Int>? = null
+        every { ic.setSelection(any(), any()) } answers {
+            range = firstArg<Int>() to secondArg<Int>()
+            true
+        }
+        every { ic.commitText(any(), any()) } answers {
+            val text = firstArg<CharSequence>().toString()
+            range?.let { editor.replace(it.first, it.second, text) } ?: editor.append(text)
+            range = null
+            true
+        }
+        return field
+    }
+
+    @Test fun savedEmailLeadsFromFirstLetterAndTapReplacesPrefixLiterally() {
+        val word = "jan.kowalski@Example.com"
+        val field = completionEditor(word)
+        type("j", field)
+        assertWithMessage("explicit address reachable immediately").that(barWords).containsExactly(word)
+        type("an", field)
+        tap(word, field)
+        assertWithMessage("literal saved spelling and normal spacing").that(editor.toString()).isEqualTo(word + " ")
+        verify(exactly = 0) { dictionary.addUserWord(any()) }
+        verify(exactly = 0) { personalization.recordWordTyped(word, any()) }
+    }
+
+    @Test fun addressCompletesAcrossDotAtAndDigitsInEmailFieldWithoutSpace() {
+        val word = "jan2.kowalski@Example.com"
+        val field = completionEditor(word).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        }
+        type("jan2.kowalski@E", field)
+        assertWithMessage("full address not a domain fragment").that(barWords).containsExactly(word)
+        tap(word, field)
+        assertWithMessage("email field has no inserted space").that(editor.toString()).isEqualTo(word)
+        verify(exactly = 0) { personalization.recordWordTyped(any(), any()) }
+    }
+
+    @Test fun hyphenatedCompletionSurvivesCursorSyncAndBackspace() {
+        val word = "czarno-biały"
+        val field = completionEditor(word)
+        type("czarno-b", field)
+        handler.handleCursorSyncPrediction()
+        assertWithMessage("joiner sync retains whole completion").that(barWords).containsExactly(word)
+        editor.setLength(editor.length - 1)
+        handler.handleBackspace()
+        assertWithMessage("BS rereads whole literal prefix").that(barWords).containsExactly(word)
+        tap(word, field)
+        assertWithMessage("no duplicated stem").that(editor.toString()).isEqualTo(word + " ")
+    }
+
+    @Test fun middleAddressCompletionReplacesEntireTokenAndPreservesSurroundingText() {
+        val word = "jan.kowalski@example.com"
+        val field = completionEditor(word)
+        editor.append("tekst jan.ko|walski@example.com dalej".replace("|", ""))
+        val cursor = "tekst jan.ko".length
+        every { ic.getTextBeforeCursor(any(), any()) } answers {
+            editor.substring(maxOf(0, cursor - firstArg<Int>()), cursor)
+        }
+        every { ic.getTextAfterCursor(any(), any()) } answers {
+            editor.substring(cursor).take(firstArg<Int>())
+        }
+        every { ic.getExtractedText(any(), any()) } answers {
+            objenesis.newInstance(ExtractedText::class.java).apply {
+                startOffset = 0; selectionStart = cursor; selectionEnd = cursor
+            }
+        }
+        handler.handleCursorSyncPrediction()
+        tap(word, field)
+        assertWithMessage("both token halves replaced, surrounding space kept").that(editor.toString())
+            .isEqualTo("tekst $word dalej")
+    }
+
+    @Test fun staleRemovedOrDisabledPersonalCompletionCannotMutateEditor() {
+        val word = "jan.kowalski@example.com"
+        val field = completionEditor(word)
+        type("jan", field)
+        every { dictionary.getStructuredCompletions(any()) } returns emptyList()
+        tap(word, field)
+        assertWithMessage("removed entry not committed").that(editor.toString()).isEqualTo("jan")
+        every { dictionary.getStructuredCompletions(any()) } returns listOf(word)
+        handler.handleCursorSyncPrediction()
+        every { predictor.isWordDisabled(word) } returns true
+        tap(word, field)
+        assertWithMessage("disabled entry not committed").that(editor.toString()).isEqualTo("jan")
+        every { predictor.isWordDisabled(word) } returns false
+        handler.handleCursorSyncPrediction()
+        handler.liveEditorProvider = { ic to textField() }
+        tap(word, field)
+        assertWithMessage("switched editor rejects old completion").that(editor.toString()).isEqualTo("jan")
+    }
+
+    @Test fun privateFieldAndSelectionSuppressPersonalCompletions() {
+        val word = "jan.kowalski@example.com"
+        val field = completionEditor(word).apply { imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING }
+        type("jan", field)
+        assertWithMessage("private field hides personal address").that(barWords).doesNotContain(word)
+        field.imeOptions = 0
+        every { ic.getSelectedText(0) } returns "jan"
+        handler.handleCursorSyncPrediction()
+        assertWithMessage("selected editor text is not a completion prefix").that(barWords).doesNotContain(word)
+    }
+
+    @Test fun refusedPersonalCompletionCommitKeepsPrefixInsteadOfDeletingIt() {
+        val word = "jan.kowalski@example.com"
+        val field = completionEditor(word)
+        type("jan", field)
+        every { ic.commitText(any(), any()) } returns false
+        tap(word, field)
+        assertWithMessage("refused atomic replacement preserves text").that(editor.toString()).isEqualTo("jan")
+        verify(exactly = 0) { ic.deleteSurroundingText(any(), any()) }
+    }
+
+    @Test fun queuedProseResultsRetainPersonalCompletionAheadOfOrdinaryWords() {
+        val word = "jan.kowalski@example.com"
+        val field = completionEditor(word)
+        val posts = startupUi()
+        every { predictor.predictWordsWithContext("j", any()) } returns
+            WordPredictor.PredictionResult(listOf("jest", "jaki"), listOf(200, 100))
+        every { contractions.getNonPairedMapping(any()) } returns null
+        every { contractions.getPairedContractions(any()) } returns emptyList()
+        type("j", field)
+        while (posts.isNotEmpty()) posts.removeAt(0).run()
+        assertWithMessage("personal entry remains first, prose options retained").that(barWords)
+            .containsExactly(word, "jest", "jaki").inOrder()
+        verify { bar.setSuggestionsWithScores(listOf(word, "jest", "jaki"), listOf(0, 200, 100), any()) }
+        assertWithMessage("ranking does not edit text").that(editor.toString()).isEqualTo("j")
     }
 
     private fun startupUi(): MutableList<Runnable> {

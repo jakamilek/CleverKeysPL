@@ -87,6 +87,7 @@ jobs:
           identity['clipboardLabelAndHoldPanel'] = True
           identity['startupFrequentWords'] = True
           identity['explicitStructuredDictionaryAdd'] = True
+          identity['structuredDictionaryPrefixCompletion'] = True
           identity['spaceFreeTypedAutocorrectUndo'] = True
           Path('build/outputs/apk/debug/herbert-live-apk.json').write_text(json.dumps(identity,indent=2)+'\n')
           print(json.dumps(identity,indent=2))

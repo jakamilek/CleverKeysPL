@@ -524,6 +524,109 @@ class SuggestionHandler(
         val token: PersonalDictionaryToken.Snapshot, val cursor: Int?
     )
     private var structuredAddOffer: StructuredAddOffer? = null
+    private data class StructuredCompletionOffer(
+        val connection: InputConnection, val info: EditorInfo,
+        val token: PersonalDictionaryCompletion.Token, val cursor: Int, val words: List<String>
+    )
+    private var structuredCompletionOffer: StructuredCompletionOffer? = null
+
+    private fun completionToken(ic: InputConnection): PersonalDictionaryCompletion.Token? = try {
+        PersonalDictionaryCompletion.read(
+            ic.getTextBeforeCursor(PersonalDictionaryToken.MAX_LENGTH + 2, 0)?.toString(),
+            ic.getTextAfterCursor(PersonalDictionaryToken.MAX_LENGTH + 2, 0)?.toString(),
+            ic.getSelectedText(0)?.toString()
+        )
+    } catch (_: Exception) { null }
+
+    private fun completionFieldAllowed(info: EditorInfo): Boolean =
+        !isPasswordMode && !SuggestionBar.isPasswordField(info) && fieldAllowsPersonalizedLearning &&
+            (info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) == 0 &&
+            (info.inputType and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT &&
+            config.word_prediction_enabled && !isTermuxEditor(info)
+
+    private fun completionMatches(offer: StructuredCompletionOffer, ic: InputConnection?, info: EditorInfo?): Boolean =
+        ic === offer.connection && info === offer.info && completionFieldAllowed(offer.info) &&
+            completionToken(offer.connection) == offer.token && editorCursor(offer.connection) == offer.cursor &&
+            (liveEditorProvider?.invoke()?.let { it.first === ic && it.second === info } != false)
+
+    private fun maybeShowStructuredCompletions(ic: InputConnection?, info: EditorInfo?,
+        ordinaryWords: List<String> = emptyList(), ordinaryScores: List<Int> = emptyList(),
+        ordinaryMetas: List<SuggestionMeta> = emptyList()): Boolean {
+        structuredCompletionOffer = null
+        if (ic == null || info == null || !completionFieldAllowed(info)) return false
+        val token = completionToken(ic) ?: return false
+        val manager = predictionCoordinator.getDictionaryManager() ?: return false
+        val predictor = predictionCoordinator.getWordPredictor() ?: return false
+        val words = manager.getStructuredCompletions(token.prefix)
+            .filterNot { predictor.isWordDisabled(it) }.take(3)
+        if (words.isEmpty()) return false
+        val cursor = editorCursor(ic) ?: return false
+        structuredCompletionOffer = StructuredCompletionOffer(ic, info, token, cursor, words)
+        structuredAddOffer = null
+        val literalToken = token.prefix.any { !it.isLetter() }
+        if (literalToken) {
+            predictionTasks.cancelCurrent()
+            ++editorPredictionRevision
+        }
+        nextWordSuggestionsActive = false
+        specialPromptActive = literalToken
+        // Literal personal spelling: never sentence-capitalize, autocorrect or send to SI.
+        if (token.prefix.codePointCount(0, token.prefix.length) == 1) suggestionBar?.resetScrollPosition()
+        val ordinaryIndices = ordinaryWords.indices.filter { i -> words.none { it.equals(ordinaryWords[i], true) } }
+        suggestionBar?.setSuggestionsWithScores(words + ordinaryIndices.map { ordinaryWords[it] },
+            List(words.size) { 0 } + ordinaryIndices.map { ordinaryScores.getOrElse(it) { 0 } },
+            List(words.size) { SuggestionMeta(SuggestionOrigin.DICTIONARY_PREFIX, preserveExactCase = true) } +
+                ordinaryIndices.map { ordinaryMetas.getOrElse(it) { SuggestionMeta(SuggestionOrigin.DICTIONARY_PREFIX) } })
+        return true
+    }
+
+    private fun commitStructuredCompletion(offer: StructuredCompletionOffer, word: String,
+        ic: InputConnection?, info: EditorInfo?): String? {
+        if (!completionMatches(offer, ic, info) || word !in offer.words ||
+            predictionCoordinator.getDictionaryManager()?.getStructuredCompletions(offer.token.prefix)?.contains(word) != true ||
+            predictionCoordinator.getWordPredictor()?.isWordDisabled(word) != false) return null
+        val connection = offer.connection
+        val start = offer.cursor - offer.token.prefix.length
+        val end = offer.cursor + offer.token.suffix.length
+        if (start < 0) return null
+        val after = try { connection.getTextAfterCursor(PersonalDictionaryToken.MAX_LENGTH + 2, 0)?.toString() }
+            catch (_: Exception) { null } ?: return null
+        val addSpace = config.auto_space_after_suggestion &&
+            EditorSpacingPolicy.allowsAutomaticSpacing(info, (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields) &&
+            !SmartAutoSpace.hasSeparatorAfter(after.drop(offer.token.suffix.length).firstOrNull())
+        val text = word + if (addSpace) " " else ""
+        try { connection.beginBatchEdit() } catch (_: Exception) { return null }
+        val committed = try {
+            // Replace atomically with commitText; a refused commit must not first delete the prefix.
+            if (!connection.setSelection(start, end)) false
+            else connection.commitText(text, 1).also { accepted ->
+                if (!accepted) connection.setSelection(offer.cursor, offer.cursor)
+            }
+        } catch (_: Exception) {
+            runCatching { connection.setSelection(offer.cursor, offer.cursor) }
+            false
+        } finally { runCatching { connection.endBatchEdit() } }
+        if (!committed) return null
+        structuredCompletionOffer = null
+        clearAutocorrectBookmarks()
+        pendingTypedWord = null
+        pendingJoinerStem = null
+        contextTracker.clearCurrentWord()
+        contextTracker.clearCurrentWordSuffix()
+        contextTracker.clearLastAutoInsertedWord()
+        contextTracker.clearAutocorrectTracking()
+        contextTracker.setWasLastInputSwipe(false)
+        contextTracker.setLastCommitSource(PredictionSource.CANDIDATE_SELECTION)
+        contextTracker.invalidateAutoSpacePending()
+        contextTracker.clearTrailingSpaceWatch()
+        if (addSpace) contextTracker.markAutoSpacePending(start + text.length)
+        keyeventhandler.noteEditorTextMutation(connection)
+        predictionTasks.cancelCurrent()
+        ++editorPredictionRevision
+        specialPromptActive = false
+        suggestionBar?.clearSuggestions()
+        return word
+    }
     private data class StartupSession(
         val connection: InputConnection, val info: EditorInfo, val before: String, val after: String
     )
@@ -584,6 +687,7 @@ class SuggestionHandler(
 
     fun startStartupWords(ic: InputConnection?, info: EditorInfo?) {
         dismissStartupWords()
+        structuredCompletionOffer = null
         startupSession = idleSnapshot(ic, info)
         if (startupSession != null) {
             clearAutocorrectBookmarks()
@@ -764,6 +868,10 @@ class SuggestionHandler(
      */
     fun setFieldPersonalizedLearningAllowed(allowed: Boolean) {
         fieldAllowsPersonalizedLearning = allowed
+        if (!allowed && structuredCompletionOffer != null) {
+            structuredCompletionOffer = null
+            suggestionBar?.clearSuggestions()
+        }
         if (!allowed) vlog { "Field requests no personalized learning (incognito)" }
     }
 
@@ -774,6 +882,7 @@ class SuggestionHandler(
      */
     fun setConfig(newConfig: Config) {
         dismissStartupWords()
+        structuredCompletionOffer = null
         structuredAddOffer = null
         onEditorCursorChanged()
         config = newConfig
@@ -789,6 +898,7 @@ class SuggestionHandler(
      */
     fun shutdown() {
         dismissStartupWords()
+        structuredCompletionOffer = null
         structuredAddOffer = null
         onEditorCursorChanged()
         if (config.herbert_live_enabled) HerbertLiveRuntime.configure(context, false)
@@ -965,6 +1075,7 @@ class SuggestionHandler(
      */
     fun setPasswordMode(enabled: Boolean) {
         dismissStartupWords()
+        structuredCompletionOffer = null
         structuredAddOffer = null
         onEditorCursorChanged()
         clearAutocorrectBookmarks()
@@ -1087,6 +1198,7 @@ class SuggestionHandler(
         languages: List<String>? = null
     ) {
         // Swipe results replace whatever the bar shows — any next-word display state ends here,
+        structuredCompletionOffer = null
         onEditorCursorChanged()
         clearAutocorrectBookmarks()
         // and so does an undoable "Added …" confirmation (the user moved on).
@@ -1584,6 +1696,12 @@ class SuggestionHandler(
     ): String? {
         // Null/empty check
         if (word.isNullOrBlank()) return null
+        val completion = structuredCompletionOffer?.takeIf { word in it.words }
+        if (completion != null) {
+            onEditorCursorChanged()
+            return commitStructuredCompletion(completion, word, ic, editorInfo)
+        }
+        structuredCompletionOffer = null
         onEditorCursorChanged()
 
         // A suggestion tap supersedes an undoable "Added …" confirmation (none can be on screen
@@ -2183,6 +2301,7 @@ class SuggestionHandler(
     fun handleCursorParkPrediction(editorInfo: EditorInfo?, ic: InputConnection? = null) {
         onEditorCursorChanged()
         if (preserveAutocorrectPrompt(ic, editorInfo)) return
+        if (maybeShowStructuredCompletions(ic, editorInfo)) return
         if (maybeShowStructuredEntryAdd(ic, editorInfo)) return
         if (startupSession != null) { refreshStartupWords(); return }
         // W5: no word before the cursor — nothing typed is pending any more. (A joiner stem
@@ -2952,6 +3071,7 @@ class SuggestionHandler(
      */
     fun handleRegularTyping(text: String, ic: InputConnection?, editorInfo: EditorInfo?) {
         dismissStartupWords()
+        structuredCompletionOffer = null
         structuredAddOffer = null
         onEditorCursorChanged()
         clearAutocorrectBookmarks()
@@ -2966,6 +3086,21 @@ class SuggestionHandler(
         }
 
         if (!config.word_prediction_enabled || predictionCoordinator.getWordPredictor() == null || suggestionBar == null) {
+            return
+        }
+
+        // Recognized personal identifiers are not prose: don't learn/correct their fragments
+        // when a dot, digit or @ is typed. Read the literal editor token for every update.
+        if (ic != null && editorInfo != null && completionFieldAllowed(editorInfo) &&
+            completionToken(ic)?.prefix?.any { !it.isLetter() } == true &&
+            maybeShowStructuredCompletions(ic, editorInfo)) {
+            pendingTypedWord = null
+            pendingJoinerStem = null
+            contextTracker.clearCurrentWord()
+            contextTracker.clearCurrentWordSuffix()
+            contextTracker.clearLastAutoInsertedWord()
+            contextTracker.clearAutocorrectTracking()
+            contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
             return
         }
 
@@ -3297,7 +3432,7 @@ class SuggestionHandler(
                 }
             }
         } finally {
-            maybeShowStructuredEntryAdd(ic, editorInfo)
+            if (!maybeShowStructuredCompletions(ic, editorInfo)) maybeShowStructuredEntryAdd(ic, editorInfo)
         }
     }
 
@@ -3307,6 +3442,7 @@ class SuggestionHandler(
      */
     fun handleBackspace() {
         dismissStartupWords()
+        structuredCompletionOffer = null
         structuredAddOffer = null
         onEditorCursorChanged()
         clearAutocorrectBookmarks()
@@ -3346,7 +3482,9 @@ class SuggestionHandler(
                 pendingJoinerStem = null
             }
         } finally {
-            liveEditorProvider?.invoke()?.let { (ic, info) -> maybeShowStructuredEntryAdd(ic, info) }
+            liveEditorProvider?.invoke()?.let { (ic, info) ->
+                if (!maybeShowStructuredCompletions(ic, info)) maybeShowStructuredEntryAdd(ic, info)
+            }
         }
     }
 
@@ -3392,6 +3530,7 @@ class SuggestionHandler(
         if (isPasswordMode) return
         liveEditorProvider?.invoke()?.let { (ic, info) ->
             if (preserveAutocorrectPrompt(ic, info)) return
+            if (maybeShowStructuredCompletions(ic, info)) return
             if (maybeShowStructuredEntryAdd(ic, info)) return
         }
         clearAutocorrectBookmarks()
@@ -3623,6 +3762,9 @@ class SuggestionHandler(
                             nextWordSuggestionsActive = false
                             bar.setShowDebugScores(config.swipe_show_debug_scores)
                             bar.setShowOriginMarkers(config.suggestion_provenance_markers)
+                            val live = liveEditorProvider?.invoke()
+                            if (live != null && maybeShowStructuredCompletions(live.first, live.second,
+                                finalWords, finalScores, finalMetas)) return@post
                             // v1.2.0: Use merged scores that include contraction scores
                             bar.setSuggestionsWithScores(finalWords, finalScores, finalMetas)
                         }

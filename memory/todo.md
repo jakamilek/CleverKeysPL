@@ -5,10 +5,11 @@
 - [x] Three source-backed frequent idle words; usage gates, dictionary fallback, stale UI guards.
 - [x] Explicit full email/hyphenated entry add without rewriting editor; no implicit learning expansion.
 - [x] Registered pure/controller/real-handler regressions; Polish/base resources, other locales backlog.
-- Live38063878832 / CI38063882258: compile+2896 pure+original conformance PASS; one mock harness failure.
-- Live38069889084 / CI38069891533: Trace seam fixed; same test now gets relaxed contraction mock's empty string.
-- [x] Explicit no-contraction responses retain exact grzeje/one predictor call/intact editor assertions; gates unchanged.
-- [ ] Current-head CI compile/tests/lint/APK; instrumented View execution and phone check pending.
+- Live38070883727 / CI38070886854 SUCCESS at8375724e;2896 pure,238/315 overlapping integration,debug235warnings/vital/APK.
+- Phone: clipboard/idle/add work; saved email cannot be recalled by prefix (missing completion path).
+- [x] Derived active-language structured index; literal first-character/whole-token completion, guarded atomic tap.
+- [x] Ten pure + eight handler regressions; previous44 and all conformance/lint/security gates retained.
+- [ ] New-head compile/tests/lint/APK and phone prefix/middle/BS checks; instrumented View execution pending.
 
 ## Ordinary-field typed-autocorrect undo — 2026-10-10
 - [x] Verified correction bookmark reseeds BS pair after prediction-state resets.

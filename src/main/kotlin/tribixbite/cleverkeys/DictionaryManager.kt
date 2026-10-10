@@ -53,6 +53,12 @@ class DictionaryManager(private val context: Context) {
      * rebuild, never a stale answer.
      */
     private var foldedUserWordsCache: Set<String>? = null
+    private var structuredCompletionCache: PersonalDictionaryCompletion? = null
+
+    /** Active-language explicit entries only; rebuild the small index after any store mutation. */
+    fun getStructuredCompletions(prefix: String): List<String> =
+        (structuredCompletionCache ?: PersonalDictionaryCompletion(userWords)
+            .also { structuredCompletionCache = it }).matches(prefix)
 
     init {
         // Pre-v1.1.86 GLOBAL custom_words/disabled_words → the per-language `_en` keys.
@@ -247,6 +253,7 @@ class DictionaryManager(private val context: Context) {
     private fun mutateUserWords(block: MutableSet<String>.() -> Unit) {
         userWords.block()
         foldedUserWordsCache = null
+        structuredCompletionCache = null
     }
 
     /** The case-folded view, rebuilt on first read after any mutation. */
@@ -364,3 +371,4 @@ class DictionaryManager(private val context: Context) {
         private const val TAG = "DictionaryManager"
     }
 }
+

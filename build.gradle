@@ -594,6 +594,7 @@ tasks.register('runPureTests', JavaExec) {
   def pureTestClasses = [
     'tribixbite.cleverkeys.StartupWordPolicyTest',
     'tribixbite.cleverkeys.PersonalDictionaryTokenTest',
+    'tribixbite.cleverkeys.PersonalDictionaryCompletionTest',
     'tribixbite.cleverkeys.ai.HerbertSwipeDecisionTest',
     'tribixbite.cleverkeys.ai.HerbertCasePolicyTest',
     'tribixbite.cleverkeys.ai.HerbertPreparedBatchTest',
