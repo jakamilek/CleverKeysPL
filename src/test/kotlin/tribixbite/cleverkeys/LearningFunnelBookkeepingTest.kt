@@ -295,11 +295,17 @@ class LearningFunnelBookkeepingTest {
     @Test fun aQueuedStartupResultCannotOverwriteFirstTypedWord() {
         val field = attachAutocorrectEditor()
         val posts = startupUi()
+        // The inline task seam also runs typing prediction. Its dictionary/Android
+        // Trace implementation is outside this editor-lifecycle test; keep the
+        // real handler's prefix publish, but supply the predictor's result here.
+        every { predictor.predictWordsWithContext("g", any()) } returns
+            WordPredictor.PredictionResult(listOf("grzeje"), listOf(200))
         handler.startStartupWords(ic, field)
         posts.removeAt(0).run() // Result is now queued on main.
         type("g", field)
         while (posts.isNotEmpty()) posts.removeAt(0).run()
-        assertWithMessage("startup superseded by typing").that(barWords).doesNotContain("tak")
+        assertWithMessage("typing result replaces startup words").that(barWords).containsExactly("grzeje")
+        verify(exactly = 1) { predictor.predictWordsWithContext("g", any()) }
         assertWithMessage("typed word intact").that(editor.toString()).isEqualTo("g")
     }
 
