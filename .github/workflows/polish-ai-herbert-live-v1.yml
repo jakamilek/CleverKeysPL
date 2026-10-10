@@ -7,6 +7,7 @@ on:
       - 'src/**'
       - 'res/**'
       - 'build.gradle'
+      - 'gradle.lockfile'
       - 'AndroidManifest.xml'
       - '.github/workflows/polish-ai-herbert-live-v1.yml'
 permissions:
@@ -62,6 +63,31 @@ jobs:
         run: bash scripts/gradle-guard.sh lintVitalRelease --stacktrace
       - name: Assemble live trial APK after required gates
         run: bash scripts/gradle-guard.sh assembleDebug --stacktrace
+      - name: Verify GIF dependency lock regeneration with real build tasks
+        run: |
+          set -euo pipefail
+          cp gradle.lockfile build/herbert-live-expected.lockfile
+          bash scripts/gradle-guard.sh assembleDebug assembleDebugAndroidTest compileReleaseKotlin --update-locks io.coil-kt:coil-gif --stacktrace
+          python3 - <<'PY'
+          from pathlib import Path
+          expected = Path('build/herbert-live-expected.lockfile').read_text()
+          actual_path = Path('gradle.lockfile')
+          actual = actual_path.read_text()
+          # Existing documented AGP regeneration quirk: stdlib-common can lose
+          # only this instrumentation runtime membership when writing locks.
+          original = next(line for line in expected.splitlines()
+                          if line.startswith('org.jetbrains.kotlin:kotlin-stdlib-common:'))
+          regenerated = next(line for line in actual.splitlines()
+                             if line.startswith('org.jetbrains.kotlin:kotlin-stdlib-common:'))
+          if regenerated != original:
+              permitted = original.replace('debugAndroidTestRuntimeClasspath,', '')
+              assert regenerated == permitted, 'Unexpected stdlib-common lock change'
+              actual = actual.replace(regenerated, original)
+              actual_path.write_text(actual)
+          assert actual == expected, 'Resolved dependency graph differs from committed locks'
+          print('GIF dependency lock regeneration: exact committed graph PASS')
+          PY
+          git diff --exit-code -- gradle.lockfile
       - name: Verify ARM64 trial contains no FP32 weights or test fixtures
         run: |
           python3 - <<'PY'

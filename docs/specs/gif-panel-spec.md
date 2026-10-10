@@ -30,6 +30,15 @@ idempotent, cancels grid work and shuts down Coil. The finite selected-GIF usage
 immediate pane close so the existing Recently Used behavior is preserved. Search/debounce,
 pagination, tap/insertion, long-press actions and keyboard pane geometry keep their interfaces.
 
+Dependency locking: coil-gif2.6.0 must appear in the same five locked configurations as
+coil-base2.6.0. The first GIF commit b61afaab omitted this entry; live38079913286 and
+CI38079916540 failed checkDebugAarMetadata before source compilation and emitted no APK.
+The repair adds the exact lock candidate and a live gate that regenerates only coil-gif
+with actual assembleDebug/assembleDebugAndroidTest/compileReleaseKotlin tasks, restores
+only the already documented stdlib-common instrumentation-runtime membership if needed,
+and requires the entire regenerated lock to equal committed state. Other pins and normal
+locking/security/test gates stay active. New-head validation remains pending.
+
 Validation: nine real tile lifecycle tests plus two actual receiver close regressions are
 registered in mock/live CI. A test-only two-frame WebP exercises the actual pinned decoder,
 animation start/stop and cleared ImageView in GifAnimatedPreviewTest (API28+). Local static

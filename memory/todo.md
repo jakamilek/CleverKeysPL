@@ -3,6 +3,8 @@
 - [x] API28+ pinned coil-gif2.6.0, local full WebP, attached tiles only; static fallback.
 - [x] Request generations/cancel/stop/recycle, bounded decode, no animated cache; receiver closes loader.
 - [x] Nine tile lifecycle/two receiver regressions and real native WebP test added; not yet executed.
+- [ ] b61afaab failed live38079913286/CI38079916540: new coil-gif omitted from dependency lock; no APK.
+- [x] Add exact2.6.0 lock candidate and real-task targeted regeneration/diff gate; repaired rerun pending.
 - [ ] Current-head compile/pure/mock/lint/audited ARM64 APK; native test and phone scrolling/send/reopen.
 - Static-only packs stay static; no network, corpus/model/default/version/main-code merge/release.
 ## Suggestion dictionary removal and personal prefix — verified 2026-10-10
@@ -22,7 +24,6 @@
 - [x] Typed correction bookmark verifies actual separator/caret; short BS restores original.
 - [x] APK11670958917 / run38057510660 SHA d886cf5f98b8b5cb956c67c82de34972e3776def7f4fed7695229575bf548bef.
 - [ ] Instrumented View execution and other-locale translation remain; Actions monitoring<=60s/run.
-
 ## Compact case presentation v4 — 2026-10-10
 
 - V3 live38032850945/standard38032853742 SUCCESS at0acb6476:2874 pure,193/298 integration.
