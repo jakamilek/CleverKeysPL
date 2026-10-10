@@ -1154,6 +1154,7 @@ tasks.register('runMockTests', JavaExec) {
   jvmArgs '-XX:+EnableDynamicAgentLoading'
 
   def mockTestClasses = [
+    'tribixbite.cleverkeys.ClipboardPasteSuggestionsTest',
     'tribixbite.cleverkeys.BackspaceHapticRoutingTest',
     'tribixbite.cleverkeys.BackspaceHoldTest',
     'tribixbite.cleverkeys.EditingSettingsReadTest',

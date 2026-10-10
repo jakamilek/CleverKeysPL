@@ -308,8 +308,12 @@ class KeyEventHandler(
         return false
     }
 
+    /** Dismiss a session's idle clipboard action on the first actual editor edit. */
+    var onEditorTextMutation: (() -> Unit)? = null
+
     /** A commit's cursor callback is not a user returning to an existing word. */
     fun noteEditorTextMutation(conn: InputConnection?) {
+        onEditorTextMutation?.invoke()
         val pos = try {
             val et = conn?.let { getCursorPos(it) }
             if (et != null && et.selectionStart >= 0 && et.selectionStart == et.selectionEnd) {
@@ -455,15 +459,15 @@ class KeyEventHandler(
                         learningHooks?.onEditorWordBoundary(recv.getCurrentInputConnection())
                     }
                     val undo = key.getKeyevent() == KeyEvent.KEYCODE_DEL && !isKeyRepeat &&
-                        EditorSpacingPolicy.allowsAutomaticSpacing(recv.getCurrentEditorInfo(), allowSearch = true) &&
                         (if (learningHooks?.canUndoTypedAutocorrect(
                             recv.getCurrentInputConnection(), recv.getCurrentEditorInfo()
                         ) == true) handleBackspaceUndoAutocorrect(requireExplicitMode = false)
-                        else when ((Config.globalConfigOrNull()?.edit_behavior ?: EditBehaviorOptions()).tapMode) {
+                        else if (EditorSpacingPolicy.allowsAutomaticSpacing(recv.getCurrentEditorInfo(), allowSearch = true))
+                        when ((Config.globalConfigOrNull()?.edit_behavior ?: EditBehaviorOptions()).tapMode) {
                             1 -> handleBackspaceUndoAutocorrect()
                             2 -> handleBackspaceUndoSwipe()
                             else -> false
-                        })
+                        } else false)
                     if (!undo) send_key_down_up(key.getKeyevent())
                     // Handle backspace for word prediction
                     if (key.getKeyevent() == KeyEvent.KEYCODE_DEL && !undo) {

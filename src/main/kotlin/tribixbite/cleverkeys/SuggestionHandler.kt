@@ -520,7 +520,8 @@ class SuggestionHandler(
 
     private fun bookmarkMatches(bookmark: AutocorrectBookmark?, ic: InputConnection?, info: EditorInfo?): Boolean {
         if (bookmark == null || ic !== bookmark.connection || info !== bookmark.info || ic == null || isPasswordMode ||
-            !EditorSpacingPolicy.allowsAutomaticSpacing(info, allowSearch = true)) return false
+            info == null || (info.inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT ||
+            SuggestionBar.isPasswordField(info)) return false
         return try {
             val selection = herbertSelection(ic) ?: return false
             if (selection.selectionStart < 0 || selection.selectionStart != selection.selectionEnd ||
@@ -2990,9 +2991,15 @@ class SuggestionHandler(
                                 contextTracker.setLastCommitSource(PredictionSource.AUTOCORRECT)
                                 contextTracker.setLastAutocorrectOriginalWord(completedWord)
                                 if (correctionAccepted && beforeCorrectionCursor != null) {
-                                    typedAutocorrectBookmark = AutocorrectBookmark(inputConnection, editorInfo,
-                                        correctedWord, " ", beforeCorrectionCursor - completedWord.length + correctedWord.length,
-                                        completedWord)
+                                    // Composing-less search editors can discard the trailing
+                                    // space of a replacement commit. Stamp the actual verified
+                                    // word ending, rather than disarming immediate BS undo.
+                                    val start = beforeCorrectionCursor - completedWord.length - 1
+                                    typedAutocorrectBookmark = listOf(" ", "").map { separator ->
+                                        AutocorrectBookmark(inputConnection, editorInfo, correctedWord,
+                                            separator, start + correctedWord.length + separator.length,
+                                            completedWord)
+                                    }.firstOrNull { bookmarkMatches(it, inputConnection, editorInfo) }
                                 }
 
                                 vlog { "AUTOCORRECT: '$completedWord' → '$correctedWord' (tracking for undo)" }

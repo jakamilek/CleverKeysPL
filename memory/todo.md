@@ -1,5 +1,19 @@
 # Current work queue
 
+## Clipboard paste suggestion and search autocorrect undo — 2026-10-10
+
+- [x] Separate localized clipboard action before first editor mutation/cursor move;
+  direct exact paste, bounded preview, no learning/history; sensitive/password/private
+  guards and session/editor/clipboard revalidation; lifecycle listener cleanup.
+- [x] Typed correction stamps the verified actual separator/caret (space or none).
+  Immediate short BS restores an open original and preserves ExactAdd/cursor-sync guards.
+- [x] Eight clipboard mock cases, two real learn/BS regressions, two instrumented
+  View cases; registered mocks and current-head instrumentation compilation in CI.
+- [ ] Fresh CI compile/pure/mock/lint/APK and phone behavior. No local Kotlin/Android SDK.
+- [ ] Run instrumented View tests on Android; compilation alone is not a UI result.
+- [ ] Other-locale clipboard label translation (base/Polish done, recorded backlog).
+- No new settings, gesture/SI/model/langpack changes. Monitor Actions<=60s total/run.
+
 ## Compact case presentation v4 — 2026-10-10
 
 - V3 live38032850945/standard38032853742 SUCCESS at0acb6476:2874 pure,193/298 integration.

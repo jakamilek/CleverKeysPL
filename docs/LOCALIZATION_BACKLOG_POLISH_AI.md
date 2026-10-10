@@ -1,5 +1,13 @@
 # Tłumaczenia ekranu testowego SI — do uzupełnienia
 
+## Podpowiedź wklejania — 2026-10-10
+
+Nowy klucz clipboard_suggestion_paste w res/values/clipboard_suggestion.xml ma
+kompletne wersje bazową i polską („Wklej: %1$s”). Pozostałe locale wymagają późniejszego
+tłumaczenia tego klucza; obecnie użyją „Paste: %1$s”. Dowód: dodany plik zasobów
+i odpowiadający res/values-pl/clipboard_suggestion.xml. Zachować numerowany argument.
+Lokalny MissingTranslation ignore obejmuje tylko nowy plik; globalny lint bez zmian.
+
 2026-10-04. Polski i bazowy angielski są kompletne. Użytkownik wskazał polskie
 tłumaczenia jako priorytet; pozostałe języki mają być zapisane do późniejszej poprawy.
 

@@ -281,7 +281,7 @@ runtime results and phone checks remain separately pending here.
 ### Immediate typed-autocorrect restoration (2026-10-06)
 
 The first non-repeated short Backspace immediately after a TAP-typed autocorrection
-restores the original token and preserves the existing trailing space, including in
+restores the original token and preserves its actual separator (space or none), including in
 default character mode. This is a narrowly verified exception, not swipe undo and
 not a new default preference value. Subsequent Backspace follows `backspace_tap_mode`.
 Hold and shared-slider drag keep their current pointer/haptic paths.
@@ -296,7 +296,7 @@ Successful restoration uses the LearningHooks notification, rather than ordinary
 character-deletion tracking. With Show Exact Typed Word enabled, an unknown original
 is offered first as ExactAdd. Dictionary membership excludes learned selection history
 so learning the restored token does not hide an explicit add action. The completed
-token's guarded bookmark permits ExactAdd after the kept space. Adding stays storage
+token's guarded bookmark permits ExactAdd after the kept space or at the word end. Adding stays storage
 only; no delete/recommit/selection changes. Cursor park/sync acknowledgements preserve
 the offer; stale offers cannot rewrite text or add a different live token.
 
@@ -305,6 +305,30 @@ cover restore + next tap, stale eligibility, refused commit, cursor acknowledgem
 field/selection/caret invalidation, cut/paste and add-without-text-mutation. Android
 compilation and test execution remain pending. Base/Polish helper text explains the
 exception; other locale translations are deferred.
+
+### Clipboard paste suggestion and space-free correction (2026-10-10)
+
+Before the first edit of a visible field, the strip can show a separate localized
+Paste action for a single non-sensitive plain-text system clipboard item (1–65536
+UTF-16 units). Preview is bounded to64codepoints; tapping pastes the complete original
+text through the direct clipboard path, without word ranking, correction, added
+spacing or learning. No clipboard history access, URI coercion or text logging.
+Passwords and fields requesting no personalized learning suppress this suggestion.
+The suggestion disappears on the first mutation or cursor move; listeners stop on
+field exit/destroy. Session revision, current editor identity and re-reading the
+clipboard reject queued stale taps. Existing temporary messages and inline autofill
+retain rendering priority. No settings or gesture defaults change.
+
+Some search editors discard the last space of an autocorrect replacement. The typed
+correction bookmark now verifies both possible actual endings and cursor positions.
+Immediate BS restores the entire original without introducing a space; ExactAdd and
+cursor synchronization retain their original identity/text guards. There is no broad
+suffix-only undo or change to search spacing policy. A verified typed bookmark uses
+non-password text eligibility rather than spacing eligibility, including a search/URI
+editor; explicit legacy undo modes retain their original spacing guard. Two real learn/BS regressions,
+eight clipboard controller cases and two actual-View instrumented tests cover this
+change. Kotlin compilation/test execution requires CI; instrumented UI runtime and
+phone behavior remain separate verification steps.
 
 ### Polish trial v15 — new-word suggestion viewport
 

@@ -1,0 +1,3 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="clipboard_suggestion_paste">Paste: %1$s</string>
+</resources>

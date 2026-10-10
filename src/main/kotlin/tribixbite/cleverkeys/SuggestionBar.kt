@@ -40,6 +40,44 @@ class SuggestionBar : LinearLayout {
     private val suggestionViews: MutableList<TextView> = mutableListOf()
     private val dividerViews: MutableList<View> = mutableListOf()
     private var listener: OnSuggestionSelectedListener? = null
+    private var clipboardChip: TextView? = null
+    private var clipboardDivider: View? = null
+    private var clipboardPaste: (() -> Unit)? = null
+
+    /** A separate action: clipboard text is never a word candidate or learning input. */
+    fun setClipboardSuggestion(text: String?, paste: (() -> Unit)?) {
+        clipboardPaste = if (!isPasswordMode && text != null) paste else null
+        if (clipboardPaste == null) {
+            clipboardChip = null
+            clipboardDivider = null
+        } else {
+            val full = text.orEmpty()
+            val end = full.offsetByCodePoints(0, minOf(64, full.codePointCount(0, full.length)))
+            val preview = full.substring(0, end).replace(Regex("\\s+"), " ")
+            clipboardChip = TextView(context).apply {
+                layoutParams = defaultSuggestionLayoutParams()
+                gravity = Gravity.CENTER
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                setTextColor(theme?.suggestionHighConfidenceColor?.takeIf { it != 0 } ?: Color.CYAN)
+                setPadding(dpToPx(context, 12), 0, dpToPx(context, 12), 0)
+                maxLines = 1
+                maxWidth = dpToPx(context, 320)
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                this.text = context.getString(R.string.clipboard_suggestion_paste, preview)
+                contentDescription = this.text
+                isClickable = true
+                isFocusable = true
+                val action = clipboardPaste
+                setOnClickListener { if (clipboardChip === this) action?.invoke() }
+            }
+            clipboardDivider = createDivider(context)
+        }
+        contentGeneration++
+        // Messages, autofill and password rendering retain their own priority.
+        if (!isPasswordMode && !isShowingTemporaryMessage && !isInlineAutofillMode && !isInEmojiSearchMode) {
+            rebindSuggestionViews()
+        }
+    }
     private var inspectListener: OnSuggestionInspectedListener? = null
     private val currentSuggestions: MutableList<String> = mutableListOf()
     private val currentScores: MutableList<Int> = mutableListOf()
@@ -268,6 +306,10 @@ class SuggestionBar : LinearLayout {
 
         // Build the desired ordered child sequence from the pools.
         val desired = ArrayList<View>(count + dividerCount)
+        clipboardChip?.let { chip ->
+            desired.add(chip)
+            if (count > 0) clipboardDivider?.let { desired.add(it) }
+        }
         for (i in 0 until count) {
             val suggestion = Suggestion.parse(currentSuggestions[i])
             val isCenteredPrompt = suggestion is Suggestion.AddToDictionary && count == 1
@@ -1079,6 +1121,7 @@ class SuggestionBar : LinearLayout {
         if (isPasswordMode == enabled) return
 
         isPasswordMode = enabled
+        if (enabled) setClipboardSuggestion(null, null)
         isPasswordVisible = false
         currentPasswordText.clear()
 

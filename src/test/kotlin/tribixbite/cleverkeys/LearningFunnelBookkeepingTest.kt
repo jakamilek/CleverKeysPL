@@ -313,6 +313,66 @@ class LearningFunnelBookkeepingTest {
             .that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
     }
 
+    @Test fun searchEditorDroppingCorrectionSpaceStillAllowsImmediateBackspaceUndoAndAdd() {
+        val field = attachAutocorrectEditor().apply {
+            imeOptions = EditorInfo.IME_ACTION_SEARCH
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+        }
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect("grzeje") } returns "grzeją"
+        var range: Pair<Int, Int>? = null
+        every { ic.setSelection(any(), any()) } answers { range = firstArg<Int>() to secondArg<Int>(); true }
+        every { ic.getSelectedText(0) } answers { range?.let { editor.substring(it.first, it.second) } }
+        every { ic.commitText(any(), any()) } answers {
+            val replacement = firstArg<CharSequence>().toString().removeSuffix(" ")
+            range?.let { editor.replace(it.first, it.second, replacement) } ?: editor.append(replacement)
+            range = null
+            true
+        }
+        type("grzeje ", field)
+        assertWithMessage("editor dropped correction space").that(editor.toString()).isEqualTo("grzeją")
+        handler.onEditorCursorChanged()
+        tracker.clearAutocorrectTracking()
+        tracker.clearLastAutoInsertedWord()
+        handler.handleCursorParkPrediction(field, ic)
+        assertWithMessage("space-free bookmark survived cursor acknowledgement")
+            .that(handler.canUndoTypedAutocorrect(ic, field)).isTrue()
+        val receiver = mockk<KeyEventHandler.IReceiver>(relaxed = true)
+        every { receiver.getCurrentInputConnection() } returns ic
+        every { receiver.getCurrentEditorInfo() } returns field
+        every { receiver.getLastAutoInsertedWord() } answers { tracker.getLastAutoInsertedWord() }
+        every { receiver.getLastAutocorrectOriginalWord() } answers { tracker.getLastAutocorrectOriginalWord() }
+        val request = KeyEventHandler::class.java.getDeclaredField("moveCursorReq").apply { isAccessible = true }
+        request.set(null, mockk<ExtractedTextRequest>(relaxed = true))
+        try {
+            KeyEventHandler(receiver).apply { learningHooks = handler }
+                .key_up(KeyValue.getKeyByName("backspace"), Pointers.Modifiers.EMPTY, false)
+        } finally { request.set(null, null) }
+        assertWithMessage("BS restored the complete original without adding a space")
+            .that(editor.toString()).isEqualTo("grzeje")
+        val chip = Suggestion.ExactAdd("grzeje").wire
+        assertWithMessage("restored word can be added").that(barWords).containsExactly(chip)
+        tracker.synchronizeWithCursor(ic, "en", field)
+        handler.handleCursorParkPrediction(field, ic)
+        assertWithMessage("offer survives later editor sync").that(barWords).containsExactly(chip)
+        tap(chip, field)
+        verify(exactly = 1) { dictionary.addUserWord("grzeje") }
+        assertWithMessage("add never changes the field").that(editor.toString()).isEqualTo("grzeje")
+    }
+
+    @Test fun spaceFreeCorrectionStillDisarmsAfterTypingOrChangingField() {
+        val field = attachAutocorrectEditor().apply { imeOptions = EditorInfo.IME_ACTION_SEARCH }
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect("grzeje") } returns "grzeją"
+        every { ic.commitText(any(), any()) } answers { editor.append(firstArg<CharSequence>().toString().removeSuffix(" ")); true }
+        type("grzeje ", field)
+        assertWithMessage("still at correction").that(handler.canUndoTypedAutocorrect(ic, field)).isTrue()
+        assertWithMessage("different field cannot undo").that(handler.canUndoTypedAutocorrect(ic, textField())).isFalse()
+        editor.append("x"); handler.onEditorCursorChanged()
+        editor.setLength(editor.length - 1)
+        assertWithMessage("typing permanently disarms correction").that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+    }
+
     @Test fun restoredUnknownWordSurvivesCursorSyncAndAddingItNeverChangesTextOrSpace() {
         val field = attachAutocorrectEditor()
         editor.append("fix grzeje ")

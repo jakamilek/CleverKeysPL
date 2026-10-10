@@ -104,6 +104,7 @@ class CleverKeysService : InputMethodService(),
 
     // UI components (remain in CleverKeysService for view integration)
     private var _suggestionBar: SuggestionBar? = null
+    private var _clipboardSuggestions: ClipboardPasteSuggestions? = null
     private var _inputViewContainer: LinearLayout? = null
 
     // Prediction context tracking (v1.32.342: extracted to PredictionContextTracker)
@@ -492,6 +493,8 @@ class CleverKeysService : InputMethodService(),
     }
 
     override fun onDestroy() {
+        _clipboardSuggestions?.stop()
+        _clipboardSuggestions = null
         super.onDestroy()
 
         // Clear static instance reference
@@ -643,6 +646,7 @@ class CleverKeysService : InputMethodService(),
     }
 
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
+        _clipboardSuggestions?.stop()
         if (::_suggestionHandler.isInitialized) _suggestionHandler.onEditorCursorChanged()
         tribixbite.cleverkeys.ai.HerbertLiveRuntime.configure(this, _config?.herbert_live_enabled == true)
         traceBackspaceGesture("LIFECYCLE start restarting=$restarting")
@@ -749,6 +753,13 @@ class CleverKeysService : InputMethodService(),
             // Wire up InputConnectionProvider for accurate password text reading
             // This enables the eye toggle to show actual field content even after cursor moves
             _suggestionBar?.setInputConnectionProvider { currentInputConnection }
+            _clipboardSuggestions = ClipboardPasteSuggestions(
+                getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager,
+                { text, paste -> _suggestionBar?.setClipboardSuggestion(text, paste) },
+                { Pair(currentInputConnection, currentInputEditorInfo) },
+                { text -> _keyeventhandler.paste_from_clipboard_pane(text) }
+            ).also { it.start(currentInputConnection, info) }
+            _keyeventhandler.onEditorTextMutation = { _clipboardSuggestions?.dismiss() }
         }
 
         // Key positions are read per swipe from Keyboard2View.geometryParams()
@@ -841,6 +852,8 @@ class CleverKeysService : InputMethodService(),
         candidatesEnd: Int
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        if (oldSelStart >= 0 && oldSelEnd >= 0 &&
+            (oldSelStart != newSelStart || oldSelEnd != newSelEnd)) _clipboardSuggestions?.dismiss()
         if (::_suggestionHandler.isInitialized) _suggestionHandler.onEditorCursorChanged()
         _keyeventhandler.selection_updated(oldSelStart, newSelStart, oldSelEnd, newSelEnd)
         if ((oldSelStart == oldSelEnd) != (newSelStart == newSelEnd)) {
@@ -867,6 +880,8 @@ class CleverKeysService : InputMethodService(),
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
+        _clipboardSuggestions?.stop()
+        _clipboardSuggestions = null
         traceBackspaceGesture("LIFECYCLE finish finishing=$finishingInput")
         super.onFinishInputView(finishingInput)
         _keyeventhandler.invalidateWordCaseEdit()
