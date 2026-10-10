@@ -4,7 +4,6 @@ import android.graphics.drawable.Animatable
 import android.graphics.drawable.Drawable
 import android.util.Base64
 import android.widget.ImageView
-import androidx.annotation.RequiresApi
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
@@ -21,7 +20,6 @@ import java.util.concurrent.atomic.AtomicReference
 /** Real pinned Coil decoder and real tile; this fixture belongs only to the test APK. */
 @RunWith(AndroidJUnit4::class)
 @SdkSuppress(minSdkVersion = 28)
-@RequiresApi(28)
 class GifAnimatedPreviewTest {
     @Test fun localWebpAnimatesAndStopsWhenTileLeavesGrid() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()

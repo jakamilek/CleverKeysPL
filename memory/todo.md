@@ -3,8 +3,8 @@
 - [x] API28+ pinned coil-gif2.6.0, local full WebP, attached tiles only; static fallback.
 - [x] Request generations/cancel/stop/recycle, bounded decode, no animated cache; receiver closes loader.
 - [x] Nine tile lifecycle/two receiver regressions and real native WebP test added; not yet executed.
-- [ ] b61afaab failed live38079913286/CI38079916540: new coil-gif omitted from dependency lock; no APK.
-- [x] Add exact2.6.0 lock candidate and real-task targeted regeneration/diff gate; repaired rerun pending.
+- [x] b61afaab lock omission fixed;04e683f3 compiles,2906pure/original conformance,294/355 overlapping mock PASS.
+- [ ] 04e683f3 live38080721242/CI38080723467 lint failed UseSdkSuppress in new test; remove RequiresApi; rerun.
 - [ ] Current-head compile/pure/mock/lint/audited ARM64 APK; native test and phone scrolling/send/reopen.
 - Static-only packs stay static; no network, corpus/model/default/version/main-code merge/release.
 ## Suggestion dictionary removal and personal prefix — verified 2026-10-10

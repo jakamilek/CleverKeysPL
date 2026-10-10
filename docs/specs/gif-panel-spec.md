@@ -37,7 +37,12 @@ The repair adds the exact lock candidate and a live gate that regenerates only c
 with actual assembleDebug/assembleDebugAndroidTest/compileReleaseKotlin tasks, restores
 only the already documented stdlib-common instrumentation-runtime membership if needed,
 and requires the entire regenerated lock to equal committed state. Other pins and normal
-locking/security/test gates stay active. New-head validation remains pending.
+locking/security/test gates stay active. 04e683f3 compiled runtime/instrumentation and passed
+2906 pure/original conformance plus nine tile/fifteen receiver mock tests. Both runs then
+failed lint UseSdkSuppress because the new native test redundantly used RequiresApi(28).
+Remove only that import/annotation; keep SdkSuppress(minSdkVersion=28), fixture/assertions
+and all lint gates. Targeted lock regeneration and audited live APK remain pending because
+the earlier lint gate stopped delivery. Native playback test execution is still separate.
 
 Validation: nine real tile lifecycle tests plus two actual receiver close regressions are
 registered in mock/live CI. A test-only two-frame WebP exercises the actual pinned decoder,
