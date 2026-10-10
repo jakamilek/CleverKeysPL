@@ -169,7 +169,7 @@ class LanguagePackImportTest {
         extras: List<Pair<String, ByteArray>> = emptyList(),
         manifest: String = manifestJson(code, name, wordCount = wordCount),
     ): File = packZip(
-        "$code.zip",
+        "$code-${System.nanoTime()}.zip",
         listOf(
             "manifest.json" to manifest.toByteArray(),
             "dictionary.bin" to dictionaryBytes(dictionarySize),
@@ -496,7 +496,7 @@ class LanguagePackImportTest {
 
     /**
      * A ZIP entry naming a traversal path must not escape the install directory: the importer
-     * keeps only `File(entry.name).name`.
+     * rejects paths rather than flattening names into colliding basenames.
      */
     @Test
     fun aTraversalEntryNameCannotEscapeTheTempDirectory() {
@@ -509,8 +509,7 @@ class LanguagePackImportTest {
             )
         )
 
-        assertWithMessage("the basenames still satisfy the required-file check, so the pack imports")
-            .that(import(zip)).isInstanceOf(ImportResult.Success::class.java)
+        assertThat(import(zip)).isEqualTo(ImportResult.Error(PackImportFailure.InvalidMember("ZIP")))
         assertWithMessage("nothing may be written above the app's cache/files roots")
             .that(File(scratch.parentFile, "pwned.txt").exists()).isFalse()
         assertThat(File(scratch, "pwned.txt").exists()).isFalse()
@@ -951,6 +950,90 @@ class LanguagePackImportTest {
             .that(cacheDir.listFiles()?.toList().orEmpty()).isEmpty()
     }
 
+    private fun trialBytes(): ByteArray = javaClass.getResource("/language-intelligence-trial.json")!!.readBytes()
+
+    private fun trialManifest(bytes: ByteArray, api: Int = 1): String =
+        """{"code":"pl","name":"Polish","version":3,"apiVersion":$api,
+          "capabilities":["lexicon","frequency","capitalization","metadata","future"],
+          "languageIntelligence":{"file":"language-intelligence.json","schemaVersion":1,"sha256":"${sha256(bytes)}"}}"""
+
+    @Test fun declaredTrialInstallsAndPublishesExactSurfacesAndLegacyReplacementClearsThem() {
+        val bytes = trialBytes()
+        assertThat(import(validPack("pl", "Polish", extras = listOf("language-intelligence.json" to bytes),
+            manifest = trialManifest(bytes)))).isInstanceOf(ImportResult.Success::class.java)
+        assertThat(File(installedDir("pl"), "language-intelligence.json").readBytes().toList()).isEqualTo(bytes.toList())
+        val provider = manager.getLanguageIntelligenceProvider("pl")!!
+        assertThat(provider.lookup("Łódź")!!.capitalization!!.variants.map { it.surface })
+            .containsExactly("łódź", "Łódź").inOrder()
+        assertThat(import(validPack("pl", "Legacy"))).isInstanceOf(ImportResult.Success::class.java)
+        assertThat(manager.getLanguageIntelligenceProvider("pl")).isNull()
+        assertThat(File(installedDir("pl"), "language-intelligence.json").exists()).isFalse()
+    }
+
+    @Test fun corruptMissingAndUnsupportedMetadataDoNotReplacePreviousInstallation() {
+        assertThat(import(validPack("pl", "Previous"))).isInstanceOf(ImportResult.Success::class.java)
+        val original = manager.getDictionaryPath("pl")!!.readBytes()
+        val bytes = trialBytes()
+        val cases = listOf(
+            validPack("pl", "Polish", manifest = trialManifest(bytes)),
+            validPack("pl", "Polish", extras = listOf("language-intelligence.json" to "{}".toByteArray()),
+                manifest = trialManifest(bytes)),
+            validPack("pl", "Polish", extras = listOf("language-intelligence.json" to bytes),
+                manifest = trialManifest(bytes, 2)),
+        )
+        for (zip in cases) {
+            assertThat(import(zip)).isInstanceOf(ImportResult.Error::class.java)
+            assertThat(manager.getInstalledPacks().single().name).isEqualTo("Previous")
+            assertThat(manager.getDictionaryPath("pl")!!.readBytes().toList()).isEqualTo(original.toList())
+        }
+        val wrongLanguage = String(bytes, Charsets.UTF_8).replace("\"languageCode\":\"pl\"", "\"languageCode\":\"en\"").toByteArray()
+        assertThat(import(validPack("pl", "Wrong language", extras = listOf("language-intelligence.json" to wrongLanguage),
+            manifest = trialManifest(wrongLanguage)))).isInstanceOf(ImportResult.Error::class.java)
+        assertThat(manager.getInstalledPacks().single().name).isEqualTo("Previous")
+    }
+
+    @Test fun undeclaredIntelligenceIsRejectedAndDeletionDropsCachedMetadata() {
+        val bytes = trialBytes()
+        assertThat(import(validPack("pl", "Undeclared", extras = listOf("language-intelligence.json" to bytes))))
+            .isInstanceOf(ImportResult.Error::class.java)
+        assertThat(import(validPack("pl", "Polish", extras = listOf("language-intelligence.json" to bytes),
+            manifest = trialManifest(bytes)))).isInstanceOf(ImportResult.Success::class.java)
+        assertThat(manager.deletePack("pl")).isTrue()
+        assertThat(manager.getLanguageIntelligenceProvider("pl")).isNull()
+    }
+
+    @Test fun restartWarmsImmutableSnapshotAwayFromCallingThread() {
+        val bytes = trialBytes()
+        assertThat(import(validPack("pl", "Polish", extras = listOf("language-intelligence.json" to bytes),
+            manifest = trialManifest(bytes)))).isInstanceOf(ImportResult.Success::class.java)
+        val caller = Thread.currentThread()
+        val readThread = java.util.concurrent.atomic.AtomicReference<Thread>()
+        every { context.filesDir } answers { readThread.set(Thread.currentThread()); filesDir }
+        val restarted = LanguagePackManager(context)
+        assertThat(restarted.getLanguageIntelligenceProvider("pl")).isNull()
+        restarted.warmLanguageIntelligence("pl")
+        val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5)
+        while (restarted.getLanguageIntelligenceProvider("pl") == null && System.nanoTime() < deadline) {
+            Thread.sleep(10)
+        }
+        assertThat(restarted.getLanguageIntelligenceProvider("pl")!!.lookup("Łodzi")!!.surfaceKey).isEqualTo("łodzi")
+        assertThat(readThread.get()).isNotEqualTo(caller)
+    }
+
+    @Test fun duplicateArchiveMemberAndOversizedSidecarAreRejectedWithoutReplacingPack() {
+        assertThat(import(validPack("pl", "Previous"))).isInstanceOf(ImportResult.Success::class.java)
+        val duplicate = validPack("pl", "Duplicate", extras = listOf("dictionarx.bin" to dictionaryBytes()))
+        // ZIP writers forbid duplicate names; alter two equal-length header names on disk.
+        duplicate.writeBytes(duplicate.readBytes().toString(Charsets.ISO_8859_1)
+            .replace("dictionarx.bin", "dictionary.bin").toByteArray(Charsets.ISO_8859_1))
+        assertThat(import(duplicate)).isEqualTo(ImportResult.Error(PackImportFailure.InvalidMember("dictionary.bin")))
+        val oversized = ByteArray((IntelligenceJson.MAX_BYTES + 1).toInt())
+        assertThat(import(validPack("pl", "Oversized", extras = listOf("language-intelligence.json" to oversized))))
+            .isEqualTo(ImportResult.Error(PackImportFailure.InvalidMember("language-intelligence.json")))
+        assertThat(manager.getInstalledPacks().single().name).isEqualTo("Previous")
+        assertThat(cacheDir.listFiles()?.toList().orEmpty()).isEmpty()
+    }
+
     /**
      * Anti-regression guard for the OOM fix itself.
      *
@@ -972,10 +1055,10 @@ class LanguagePackImportTest {
             .that(body).isNotEmpty()
 
         assertWithMessage(
-            "the ZIP entry must be streamed to disk. `zis.copyTo(fos)` is what keeps peak " +
+            "the ZIP entry must be streamed to disk. `copyBounded` keeps peak " +
                 "memory at one 8KB buffer regardless of pack size — the whole point of the " +
                 "v1.1.96 / v1.1.97 OOM fix."
-        ).that(body).contains("zis.copyTo(fos)")
+        ).that(body).contains("copyBounded(zis, fos,")
 
         for (slurp in listOf("readBytes()", "readAllBytes()", "zis.readText()")) {
             assertWithMessage(

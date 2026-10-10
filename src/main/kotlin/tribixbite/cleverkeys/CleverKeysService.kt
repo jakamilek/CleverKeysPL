@@ -104,6 +104,7 @@ class CleverKeysService : InputMethodService(),
 
     // UI components (remain in CleverKeysService for view integration)
     private var _suggestionBar: SuggestionBar? = null
+    private var _clipboardSuggestions: ClipboardPasteSuggestions? = null
     private var _inputViewContainer: LinearLayout? = null
 
     // Prediction context tracking (v1.32.342: extracted to PredictionContextTracker)
@@ -458,6 +459,14 @@ class CleverKeysService : InputMethodService(),
         // Initialize debug logging manager (v1.32.384)
         _debugLoggingManager = DebugLoggingManager(this, packageName)
         _debugLoggingManager.initializeLogWriter()
+        _debugLoggingManager.registerDebugModeListener(object : DebugLoggingManager.DebugModeListener {
+            override fun onDebugModeChanged(enabled: Boolean) {
+                _keyeventhandler.backspaceTrace = if (enabled) {
+                    { message: String -> traceBackspaceGesture("EDITOR $message") }
+                } else null
+                if (enabled) traceBackspaceGesture("RUNTIME editing-settings-v9 app=${BuildConfig.APPLICATION_ID}")
+            }
+        })
 
         // Connect debug logger to input coordinator for prediction handling logging
         // This enables prediction selection/insertion logs to appear in SwipeDebugActivity
@@ -484,6 +493,8 @@ class CleverKeysService : InputMethodService(),
     }
 
     override fun onDestroy() {
+        _clipboardSuggestions?.stop()
+        _clipboardSuggestions = null
         super.onDestroy()
 
         // Clear static instance reference
@@ -516,10 +527,13 @@ class CleverKeysService : InputMethodService(),
         DirectBootManager.getInstance(this).cleanup()
     }
 
-    /**
-     * Send debug log message to SwipeDebugActivity if debug mode is enabled.
-     * (v1.32.384: Delegated to DebugLoggingManager)
-     */
+    /** Bounded state diagnostics are broadcast only while the playground enables debug mode. */
+    fun traceBackspaceGesture(message: String) {
+        if (::_debugLoggingManager.isInitialized && _debugLoggingManager.isDebugMode())
+            _debugLoggingManager.sendDebugLog("BACKSPACE $message\n")
+    }
+
+    /** Send playground debug messages through DebugLoggingManager. */
     private fun sendDebugLog(message: String) {
         _debugLoggingManager.sendDebugLog(message)
     }
@@ -632,6 +646,13 @@ class CleverKeysService : InputMethodService(),
     }
 
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
+        _clipboardSuggestions?.stop()
+        if (::_suggestionHandler.isInitialized) {
+            _suggestionHandler.dismissStartupWords()
+            _suggestionHandler.onEditorCursorChanged()
+        }
+        tribixbite.cleverkeys.ai.HerbertLiveRuntime.configure(this, _config?.herbert_live_enabled == true)
+        traceBackspaceGesture("LIFECYCLE start restarting=$restarting")
         // NOTE: Config refresh is handled by SharedPreferences listener (onSharedPreferenceChanged)
         // We only do initial config load here if config is completely null (shouldn't happen normally)
         if (_config == null) {
@@ -735,6 +756,19 @@ class CleverKeysService : InputMethodService(),
             // Wire up InputConnectionProvider for accurate password text reading
             // This enables the eye toggle to show actual field content even after cursor moves
             _suggestionBar?.setInputConnectionProvider { currentInputConnection }
+            _clipboardSuggestions = ClipboardPasteSuggestions(
+                getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager,
+                { text, paste -> _suggestionBar?.setClipboardSuggestion(text, paste) { _clipboardSuggestions?.openPanel() } },
+                { Pair(currentInputConnection, currentInputEditorInfo) },
+                { text -> _keyeventhandler.paste_from_clipboard_pane(text) },
+                { _receiver?.handle_event_key(KeyValue.Event.SWITCH_CLIPBOARD) }
+            ).also { it.start(currentInputConnection, info) }
+            _keyeventhandler.onEditorTextMutation = {
+                _clipboardSuggestions?.dismiss()
+                _suggestionHandler.dismissStartupWords()
+            }
+            _predictionCoordinator?.onTypingDictionaryReady = { _suggestionHandler.refreshStartupWords() }
+            _suggestionHandler.startStartupWords(currentInputConnection, info)
         }
 
         // Key positions are read per swipe from Keyboard2View.geometryParams()
@@ -827,26 +861,43 @@ class CleverKeysService : InputMethodService(),
         candidatesEnd: Int
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
-        _keyeventhandler.selection_updated(oldSelStart, newSelStart)
+        if (oldSelStart >= 0 && oldSelEnd >= 0 &&
+            (oldSelStart != newSelStart || oldSelEnd != newSelEnd)) {
+            _clipboardSuggestions?.dismiss()
+            if (::_suggestionHandler.isInitialized) _suggestionHandler.dismissStartupWords()
+        }
+        if (::_suggestionHandler.isInitialized) _suggestionHandler.onEditorCursorChanged()
+        _keyeventhandler.selection_updated(oldSelStart, newSelStart, oldSelEnd, newSelEnd)
         if ((oldSelStart == oldSelEnd) != (newSelStart == newSelEnd)) {
             _keyboardView.set_selection_state(newSelStart != newSelEnd)
         }
 
         // v1.2.6: Trigger cursor-aware prediction sync when cursor moves
-        // Only sync when cursor position changes (not selection range change)
-        // and when there's no active selection (newSelStart == newSelEnd)
-        if (newSelStart == newSelEnd && oldSelStart != newSelStart) {
+        // Same-position notifications also occur after equal-length replacements.
+        // Invalidate queued results during a range selection; read only at a caret.
+        if (newSelStart == newSelEnd) {
             _inputCoordinator.onCursorMoved(
                 newPosition = newSelStart,
                 ic = currentInputConnection,
                 language = _config?.primary_language ?: "en",
                 editorInfo = currentInputEditorInfo
             )
+        } else {
+            _inputCoordinator.cancelPendingCursorSync()
         }
     }
 
+    fun flushPendingHerbertSwipe() {
+        if (::_suggestionHandler.isInitialized) _suggestionHandler.flushPendingHerbertSwipe()
+    }
+
     override fun onFinishInputView(finishingInput: Boolean) {
+        if (::_suggestionHandler.isInitialized) _suggestionHandler.dismissStartupWords()
+        _clipboardSuggestions?.stop()
+        _clipboardSuggestions = null
+        traceBackspaceGesture("LIFECYCLE finish finishing=$finishingInput")
         super.onFinishInputView(finishingInput)
+        _keyeventhandler.invalidateWordCaseEdit()
         // gh #175: a minimized keyboard comes back full size the next time it is shown.
         _minimizer.reset()
         _keyboardView.reset()
@@ -1081,3 +1132,4 @@ class CleverKeysService : InputMethodService(),
 
     // v1.32.341: loadContractionMappings() method removed - functionality moved to ContractionManager class
 }
+

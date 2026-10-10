@@ -1,0 +1,4 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="clipboard_suggestion_paste">Clipboard</string>
+    <string name="clipboard_suggestion_actions">Clipboard. Tap to paste; hold to open clipboard.</string>
+</resources>

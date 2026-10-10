@@ -186,3 +186,7 @@ typed in an earlier session usually shows nothing. See
 - **Debouncing**: 100ms delay prevents rapid fire during drag selection
 - **IPC Optimization**: Single call per direction, max 50 chars
 - **State Caching**: Skip sync if position unchanged
+
+## Current Polish trial overrides (2026-10-03)
+
+The legacy pipeline description above is historical. Cursor prediction presentation is owned by SuggestionHandler, not a duplicate InputCoordinator pipeline. See [editor-prediction-integrity.md](editor-prediction-integrity.md) for the authoritative current behavior: revisions reject stale UI posts, all collapsed caret notifications trigger synchronization, pending own-edit acknowledgements do not swallow reads, and ExactAdd is a dictionary-only action for the full live token shown first in the bar. It does not delete or recommit editor text.

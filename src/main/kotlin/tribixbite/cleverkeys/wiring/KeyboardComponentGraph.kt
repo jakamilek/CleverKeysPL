@@ -139,6 +139,9 @@ class KeyboardComponentGraph(
             keyEventHandler
         )
 
+        suggestionHandler.liveEditorProvider = { service.currentInputConnection to service.currentInputEditorInfo }
+        keyEventHandler.backspaceHaptic = { event -> keyboardViewProvider().triggerHaptic(event) }
+
         // WP9 R-1 steps 4-6: wire the unified delegates now that both exist. MANDATORY since
         // step 6 — InputCoordinator has no fallback pipelines anymore. SuggestionHandler owns
         // the whole swipe-results flow (possessives, password guard, THE single commit engine)

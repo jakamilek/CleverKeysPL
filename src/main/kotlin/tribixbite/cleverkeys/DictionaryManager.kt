@@ -53,6 +53,12 @@ class DictionaryManager(private val context: Context) {
      * rebuild, never a stale answer.
      */
     private var foldedUserWordsCache: Set<String>? = null
+    private var structuredCompletionCache: PersonalDictionaryCompletion? = null
+
+    /** Active-language explicit entries only; rebuild the small index after any store mutation. */
+    fun getStructuredCompletions(prefix: String): List<String> =
+        (structuredCompletionCache ?: PersonalDictionaryCompletion(userWords)
+            .also { structuredCompletionCache = it }).matches(prefix)
 
     init {
         // Pre-v1.1.86 GLOBAL custom_words/disabled_words → the per-language `_en` keys.
@@ -156,6 +162,7 @@ class DictionaryManager(private val context: Context) {
      */
     fun setLanguage(languageCode: String?) {
         val code = languageCode ?: "en"
+        tribixbite.cleverkeys.langpack.LanguagePackManager.getInstance(context).warmLanguageIntelligence(code)
         val languageChanged = currentLanguage != code
         currentLanguage = code
 
@@ -187,6 +194,30 @@ class DictionaryManager(private val context: Context) {
      */
     fun removeUserWord(word: String) {
         persistUserWords(removed = setOf(word))
+    }
+
+    /**
+     * Strip removal uses a fresh store. Preserve exact-case ownership: a transformed
+     * display casing may resolve to one unique stored entry, never arbitrarily to one
+     * of several. When no owned spelling remains, disable the base word as well so it
+     * cannot immediately return from the langpack. Other languages are untouched.
+     */
+    fun removeSuggestionWord(word: String): Boolean {
+        if (word.isBlank()) return false
+        val stored = readStoredWordMap(getCustomWordsKey())
+        val folded = word.lowercase(Locale.ROOT)
+        val matches = stored.keys.filter { it.lowercase(Locale.ROOT) == folded }
+        val owned = when {
+            word in stored -> word
+            matches.size == 1 -> matches.single()
+            matches.isNotEmpty() -> return false
+            else -> null
+        }
+        if (owned != null) persistUserWords(removed = setOf(owned))
+        if (matches.none { it != owned }) {
+            DisabledDictionarySource(prefs, currentLanguage).setWordEnabled(folded, false)
+        }
+        return true
     }
 
     /**
@@ -246,6 +277,7 @@ class DictionaryManager(private val context: Context) {
     private fun mutateUserWords(block: MutableSet<String>.() -> Unit) {
         userWords.block()
         foldedUserWordsCache = null
+        structuredCompletionCache = null
     }
 
     /** The case-folded view, rebuilt on first read after any mutation. */
@@ -340,6 +372,12 @@ class DictionaryManager(private val context: Context) {
      */
     fun getCurrentLanguage(): String? = currentLanguage
 
+    fun getLanguageIntelligenceProvider(code: String): tribixbite.cleverkeys.langpack.LanguageIntelligenceProvider? {
+        val manager = tribixbite.cleverkeys.langpack.LanguagePackManager.getInstance(context)
+        manager.warmLanguageIntelligence(code)
+        return manager.getLanguageIntelligenceProvider(code)
+    }
+
     // ARC-079 (2026-08-29) — deleted with the per-language predictor cache:
     //
     //   isLoading()             had no production caller (one instrumented smoke test only);
@@ -357,3 +395,4 @@ class DictionaryManager(private val context: Context) {
         private const val TAG = "DictionaryManager"
     }
 }
+

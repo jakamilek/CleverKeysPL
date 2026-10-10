@@ -44,6 +44,10 @@ import tribixbite.cleverkeys.swipe.SwipeContextRescorer
  */
 interface Predictor {
 
+    /** Idle keyboard words; implementations must gate personal-statistics reads. */
+    fun getStartupWords(maxResults: Int = 3, fieldAllowsPersonalizedLearning: Boolean = true): List<String> = emptyList()
+
+
     // ---- Lifecycle -------------------------------------------------------------------
 
     /** Push the live [Config]; also re-syncs the personalization/learning master gates. */
@@ -163,3 +167,4 @@ interface Predictor {
     /** Personalization breakdown for the inspection sheet; null when unavailable. */
     fun explainPersonalization(word: String): BoostExplanation?
 }
+

@@ -481,9 +481,9 @@
     <string name="input_suggestion_bar_opacity_title">Öneri Çubuğu Opaklığı</string>
     <string name="input_suggestion_bar_opacity_desc">Öneri çubuğunun şeffaflığı</string>
     <string name="input_auto_space_after_title">Öneriden Sonra Otomatik Boşluk</string>
-    <string name="input_auto_space_after_desc">Öneri seçildiğinde sona boşluk ekle</string>
+    <string name="input_auto_space_after_desc">Öneri seçildiğinde sona boşluk ekle Kaydırılan sözcükler ve dokunulan öneriler için.</string>
     <string name="input_auto_space_before_title">Öneriden Önce Otomatik Boşluk</string>
-    <string name="input_auto_space_before_desc">Dokunulan öneriden önce baştaki boşluğu ekle (kaydırma her zaman boşluk ekler)</string>
+    <string name="input_auto_space_before_desc">Dokunulan öneriden önce baştaki boşluğu ekle (kaydırma her zaman boşluk ekler) Kaydırılan sözcükler ve dokunulan öneriler için.</string>
     <string name="input_backspace_undo_swipe_title">Geri Silme ile Kaydırmayı Geri Al</string>
     <string name="input_backspace_undo_swipe_desc">Kaydırılan sözcüğün hemen ardından geri silme tuşuna basmak sözcüğün tamamını siler</string>
     <string name="input_show_exact_typed_title">Tam yazılan sözcüğü göster</string>
@@ -2228,4 +2228,36 @@
     <string name="cmd_timestamp_iso_desc">ISO 8601 zaman damgası ekle (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">Bölüm: %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Kısa Backspace</string>
+    <string name="edit_backspace_hold_select_title">Basılı tutunca sözcük seç</string>
+    <string name="edit_backspace_release_delete_title">Bırakınca seçimi sil</string>
+    <string name="edit_backspace_pause_enabled_title">Yön değişince duraklat</string>
+    <string name="edit_backspace_pause_dp_title">Durdurma mesafesi</string>
+    <string name="edit_backspace_resume_dp_title">Devam mesafesi</string>
+    <string name="edit_backspace_speed_percent_title">Seçim hızı</string>
+    <string name="edit_backspace_fast_percent_title">Hızlı seçim</string>
+    <string name="edit_backspace_accel_percent_title">Hızlanma eşiği</string>
+    <string name="edit_punctuation_remove_space_title">Noktalama öncesi boşluğu kaldır</string>
+    <string name="edit_punctuation_add_space_title">Noktalama sonrası boşluk ekle</string>
+    <string name="edit_format_search_fields_title">Aramada otomatik biçimlendirme</string>
+    <string name="edit_numeric_period_caps_title">Sayı ve noktadan sonra büyük harf</string>
+    <string name="edit_shift_word_case_title">Shift ilk harfi değiştirir</string>
+    <string name="edit_shift_word_end_title">Shift sözcük sonunda da çalışır</string>
+    <string name="edit_show_case_variants_title">Büyük küçük harf seçeneklerini göster</string>
+    <string name="edit_exact_add_first_title">Sözcük ekleme ilk öneride</string>
+    <string name="edit_reset_suggestions_on_delete_title">Backspace ile önerilerin başına dön</string>
+    <string name="edit_tap_character">Karakter veya boşluk sil</string>
+    <string name="edit_tap_autocorrect">Otomatik düzeltmeyi geri al, sonra karakterler</string>
+    <string name="edit_tap_swipe">Son kaydırılan sözcüğü sil, sonra karakterler</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Metin biçimlendirme</string>
+    <string name="edit_backspace_help">Basılı tutarak seçim tüm klavyede çalışır. Kapalıysa normal silme tuş tekrarını gerektirir. Diğer kısa dokunma eylemleri öneriden hemen sonra geçerlidir.</string>
+    <string name="edit_pause_help">Kısa ters hareket duraklatır. Duraklama konumundan daha uzun hareket devam ettirir.</string>
+    <string name="edit_speed_help" formatted="false">Önceki hareket hızına göre: 80% daha yavaş, 100% değişmez.</string>
+    <string name="edit_fast_help">Hızlı mod ekran genişliğinin bu bölümünden fazla ilerledikten sonra başlar. Yön değişince mesafe sıfırlanır.</string>
+    <string name="edit_format_help">Parolalar ve teknik alanlar asla otomatik biçimlendirilmez. Noktalama seçenekleri akıllı noktalama, sayı sonrası büyük harfler otomatik büyük harf gerektirir.</string>
+    <string name="edit_fallback_header">Eski iki eksenli seçim</string>
 </resources>
+

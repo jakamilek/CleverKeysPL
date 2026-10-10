@@ -26,9 +26,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -145,9 +145,12 @@ private fun SubkeyAssignScreen(request: SubkeyAssignRequest, onDone: () -> Unit)
     val scope = rememberCoroutineScope()
     val manager = remember { ShortSwipeCustomizationManager.getInstance(context) }
     // The stored mapping: the edit screen shows what it does and edits it, not just its label.
-    val loaded by produceState<LoadedMapping?>(null) {
+    val loadedState = remember(manager, request.keyCode, request.direction) {
+        mutableStateOf<LoadedMapping?>(null)
+    }
+    LaunchedEffect(manager, request.keyCode, request.direction) {
         manager.loadMappings()
-        value = LoadedMapping(manager.getMapping(request.keyCode, request.direction))
+        loadedState.value = LoadedMapping(manager.getMapping(request.keyCode, request.direction))
     }
 
     val startWithPalette = request.mode == SubkeyAssignRequest.Mode.ASSIGN && !request.hasDefault
@@ -158,7 +161,7 @@ private fun SubkeyAssignScreen(request: SubkeyAssignRequest, onDone: () -> Unit)
         stringResource(request.direction.displayNameRes)
     )
 
-    val current = loaded ?: return  // a local file read: shows within a frame or two
+    val current = loadedState.value ?: return  // a local file read: shows within a frame or two
     val custom = current.mapping?.takeUnless { it.isRemoval }
 
     palette?.let { mode ->

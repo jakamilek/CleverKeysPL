@@ -482,7 +482,7 @@
     <string name="advanced_detailed_logging_desc">Include verbose trace information</string>
     <string name="advanced_open_debug_log">Open Debug Log</string>
     <string name="advanced_provenance_markers_title">Suggestion Origin Markers</string>
-    <string name="advanced_provenance_markers_desc">Show a colored dot on each suggestion indicating which engine produced it (long-press any suggestion for full details)</string>
+    <string name="advanced_provenance_markers_desc">Shows a colored dot on each suggestion indicating which engine produced it</string>
 
     <!-- Long-press suggestion provenance sheet. All pipeline metadata remains structured;
          these Android-layer templates are the only user-facing wording. -->
@@ -686,9 +686,9 @@
     <string name="gesture_high_velocity_title">High Velocity Threshold</string>
     <string name="gesture_high_velocity_desc">Velocity for fast swipe detection (px/sec). Higher allows faster swipes.</string>
     <string name="gesture_speed_smoothing_title">Speed Smoothing</string>
-    <string name="gesture_speed_smoothing_desc">Smoothing factor for slider movement. Higher is smoother but less responsive.</string>
+    <string name="gesture_speed_smoothing_desc">Response to finger speed, shared by Space and Backspace. Higher values follow speed changes more quickly.</string>
     <string name="gesture_max_speed_multiplier_title">Maximum Speed Multiplier</string>
-    <string name="gesture_max_speed_multiplier_desc">Maximum slider acceleration. Higher allows faster sliding.</string>
+    <string name="gesture_max_speed_multiplier_desc">Maximum acceleration for fast finger movement on Space and Backspace.</string>
 
     <!-- GifPanelSection -->
     <string name="gif_enable_title">Enable GIF Panel</string>
@@ -704,9 +704,9 @@
     <string name="input_suggestion_bar_opacity_title">Suggestion Bar Opacity</string>
     <string name="input_suggestion_bar_opacity_desc">Transparency of the suggestion bar</string>
     <string name="input_auto_space_after_title">Auto-Space After Suggestion</string>
-    <string name="input_auto_space_after_desc">Add trailing space when selecting a suggestion</string>
+    <string name="input_auto_space_after_desc">Add trailing space when selecting a suggestion For both swiped words and tapped suggestions.</string>
     <string name="input_auto_space_before_title">Auto-Space Before Suggestion</string>
-    <string name="input_auto_space_before_desc">Insert leading space before a tapped suggestion (swipe always adds space)</string>
+    <string name="input_auto_space_before_desc">Insert leading space before a tapped suggestion (swipe always adds space) For both swiped words and tapped suggestions.</string>
     <string name="input_backspace_undo_swipe_title">Backspace Undo Swipe</string>
     <string name="input_backspace_undo_swipe_desc">Tapping backspace immediately after a swiped word deletes the entire word</string>
     <string name="input_show_exact_typed_title">Show exact typed word</string>
@@ -737,8 +737,8 @@
     <string name="input_swipe_distance_threshold_desc">Distance (device-scaled units) to activate slider/event subkeys mid-swipe (e.g. spacebar cursor slider). Also caps the short-swipe minimum on wide keys like backspace so their flicks stay easy.</string>
     <string name="input_circle_gesture_title">Circle Gesture Sensitivity</string>
     <string name="input_circle_gesture_desc">Sensitivity for loop/circle gestures</string>
-    <string name="input_space_slider_title">Space Bar Slider Sensitivity</string>
-    <string name="input_space_slider_desc">Sensitivity for cursor movement via space bar horizontal swipe</string>
+    <string name="input_space_slider_title">Space and Backspace Slider Sensitivity</string>
+    <string name="input_space_slider_desc">Shared cursor and selection sensitivity. Lower values require less finger travel per character.</string>
     <string name="input_long_press_timeout_title">Long Press Timeout</string>
     <string name="input_long_press_timeout_desc">Duration to trigger long press (milliseconds)</string>
     <string name="input_long_press_interval_title">Long Press Interval</string>
@@ -1130,7 +1130,7 @@
     <string name="gesture_selection_delete_desc">Short swipe + hold on backspace to select text, then release to delete.</string>
     <string name="gesture_tap_typing_header">Tap and Typing</string>
     <string name="gesture_swipe_recognition_header">Swipe Recognition</string>
-    <string name="gesture_slider_key_header">Slider Key Behavior</string>
+    <string name="gesture_slider_key_header">Cursor and Selection Sliding</string>
     <string name="gesture_tuning_tip">If gestures feel laggy, reduce dwell time and noise threshold. If taps register as swipes, increase tap duration.</string>
 
     <!-- IntentEditorDialog.kt — build a custom Android intent for a short-swipe action.
@@ -2617,4 +2617,35 @@
     <string name="cmd_timestamp_iso_desc">Insert ISO 8601 timestamp (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">in %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Short Backspace</string>
+    <string name="edit_backspace_hold_select_title">Drag selection and word deletion</string>
+    <string name="edit_backspace_release_delete_title">Delete selection on release</string>
+    <string name="edit_backspace_pause_enabled_title">Pause on direction reversal</string>
+    <string name="edit_backspace_pause_dp_title">Brake distance</string>
+    <string name="edit_backspace_resume_dp_title">Start or resume distance</string>
+    <string name="edit_backspace_speed_percent_title">Selection speed</string>
+    <string name="edit_backspace_fast_percent_title">Fast selection speed</string>
+    <string name="edit_backspace_accel_percent_title">Acceleration threshold</string>
+    <string name="edit_punctuation_remove_space_title">Remove space before punctuation</string>
+    <string name="edit_punctuation_add_space_title">Add space after punctuation</string>
+    <string name="edit_format_search_fields_title">Automatic formatting in search</string>
+    <string name="edit_numeric_period_caps_title">Capital after a number and period</string>
+    <string name="edit_shift_word_case_title">Shift changes word initial</string>
+    <string name="edit_shift_word_end_title">Shift also at word end</string>
+    <string name="edit_show_case_variants_title">Show source case variants</string>
+    <string name="edit_exact_add_first_title">Add-word chip first</string>
+    <string name="edit_reset_suggestions_on_delete_title">Reset suggestions on Backspace</string>
+    <string name="edit_tap_character">Delete character or space</string>
+    <string name="edit_tap_autocorrect">Undo autocorrect, then characters</string>
+    <string name="edit_tap_swipe">Delete last swipe, then characters</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Text formatting</string>
+    <string name="edit_backspace_help">Drag left from Backspace to select, or right to shrink selection. Stop your finger to stop selection. Sensitivity is shared with Space in Input Behavior; acceleration is in Gesture Tuning. Hold still to preview and delete successive words. Delete on release controls the pending selection only; holding still continues timed word deletion. With gestures off, ordinary deletion requires Key Repeat.</string>
+    <string name="edit_pause_help">This distance starts selection when dragging left from Backspace and resumes it after a pause. A short reversal pauses selection.</string>
+    <string name="edit_speed_help" formatted="false">Relative to the previous gesture speed: 80% is slower, 100% is unchanged.</string>
+    <string name="edit_fast_help">Fast mode starts after traveling further than this percentage of screen width. Reversing resets the travel distance.</string>
+    <string name="edit_format_help">Passwords and technical fields never use automatic formatting. Punctuation options require Smart Punctuation; numeric capitals require Auto-Capitalization.</string>
+    <string name="edit_fallback_header">Legacy two-axis selection fallback</string>
 </resources>

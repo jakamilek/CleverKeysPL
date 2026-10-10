@@ -1,10 +1,13 @@
 package tribixbite.cleverkeys
 
 import android.content.res.Resources
+import android.content.Context
 import android.text.InputType
 import android.util.Log
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import android.view.inputmethod.ExtractedText
+import android.view.inputmethod.ExtractedTextRequest
 import com.google.common.truth.Truth.assertWithMessage
 import io.mockk.every
 import io.mockk.just
@@ -60,9 +63,11 @@ class LearningFunnelBookkeepingTest {
     private lateinit var tracker: PredictionContextTracker
     private lateinit var bigramStore: BigramStore
     private lateinit var predictor: WordPredictor
+    private lateinit var contractions: ContractionManager
     private lateinit var personalization: PersonalizationEngine
     private lateinit var adaptation: UserAdaptationManager
     private lateinit var coordinator: PredictionCoordinator
+    private lateinit var dictionary: DictionaryManager
     private lateinit var bar: SuggestionBar
     private lateinit var inputCoordinator: InputCoordinator
     private lateinit var resources: Resources
@@ -89,6 +94,7 @@ class LearningFunnelBookkeepingTest {
         // Config's prefs are @JvmField, so a relaxed mock stores real values here.
         mockkObject(Config.Companion)
         config = mockk(relaxed = true)
+        config.primary_language = "en"
         config.on_device_learning_enabled = true
         config.context_aware_predictions_enabled = true
         config.personalized_learning_enabled = true
@@ -126,8 +132,9 @@ class LearningFunnelBookkeepingTest {
         every { predictor.reset() } just runs
 
         adaptation = mockk(relaxed = true)
-        val dictionary = mockk<DictionaryManager>(relaxed = true)
+        dictionary = mockk<DictionaryManager>(relaxed = true)
         every { dictionary.getCurrentLanguage() } returns "en"
+        every { dictionary.getStructuredCompletions(any()) } returns emptyList()
         coordinator = mockk(relaxed = true)
         every { coordinator.getWordPredictor() } returns predictor
         every { coordinator.getAdaptationManager() } returns adaptation
@@ -163,7 +170,7 @@ class LearningFunnelBookkeepingTest {
         }
         every { ic.getCursorCapsMode(any()) } returns 0
 
-        val contractions = mockk<ContractionManager>(relaxed = true)
+        contractions = mockk<ContractionManager>(relaxed = true)
         every { contractions.isKnownContraction(any()) } returns false
         every { contractions.isContractionKey(any()) } returns false
         every { contractions.generatePossessive(any()) } returns null
@@ -185,6 +192,307 @@ class LearningFunnelBookkeepingTest {
         scheduler.shutdownNow()
         scheduler.awaitTermination(2, TimeUnit.SECONDS)
         unmockkAll()
+    }
+
+    @Test fun startingTheNextTypedWordResetsTheStripWithoutResettingEachLetter() {
+        config.edit_behavior = EditBehaviorOptions(resetSuggestionsOnDelete = false)
+        type("olej")
+        verify(exactly = 1) { bar.resetScrollPosition() }
+        type(" ")
+        type("mleko")
+        verify(exactly = 3) { bar.resetScrollPosition() }
+    }
+
+    @Test fun eachNewSwipeResetsTheStripEvenWhenTheCandidateSlateRepeats() {
+        swipe("olej", "Olek")
+        swipe("olej", "Olek")
+        verify(exactly = 2) { bar.resetScrollPosition() }
+    }
+
+    @Test fun aTypedWordAfterASwipeResetsTheStripAndEnterEndsTheWord() {
+        swipe("olej", "Olek")
+        type("mleko")
+        verify(exactly = 2) { bar.resetScrollPosition() }
+        handler.onEditorWordBoundary(ic)
+        verify(exactly = 3) { bar.resetScrollPosition() }
+    }
+
+    @Test fun explicitWholeEmailAddKeepsTextAndSpaceAndSurvivesCursorSync() {
+        val field = attachAutocorrectEditor()
+        val word = "przykład.ten@gmail.com"
+        every { predictor.isInDictionary(word, false) } returns false
+        type(word + " ", field)
+        assertWithMessage("whole email add offered").that(barWords).containsExactly(Suggestion.ExactAdd(word).wire)
+        tracker.synchronizeWithCursor(ic, "en", field)
+        handler.handleCursorParkPrediction(field, ic)
+        assertWithMessage("idle sync retains whole offer").that(barWords).containsExactly(Suggestion.ExactAdd(word).wire)
+        tap(Suggestion.ExactAdd(word).wire, field)
+        verify(exactly = 1) { dictionary.addUserWord(word) }
+        verify(exactly = 0) { dictionary.addUserWord("com") }
+        assertWithMessage("add never rewrites email or space").that(editor.toString()).isEqualTo(word + " ")
+    }
+
+    @Test fun hyphenatedWordIsExplicitlyOfferedWholeBeforeCompletion() {
+        val field = attachAutocorrectEditor()
+        val word = "czarno-biały"
+        every { predictor.isInDictionary(word, false) } returns false
+        type(word, field)
+        assertWithMessage("hyphenated full entry").that(barWords).containsExactly(Suggestion.ExactAdd(word).wire)
+        handler.handleCursorSyncPrediction()
+        tap(Suggestion.ExactAdd(word).wire, field)
+        verify(exactly = 1) { dictionary.addUserWord(word) }
+        assertWithMessage("typed joiner preserved").that(editor.toString()).isEqualTo(word)
+    }
+
+    @Test fun changedEmailOrEditorRejectsStaleWholeEntryAdd() {
+        val field = attachAutocorrectEditor()
+        val word = "przykład.ten@gmail.com"
+        every { predictor.isInDictionary(word, false) } returns false
+        type(word, field)
+        editor.setLength(0); editor.append("inny@host.pl")
+        tap(Suggestion.ExactAdd(word).wire, field)
+        verify(exactly = 0) { dictionary.addUserWord(any()) }
+        editor.setLength(0); editor.append(word)
+        handler.handleCursorSyncPrediction()
+        val other = textField()
+        handler.liveEditorProvider = { ic to other }
+        tap(Suggestion.ExactAdd(word).wire, other)
+        verify(exactly = 0) { dictionary.addUserWord(any()) }
+        assertWithMessage("stale add never deletes text").that(editor.toString()).isEqualTo(word)
+    }
+
+    @Test fun savedWholeEntriesDoNotGetAnotherAddOffer() {
+        val field = attachAutocorrectEditor()
+        val word = "czarno-biały"
+        every { predictor.isInDictionary(word, false) } returns false
+        every { dictionary.isUserWordIgnoringCase(word) } returns true
+        type(word, field)
+        assertWithMessage("known explicit entry not offered").that(barWords).doesNotContain(Suggestion.ExactAdd(word).wire)
+    }
+
+    /** Real indexed entries and editor selection/replacement; ordinary executor remains a seam. */
+    private fun completionEditor(vararg entries: String): EditorInfo {
+        val field = attachAutocorrectEditor()
+        val index = PersonalDictionaryCompletion(entries.toList())
+        every { dictionary.getStructuredCompletions(any()) } answers { index.matches(firstArg()) }
+        var range: Pair<Int, Int>? = null
+        every { ic.setSelection(any(), any()) } answers {
+            range = firstArg<Int>() to secondArg<Int>()
+            true
+        }
+        every { ic.commitText(any(), any()) } answers {
+            val text = firstArg<CharSequence>().toString()
+            range?.let { editor.replace(it.first, it.second, text) } ?: editor.append(text)
+            range = null
+            true
+        }
+        return field
+    }
+
+    @Test fun savedEmailLeadsFromFirstLetterAndTapReplacesPrefixLiterally() {
+        val word = "jan.kowalski@Example.com"
+        val field = completionEditor(word)
+        type("j", field)
+        assertWithMessage("explicit address reachable immediately").that(barWords).containsExactly(word)
+        type("an", field)
+        tap(word, field)
+        assertWithMessage("literal saved spelling and normal spacing").that(editor.toString()).isEqualTo(word + " ")
+        verify(exactly = 0) { dictionary.addUserWord(any()) }
+        verify(exactly = 0) { personalization.recordWordTyped(word, any()) }
+    }
+
+    @Test fun addressCompletesAcrossDotAtAndDigitsInEmailFieldWithoutSpace() {
+        val word = "jan2.kowalski@Example.com"
+        val field = completionEditor(word).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        }
+        type("jan2.kowalski@E", field)
+        assertWithMessage("full address not a domain fragment").that(barWords).containsExactly(word)
+        tap(word, field)
+        assertWithMessage("email field has no inserted space").that(editor.toString()).isEqualTo(word)
+        verify(exactly = 0) { personalization.recordWordTyped(any(), any()) }
+    }
+
+    @Test fun hyphenatedCompletionSurvivesCursorSyncAndBackspace() {
+        val word = "czarno-biały"
+        val field = completionEditor(word)
+        type("czarno-b", field)
+        handler.handleCursorSyncPrediction()
+        assertWithMessage("joiner sync retains whole completion").that(barWords).containsExactly(word)
+        editor.setLength(editor.length - 1)
+        handler.handleBackspace()
+        assertWithMessage("BS rereads whole literal prefix").that(barWords).containsExactly(word)
+        tap(word, field)
+        assertWithMessage("no duplicated stem").that(editor.toString()).isEqualTo(word + " ")
+    }
+
+    @Test fun middleAddressCompletionReplacesEntireTokenAndPreservesSurroundingText() {
+        val word = "jan.kowalski@example.com"
+        val field = completionEditor(word)
+        editor.append("tekst jan.ko|walski@example.com dalej".replace("|", ""))
+        val cursor = "tekst jan.ko".length
+        every { ic.getTextBeforeCursor(any(), any()) } answers {
+            editor.substring(maxOf(0, cursor - firstArg<Int>()), cursor)
+        }
+        every { ic.getTextAfterCursor(any(), any()) } answers {
+            editor.substring(cursor).take(firstArg<Int>())
+        }
+        every { ic.getExtractedText(any(), any()) } answers {
+            objenesis.newInstance(ExtractedText::class.java).apply {
+                startOffset = 0; selectionStart = cursor; selectionEnd = cursor
+            }
+        }
+        handler.handleCursorSyncPrediction()
+        tap(word, field)
+        assertWithMessage("both token halves replaced, surrounding space kept").that(editor.toString())
+            .isEqualTo("tekst $word dalej")
+    }
+
+    @Test fun staleRemovedOrDisabledPersonalCompletionCannotMutateEditor() {
+        val word = "jan.kowalski@example.com"
+        val field = completionEditor(word)
+        type("jan", field)
+        every { dictionary.getStructuredCompletions(any()) } returns emptyList()
+        tap(word, field)
+        assertWithMessage("removed entry not committed").that(editor.toString()).isEqualTo("jan")
+        every { dictionary.getStructuredCompletions(any()) } returns listOf(word)
+        handler.handleCursorSyncPrediction()
+        every { predictor.isWordDisabled(word) } returns true
+        tap(word, field)
+        assertWithMessage("disabled entry not committed").that(editor.toString()).isEqualTo("jan")
+        every { predictor.isWordDisabled(word) } returns false
+        handler.handleCursorSyncPrediction()
+        handler.liveEditorProvider = { ic to textField() }
+        tap(word, field)
+        assertWithMessage("switched editor rejects old completion").that(editor.toString()).isEqualTo("jan")
+    }
+
+    @Test fun privateFieldAndSelectionSuppressPersonalCompletions() {
+        val word = "jan.kowalski@example.com"
+        val field = completionEditor(word).apply { imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING }
+        type("jan", field)
+        assertWithMessage("private field hides personal address").that(barWords).doesNotContain(word)
+        field.imeOptions = 0
+        every { ic.getSelectedText(0) } returns "jan"
+        handler.handleCursorSyncPrediction()
+        assertWithMessage("selected editor text is not a completion prefix").that(barWords).doesNotContain(word)
+    }
+
+    @Test fun refusedPersonalCompletionCommitKeepsPrefixInsteadOfDeletingIt() {
+        val word = "jan.kowalski@example.com"
+        val field = completionEditor(word)
+        type("jan", field)
+        every { ic.commitText(any(), any()) } returns false
+        tap(word, field)
+        assertWithMessage("refused atomic replacement preserves text").that(editor.toString()).isEqualTo("jan")
+        verify(exactly = 0) { ic.deleteSurroundingText(any(), any()) }
+    }
+
+    @Test fun queuedProseResultsRetainPersonalCompletionAheadOfOrdinaryWords() {
+        val word = "jan.kowalski@example.com"
+        val field = completionEditor(word)
+        val posts = startupUi()
+        every { predictor.predictWordsWithContext("j", any()) } returns
+            WordPredictor.PredictionResult(listOf("jest", "jaki"), listOf(200, 100))
+        every { contractions.getNonPairedMapping(any()) } returns null
+        every { contractions.getPairedContractions(any()) } returns emptyList()
+        type("j", field)
+        while (posts.isNotEmpty()) posts.removeAt(0).run()
+        assertWithMessage("personal entry remains first, prose options retained").that(barWords)
+            .containsExactly(word, "jest", "jaki").inOrder()
+        verify { bar.setSuggestionsWithScores(listOf(word, "jest", "jaki"), listOf(0, 200, 100), any()) }
+        assertWithMessage("ranking does not edit text").that(editor.toString()).isEqualTo("j")
+    }
+
+    private fun startupUi(): MutableList<Runnable> {
+        val posts = mutableListOf<Runnable>()
+        val main = mockk<android.os.Handler>(relaxed = true)
+        every { main.post(any()) } answers { posts.add(firstArg()); true }
+        handler.setField("mainHandler", main)
+        val tasks = mockk<PredictionTaskRunner>(relaxed = true)
+        every { tasks.cancelAndSubmit(any()) } answers { firstArg<Runnable>().run() }
+        handler.setField("predictionTasks", tasks)
+        every { predictor.getStartupWords(any(), any()) } returns listOf("tak", "dzięki", "cześć")
+        return posts
+    }
+
+    @Test fun startupWordsSurviveInitialParkAndAppendOnTap() {
+        val field = attachAutocorrectEditor()
+        val posts = startupUi()
+        handler.startStartupWords(ic, field)
+        handler.handleCursorParkPrediction(field, ic)
+        while (posts.isNotEmpty()) posts.removeAt(0).run()
+        assertWithMessage("startup top words").that(barWords).containsExactly("tak", "dzięki", "cześć").inOrder()
+        tap("tak", field)
+        assertWithMessage("startup word appends").that(editor.toString()).isEqualTo("tak ")
+        assertWithMessage("tagged as next word").that(tracker.getLastCommitSource()).isEqualTo(PredictionSource.NEXT_WORD)
+    }
+
+    @Test fun aQueuedStartupResultCannotOverwriteFirstTypedWord() {
+        val field = attachAutocorrectEditor()
+        val posts = startupUi()
+        // The inline task seam also runs typing prediction. Its dictionary/Android
+        // Trace implementation is outside this editor-lifecycle test; keep the
+        // real handler's prefix publish, but supply the predictor's result here.
+        every { predictor.predictWordsWithContext("g", any()) } returns
+            WordPredictor.PredictionResult(listOf("grzeje"), listOf(200))
+        // Relaxed nullable String mocks answer ""; neither prefix nor candidate
+        // has a contraction here, so explicitly supply the real no-mapping result.
+        every { contractions.getNonPairedMapping("g") } returns null
+        every { contractions.getNonPairedMapping("grzeje") } returns null
+        every { contractions.getPairedContractions("g") } returns emptyList()
+        handler.startStartupWords(ic, field)
+        posts.removeAt(0).run() // Result is now queued on main.
+        type("g", field)
+        while (posts.isNotEmpty()) posts.removeAt(0).run()
+        assertWithMessage("typing result replaces startup words").that(barWords).containsExactly("grzeje")
+        verify(exactly = 1) { predictor.predictWordsWithContext("g", any()) }
+        assertWithMessage("typed word intact").that(editor.toString()).isEqualTo("g")
+    }
+
+    @Test fun aQueuedStartupResultCannotCrossToAnotherEditor() {
+        val field = attachAutocorrectEditor()
+        val posts = startupUi()
+        handler.startStartupWords(ic, field)
+        posts.removeAt(0).run()
+        handler.liveEditorProvider = { ic to textField() }
+        while (posts.isNotEmpty()) posts.removeAt(0).run()
+        assertWithMessage("different editor blocks stale words").that(barWords).isEmpty()
+    }
+
+    @Test fun privateStartupPassesClosedPersonalReadGateAndPasswordsDoNotQuery() {
+        val field = attachAutocorrectEditor().apply { imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING }
+        val posts = startupUi()
+        handler.startStartupWords(ic, field)
+        while (posts.isNotEmpty()) posts.removeAt(0).run()
+        verify(exactly = 1) { predictor.getStartupWords(3, false) }
+        field.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        handler.startStartupWords(ic, field)
+        while (posts.isNotEmpty()) posts.removeAt(0).run()
+        verify(exactly = 1) { predictor.getStartupWords(any(), any()) }
+    }
+
+    @Test fun startupBackendRanksActualCountsAndActiveLexiconOnly() {
+        predictor.setField("dictionary", java.util.concurrent.atomic.AtomicReference(mutableMapOf("tak" to 100, "boston" to 1, "nie" to 90)))
+        predictor.setField("customAndUserWords", emptySet<String>())
+        predictor.setField("userWordOriginalCase", ConcurrentHashMap(mapOf("boston" to "Boston")))
+        every { personalization.getTopWords(any()) } returns listOf(
+            tribixbite.cleverkeys.personalization.UserWordUsage("tak", 2, 0),
+            tribixbite.cleverkeys.personalization.UserWordUsage("boston", 10, 0),
+            tribixbite.cleverkeys.personalization.UserWordUsage("foreign", 100, 0))
+        assertWithMessage("counts then dictionary fallback").that(predictor.getStartupWords(3, true)).containsExactly("Boston", "tak", "nie").inOrder()
+    }
+
+    @Test fun startupBackendDoesNotReadUsageWithLearningOffOrPrivateField() {
+        predictor.setField("dictionary", java.util.concurrent.atomic.AtomicReference(mutableMapOf("tak" to 100)))
+        predictor.setField("customAndUserWords", emptySet<String>())
+        config.on_device_learning_enabled = false
+        assertWithMessage("static fallback with master off").that(predictor.getStartupWords(3, true)).containsExactly("tak")
+        config.on_device_learning_enabled = true
+        assertWithMessage("static fallback in private field").that(predictor.getStartupWords(3, false)).containsExactly("tak")
+        config.personalized_learning_enabled = false
+        predictor.getStartupWords(3, true)
+        verify(exactly = 0) { personalization.getTopWords(any()) }
     }
 
     // ------------------------------------------------------------------ fixtures
@@ -244,6 +552,245 @@ class LearningFunnelBookkeepingTest {
         bigramStore.getAllBigrams("en", w1).firstOrNull { it.word2 == w2 }?.frequency ?: 0
 
     private fun learnWindow(): List<String> = predictor.getRecentWords()
+
+    private fun attachAutocorrectEditor(): EditorInfo {
+        val field = textField()
+        handler.liveEditorProvider = { ic to field }
+        handler.setField("herbertExtractionRequest", mockk<ExtractedTextRequest>(relaxed = true))
+        every { ic.getExtractedText(any(), any()) } answers {
+            objenesis.newInstance(ExtractedText::class.java).apply {
+                startOffset = 0
+                selectionStart = editor.length
+                selectionEnd = editor.length
+            }
+        }
+        every { ic.getSelectedText(0) } returns null
+        config.show_exact_typed_word = true
+        every { predictor.isInDictionary("grzeje", false) } returns false
+        val context = mockk<Context>(relaxed = true)
+        every { context.getString(any(), *anyVararg()) } returns "Added"
+        handler.setField("context", context)
+        return field
+    }
+
+    @Test fun typedCorrectionSurvivesItsCursorAcknowledgementButNotAChangeOfEditor() {
+        val field = attachAutocorrectEditor()
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect(any()) } answers { firstArg() }
+        every { predictor.autoCorrect("grzeje") } returns "grzeją"
+        type("grzeje ", field)
+        assertWithMessage("correction was committed").that(editor.toString()).isEqualTo("grzeją ")
+        assertWithMessage("immediate BS exception").that(handler.canUndoTypedAutocorrect(ic, field)).isTrue()
+        tracker.synchronizeWithCursor(ic, "en", field)
+        handler.handleCursorParkPrediction(field, ic)
+        assertWithMessage("editor acknowledgement is harmless").that(handler.canUndoTypedAutocorrect(ic, field)).isTrue()
+        assertWithMessage("same word in another field cannot be undone")
+            .that(handler.canUndoTypedAutocorrect(ic, textField())).isFalse()
+        editor.append("x")
+        handler.onEditorCursorChanged()
+        editor.setLength(editor.length - 1)
+        assertWithMessage("changed text permanently disarms the bookmark")
+            .that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+    }
+
+    private fun tapBackspace(field: EditorInfo) {
+        val receiver = mockk<KeyEventHandler.IReceiver>(relaxed = true)
+        every { receiver.getCurrentInputConnection() } returns ic
+        every { receiver.getCurrentEditorInfo() } returns field
+        every { receiver.getLastAutoInsertedWord() } answers { tracker.getLastAutoInsertedWord() }
+        every { receiver.getLastAutocorrectOriginalWord() } answers { tracker.getLastAutocorrectOriginalWord() }
+        val request = KeyEventHandler::class.java.getDeclaredField("moveCursorReq").apply { isAccessible = true }
+        request.set(null, mockk<ExtractedTextRequest>(relaxed = true))
+        try {
+            KeyEventHandler(receiver).apply { learningHooks = handler }
+                .key_up(KeyValue.getKeyByName("backspace"), Pointers.Modifiers.EMPTY, false)
+        } finally { request.set(null, null) }
+    }
+
+    @Test fun ordinaryFieldBackspaceRestoresCorrectionAndSpaceAfterPredictionStateReset() {
+        val field = attachAutocorrectEditor()
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect("grzeje") } returns "grzejemy"
+        editor.append("fix ")
+        var range: Pair<Int, Int>? = null
+        every { ic.setSelection(any(), any()) } answers { range = firstArg<Int>() to secondArg<Int>(); true }
+        every { ic.getSelectedText(0) } answers { range?.let { editor.substring(it.first, it.second) } }
+        every { ic.commitText(any(), any()) } answers {
+            val replacement = firstArg<CharSequence>().toString()
+            range?.let { editor.replace(it.first, it.second, replacement) } ?: editor.append(replacement)
+            range = null
+            true
+        }
+        type("grzeje ", field)
+        assertWithMessage("different-length correction after preceding text")
+            .that(editor.toString()).isEqualTo("fix grzejemy ")
+        tracker.synchronizeWithCursor(ic, "en", field)
+        tracker.clearAutocorrectTracking()
+        tracker.clearLastAutoInsertedWord()
+        tracker.setLastCommitSource(PredictionSource.UNKNOWN)
+        // No handler park callback has rebuilt the tracker before this actual BS tap.
+        tapBackspace(field)
+        assertWithMessage("first BS restores whole original and keeps exactly one space")
+            .that(editor.toString()).isEqualTo("fix grzeje ")
+        assertWithMessage("restoration is single-use").that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+        val chip = Suggestion.ExactAdd("grzeje").wire
+        assertWithMessage("unknown original remains available to add").that(barWords).containsExactly(chip)
+        tracker.synchronizeWithCursor(ic, "en", field)
+        handler.handleCursorParkPrediction(field, ic)
+        tap(chip, field)
+        verify(exactly = 1) { dictionary.addUserWord("grzeje") }
+        assertWithMessage("adding never removes text or its space")
+            .that(editor.toString()).isEqualTo("fix grzeje ")
+    }
+
+    @Test fun predictionStateResetCannotResurrectCorrectionAfterFurtherTyping() {
+        val field = attachAutocorrectEditor()
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect("grzeje") } returns "grzeją"
+        type("grzeje ", field)
+        type("x", field)
+        editor.setLength(editor.length - 1)
+        tracker.clearLastAutoInsertedWord()
+        tracker.clearAutocorrectTracking()
+        tracker.setLastCommitSource(PredictionSource.UNKNOWN)
+        assertWithMessage("same suffix after deleting a new letter is not immediate undo")
+            .that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+        assertWithMessage("rejected bookmark does not reseed original")
+            .that(tracker.getLastAutocorrectOriginalWord()).isNull()
+    }
+
+    @Test fun resetPredictionStateCannotUndoInAnotherFieldOrAtAnotherCaret() {
+        val field = attachAutocorrectEditor()
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect("grzeje") } returns "grzeją"
+        type("grzeje ", field)
+        tracker.clearLastAutoInsertedWord()
+        tracker.clearAutocorrectTracking()
+        tracker.setLastCommitSource(PredictionSource.UNKNOWN)
+        assertWithMessage("other field is still rejected").that(handler.canUndoTypedAutocorrect(ic, textField())).isFalse()
+        every { ic.getExtractedText(any(), any()) } answers {
+            objenesis.newInstance(ExtractedText::class.java).apply {
+                startOffset = 0; selectionStart = 1; selectionEnd = 1
+            }
+        }
+        handler.onEditorCursorChanged()
+        assertWithMessage("moved caret stays rejected after prediction reset")
+            .that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+        assertWithMessage("rejected bookmark never reseeds replacement")
+            .that(tracker.getLastAutoInsertedWord()).isNull()
+    }
+
+    @Test fun searchEditorDroppingCorrectionSpaceStillAllowsImmediateBackspaceUndoAndAdd() {
+        val field = attachAutocorrectEditor().apply {
+            imeOptions = EditorInfo.IME_ACTION_SEARCH
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+        }
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect("grzeje") } returns "grzeją"
+        var range: Pair<Int, Int>? = null
+        every { ic.setSelection(any(), any()) } answers { range = firstArg<Int>() to secondArg<Int>(); true }
+        every { ic.getSelectedText(0) } answers { range?.let { editor.substring(it.first, it.second) } }
+        every { ic.commitText(any(), any()) } answers {
+            val replacement = firstArg<CharSequence>().toString().removeSuffix(" ")
+            range?.let { editor.replace(it.first, it.second, replacement) } ?: editor.append(replacement)
+            range = null
+            true
+        }
+        type("grzeje ", field)
+        assertWithMessage("editor dropped correction space").that(editor.toString()).isEqualTo("grzeją")
+        handler.onEditorCursorChanged()
+        tracker.clearAutocorrectTracking()
+        tracker.clearLastAutoInsertedWord()
+        handler.handleCursorParkPrediction(field, ic)
+        assertWithMessage("space-free bookmark survived cursor acknowledgement")
+            .that(handler.canUndoTypedAutocorrect(ic, field)).isTrue()
+        val receiver = mockk<KeyEventHandler.IReceiver>(relaxed = true)
+        every { receiver.getCurrentInputConnection() } returns ic
+        every { receiver.getCurrentEditorInfo() } returns field
+        every { receiver.getLastAutoInsertedWord() } answers { tracker.getLastAutoInsertedWord() }
+        every { receiver.getLastAutocorrectOriginalWord() } answers { tracker.getLastAutocorrectOriginalWord() }
+        val request = KeyEventHandler::class.java.getDeclaredField("moveCursorReq").apply { isAccessible = true }
+        request.set(null, mockk<ExtractedTextRequest>(relaxed = true))
+        try {
+            KeyEventHandler(receiver).apply { learningHooks = handler }
+                .key_up(KeyValue.getKeyByName("backspace"), Pointers.Modifiers.EMPTY, false)
+        } finally { request.set(null, null) }
+        assertWithMessage("BS restored the complete original without adding a space")
+            .that(editor.toString()).isEqualTo("grzeje")
+        val chip = Suggestion.ExactAdd("grzeje").wire
+        assertWithMessage("restored word can be added").that(barWords).containsExactly(chip)
+        tracker.synchronizeWithCursor(ic, "en", field)
+        handler.handleCursorParkPrediction(field, ic)
+        assertWithMessage("offer survives later editor sync").that(barWords).containsExactly(chip)
+        tap(chip, field)
+        verify(exactly = 1) { dictionary.addUserWord("grzeje") }
+        assertWithMessage("add never changes the field").that(editor.toString()).isEqualTo("grzeje")
+    }
+
+    @Test fun spaceFreeCorrectionStillDisarmsAfterTypingOrChangingField() {
+        val field = attachAutocorrectEditor().apply { imeOptions = EditorInfo.IME_ACTION_SEARCH }
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect("grzeje") } returns "grzeją"
+        every { ic.commitText(any(), any()) } answers { editor.append(firstArg<CharSequence>().toString().removeSuffix(" ")); true }
+        type("grzeje ", field)
+        assertWithMessage("still at correction").that(handler.canUndoTypedAutocorrect(ic, field)).isTrue()
+        assertWithMessage("different field cannot undo").that(handler.canUndoTypedAutocorrect(ic, textField())).isFalse()
+        editor.append("x"); handler.onEditorCursorChanged()
+        editor.setLength(editor.length - 1)
+        assertWithMessage("typing permanently disarms correction").that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+    }
+
+    @Test fun restoredUnknownWordSurvivesCursorSyncAndAddingItNeverChangesTextOrSpace() {
+        val field = attachAutocorrectEditor()
+        editor.append("fix grzeje ")
+        handler.onAutocorrectUndone("grzeją", "grzeje", originalCompleted = true)
+        handler.onAutocorrectUndoRestored("grzeje", ic, field, true, editor.length)
+        val chip = Suggestion.ExactAdd("grzeje").wire
+        assertWithMessage("restored original is the first add chip").that(barWords).containsExactly(chip)
+        verify(exactly = 0) { dictionary.addUserWord(any()) }
+        tracker.synchronizeWithCursor(ic, "en", field)
+        tracker.clearAutocorrectTracking()
+        tracker.clearLastAutoInsertedWord()
+        handler.handleCursorParkPrediction(field, ic)
+        assertWithMessage("normal cursor acknowledgement retains the offer").that(barWords).containsExactly(chip)
+        tap(chip, field)
+        verify(exactly = 1) { dictionary.addUserWord("grzeje") }
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+        verify(exactly = 0) { ic.deleteSurroundingText(any(), any()) }
+        verify(exactly = 0) { ic.setSelection(any(), any()) }
+        assertWithMessage("adding is storage only").that(editor.toString()).isEqualTo("fix grzeje ")
+    }
+
+    @Test fun staleRestoredWordOfferCannotAddOrModifyACutAndPastedToken() {
+        val field = attachAutocorrectEditor()
+        editor.append("grzeje ")
+        handler.onAutocorrectUndoRestored("grzeje", ic, field, true, editor.length)
+        editor.setLength(0)
+        editor.append("inny ")
+        tap(Suggestion.ExactAdd("grzeje").wire, field)
+        verify(exactly = 0) { dictionary.addUserWord(any()) }
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+        verify(exactly = 0) { ic.deleteSurroundingText(any(), any()) }
+        assertWithMessage("cut/paste is preserved").that(editor.toString()).isEqualTo("inny ")
+    }
+
+    @Test fun movingTheCaretOrSelectingTextDisarmsTypedAutocorrect() {
+        val field = attachAutocorrectEditor()
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect(any()) } answers { firstArg() }
+        every { predictor.autoCorrect("grzeje") } returns "grzeją"
+        type("grzeje ", field)
+        every { ic.getSelectedText(0) } returns "grzeją"
+        assertWithMessage("selection is not immediate undo").that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+        every { ic.getSelectedText(0) } returns null
+        every { ic.getExtractedText(any(), any()) } answers {
+            objenesis.newInstance(ExtractedText::class.java).apply {
+                startOffset = 0; selectionStart = 1; selectionEnd = 1
+            }
+        }
+        handler.onEditorCursorChanged()
+        assertWithMessage("moved caret is not immediate undo").that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+    }
 
     // ================================================================ W1
 
@@ -575,8 +1122,8 @@ class LearningFunnelBookkeepingTest {
 
         swipe("hunter", "hunted", field = passwordField())
 
-        assertWithMessage("the swipe still commits (user opted in)")
-            .that(editor.toString()).isEqualTo("hunter ")
+        assertWithMessage("opted-in password swipe commits without automatic spacing")
+            .that(editor.toString()).isEqualTo("hunter")
         assertWithMessage("learn window").that(learnWindow()).isEmpty()
         assertWithMessage("session context").that(tracker.getContextWords()).isEmpty()
         verify(exactly = 0) { personalization.recordWordTyped(any(), any()) }
@@ -597,6 +1144,135 @@ class LearningFunnelBookkeepingTest {
     }
 
     // ------------------------------------------------------------------ reflection
+
+    private fun removalOffer(word: String = "grzeje"): () -> Unit {
+        val listener = io.mockk.slot<SuggestionBar.OnSuggestionInspectedListener>()
+        val remove = io.mockk.slot<() -> Unit>()
+        every { bar.setOnSuggestionInspectedListener(capture(listener)) } just runs
+        every { bar.getCurrentSuggestions() } returns listOf(word)
+        every { bar.showSuggestionRemovalPopup(word, capture(remove)) } just runs
+        every { dictionary.removeSuggestionWord(word) } returns true
+        every { predictor.reloadDisabledWords() } just runs
+        handler.setSuggestionBar(bar)
+        listener.captured.onSuggestionInspected(0, word, null)
+        verify(exactly = 0) { dictionary.removeSuggestionWord(any()) }
+        verify(exactly = 0) { bar.showProvenancePopup(any()) }
+        return remove.captured
+    }
+
+    @Test fun holdingSuggestionOffersRemovalAndConfirmingLeavesEditorUntouched() {
+        attachAutocorrectEditor()
+        editor.append("grzeje ")
+        val remove = removalOffer()
+        remove()
+        assertWithMessage("dictionary action keeps typed text").that(editor.toString()).isEqualTo("grzeje ")
+        verify(exactly = 1) { dictionary.removeSuggestionWord("grzeje") }
+        verify(exactly = 1) { coordinator.refreshCustomWords() }
+        verify(exactly = 1) { predictor.reloadDisabledWords() }
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+        verify(exactly = 0) { ic.deleteSurroundingText(any(), any()) }
+        remove() // A stale/double action cannot repeat the removal.
+        verify(exactly = 1) { dictionary.removeSuggestionWord("grzeje") }
+    }
+
+    @Test fun removalCannotApplyAfterLanguageSlateOrEditorChanges() {
+        val field = attachAutocorrectEditor()
+        val remove = removalOffer()
+        every { dictionary.getCurrentLanguage() } returns "pl"
+        remove()
+        every { dictionary.getCurrentLanguage() } returns "en"
+        every { bar.contentGeneration() } returns 2
+        remove()
+        every { bar.contentGeneration() } returns 0
+        handler.liveEditorProvider = { mockk<InputConnection>(relaxed = true) to field }
+        remove()
+        verify(exactly = 0) { dictionary.removeSuggestionWord(any()) }
+    }
+
+    @Test fun removalCannotApplyAfterCaretRevisionOrPrivateModeChanges() {
+        attachAutocorrectEditor()
+        val remove = removalOffer()
+        handler.setField("editorPredictionRevision", 1L)
+        remove()
+        handler.setField("editorPredictionRevision", 0L)
+        handler.setField("fieldAllowsPersonalizedLearning", false)
+        remove()
+        verify(exactly = 0) { dictionary.removeSuggestionWord(any()) }
+    }
+
+    @Test fun exactAddPromptAndPasswordDoNotOpenRemoval() {
+        val listener = io.mockk.slot<SuggestionBar.OnSuggestionInspectedListener>()
+        every { bar.setOnSuggestionInspectedListener(capture(listener)) } just runs
+        handler.setSuggestionBar(bar)
+        listener.captured.onSuggestionInspected(0, Suggestion.ExactAdd("grzeje").wire, null)
+        handler.setField("isPasswordMode", true)
+        listener.captured.onSuggestionInspected(0, "grzeje", null)
+        verify(exactly = 0) { bar.showSuggestionRemovalPopup(any(), any()) }
+        verify(exactly = 0) { dictionary.removeSuggestionWord(any()) }
+    }
+
+    @Test fun failedDictionaryRemovalDoesNotAnnounceSuccessOrRefresh() {
+        attachAutocorrectEditor()
+        val remove = removalOffer()
+        every { dictionary.removeSuggestionWord(any()) } returns false
+        remove()
+        verify(exactly = 0) { coordinator.refreshCustomWords() }
+        verify(exactly = 0) { bar.showTemporaryMessage(any(), any(), any()) }
+    }
+
+    /** Real dictionary mutation over fake prefs: merge/case/cache behavior is production code. */
+    private fun removalDictionary(entries: Map<String, Int>): Triple<DictionaryManager, () -> Map<String, Int>, () -> Set<String>> {
+        val gson = com.google.gson.Gson()
+        var json = gson.toJson(entries)
+        var disabled = setOf("other")
+        val prefs = mockk<android.content.SharedPreferences>()
+        val edit = mockk<android.content.SharedPreferences.Editor>(relaxed = true)
+        every { prefs.getString("custom_words_pl", any()) } answers { json }
+        every { prefs.getStringSet("disabled_words_pl", any()) } answers { disabled }
+        every { prefs.edit() } returns edit
+        every { edit.putString("custom_words_pl", any()) } answers { json = secondArg(); edit }
+        every { edit.putStringSet("disabled_words_pl", any()) } answers { disabled = secondArg<Set<String>>().toSet(); edit }
+        val real = objenesis.newInstance(DictionaryManager::class.java)
+        real.setField("prefs", prefs)
+        real.setField("gson", gson)
+        real.setField("currentLanguage", "pl")
+        real.setField("userWords", entries.keys.toMutableSet())
+        val read = {
+            val type = object : com.google.gson.reflect.TypeToken<Map<String, Int>>() {}.type
+            gson.fromJson<Map<String, Int>>(json, type)
+        }
+        return Triple(real, read, { disabled })
+    }
+
+    @Test fun removingSavedEmailInvalidatesPrefixCacheAndPreservesForeignEntries() {
+        val word = "przykład.ten@gmail.com"
+        val (real, stored, disabled) = removalDictionary(mapOf(word to 255, "obcy" to 17))
+        assertWithMessage("before removal").that(real.getStructuredCompletions("prz")).contains(word)
+        assertWithMessage("removed").that(real.removeSuggestionWord(word)).isTrue()
+        assertWithMessage("new index").that(real.getStructuredCompletions("prz")).isEmpty()
+        assertWithMessage("other frequency").that(stored()).containsExactly("obcy", 17)
+        assertWithMessage("base exclusion").that(disabled()).containsExactly("other", word)
+    }
+
+    @Test fun removalResolvesDisplayCaseButKeepsSeparatelyOwnedCaseAndDiacritics() {
+        val (real, stored, disabled) = removalDictionary(mapOf("foo" to 19, "Foo" to 41, "łódź" to 255))
+        assertWithMessage("ambiguous casing must not choose").that(real.removeSuggestionWord("FOO")).isFalse()
+        assertWithMessage("exact case removed").that(real.removeSuggestionWord("Foo")).isTrue()
+        assertWithMessage("remaining ownership").that(stored()).containsExactly("foo", 19, "łódź", 255)
+        assertWithMessage("remaining owned case stays enabled").that(disabled()).containsExactly("other")
+        assertWithMessage("unique capitalized display").that(real.removeSuggestionWord("Łódź")).isTrue()
+        assertWithMessage("accented key").that(disabled()).containsExactly("other", "łódź")
+        assertWithMessage("diacritics are not stripped").that(stored()).containsExactly("foo", 19)
+    }
+
+    @Test fun baseRemovalUsesLanguageScopedDisabledSetWithoutEditingStoredWords() {
+        val (real, stored, disabled) = removalDictionary(mapOf("email@example.com" to 255))
+        assertWithMessage("base exclusion").that(real.removeSuggestionWord("Praca")).isTrue()
+        assertWithMessage("base exclusion repeat").that(real.removeSuggestionWord("praca")).isTrue()
+        assertWithMessage("blank rejected").that(real.removeSuggestionWord(" ")).isFalse()
+        assertWithMessage("lowercase key").that(disabled()).containsExactly("other", "praca")
+        assertWithMessage("personal dictionary preserved").that(stored()).containsExactly("email@example.com", 255)
+    }
 
     /**
      * Give the predictor a real, NON-EMPTY lexicon so its [LearnableWordPolicy] judges words.

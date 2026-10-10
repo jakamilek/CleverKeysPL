@@ -146,9 +146,12 @@ internal fun SettingsActivity.GestureTuningSection() {
                     )
                 }
 
-                // Selection-Delete Mode subsection (backspace swipe+hold)
+                BackspaceEditingControls()
+
+                if (editBehavior.holdSelect) {
+                // Legacy two-axis fallback, used only if the editor refuses word preview.
                 Text(
-                    text = stringResource(R.string.gesture_selection_delete_header),
+                    text = stringResource(R.string.edit_fallback_header),
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                 )
@@ -184,6 +187,8 @@ internal fun SettingsActivity.GestureTuningSection() {
                     },
                     displayValue = String.format(java.util.Locale.getDefault(), "%.1fx", selectionDeleteVerticalSpeed)
                 )
+
+                }
 
                 // Tap and Typing subsection
                 Text(
@@ -393,3 +398,4 @@ internal fun SettingsActivity.GestureTuningSection() {
                 )
             }
 }
+

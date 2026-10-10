@@ -5,6 +5,9 @@ import android.content.res.Resources
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
+import tribixbite.cleverkeys.ai.*
+import tribixbite.cleverkeys.langpack.LanguageIntelligenceProvider
 import android.util.Log
 import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
@@ -62,6 +65,17 @@ class SuggestionHandler(
          * unchanged); only what reaches the LEARN funnel is joined.
          */
         internal fun isIntraWordJoiner(c: Char): Boolean = c == '\'' || c == '’' || c == '-'
+
+        /** Exact-add is dictionary-only, and belongs to the live full token at the caret. */
+        internal fun exactWordMatchesEditor(
+            word: String, before: String?, after: String?, selected: String?
+        ): Boolean {
+            if (word.isEmpty() || before == null || after == null || !selected.isNullOrEmpty()) return false
+            fun wordChar(c: Char) = c.isLetterOrDigit() || isIntraWordJoiner(c)
+            val prefix = before.takeLastWhile(::wordChar)
+            val suffix = after.takeWhile(::wordChar)
+            return prefix + suffix == word
+        }
 
         /**
          * W7: the token to learn when a word was typed as `stem` (ending in a joiner, e.g.
@@ -489,6 +503,301 @@ class SuggestionHandler(
     // Post to main thread explicitly — View.post() silently drops runnables for detached views
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    // Cancellation cannot recall a result already queued on the UI thread.
+    private var editorPredictionRevision = 0L
+
+    private var pendingHerbertFallback: (() -> Unit)? = null
+    private var cancelPendingHerbert: (() -> Unit)? = null
+    internal var liveEditorProvider: (() -> Pair<InputConnection?, EditorInfo?>)? = null
+
+    // A short-lived editor bookmark, never logged or persisted. A suffix match alone is
+    // insufficient: another field or another occurrence of the same word must not undo it.
+    private data class AutocorrectBookmark(
+        val connection: InputConnection, val info: EditorInfo?, val word: String,
+        val separator: String, val cursor: Int, val original: String? = null
+    )
+    private var typedAutocorrectBookmark: AutocorrectBookmark? = null
+    private var restoredAutocorrectOffer: AutocorrectBookmark? = null
+
+    private data class StructuredAddOffer(
+        val connection: InputConnection, val info: EditorInfo,
+        val token: PersonalDictionaryToken.Snapshot, val cursor: Int?
+    )
+    private var structuredAddOffer: StructuredAddOffer? = null
+    private data class StructuredCompletionOffer(
+        val connection: InputConnection, val info: EditorInfo,
+        val token: PersonalDictionaryCompletion.Token, val cursor: Int, val words: List<String>
+    )
+    private var structuredCompletionOffer: StructuredCompletionOffer? = null
+
+    private fun completionToken(ic: InputConnection): PersonalDictionaryCompletion.Token? = try {
+        PersonalDictionaryCompletion.read(
+            ic.getTextBeforeCursor(PersonalDictionaryToken.MAX_LENGTH + 2, 0)?.toString(),
+            ic.getTextAfterCursor(PersonalDictionaryToken.MAX_LENGTH + 2, 0)?.toString(),
+            ic.getSelectedText(0)?.toString()
+        )
+    } catch (_: Exception) { null }
+
+    private fun completionFieldAllowed(info: EditorInfo): Boolean =
+        !isPasswordMode && !SuggestionBar.isPasswordField(info) && fieldAllowsPersonalizedLearning &&
+            LearningGate.fieldAllowsPersonalizedLearning(info.imeOptions) &&
+            (info.inputType and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT &&
+            config.word_prediction_enabled && !isTermuxEditor(info)
+
+    private fun completionMatches(offer: StructuredCompletionOffer, ic: InputConnection?, info: EditorInfo?): Boolean =
+        ic === offer.connection && info === offer.info && completionFieldAllowed(offer.info) &&
+            completionToken(offer.connection) == offer.token && editorCursor(offer.connection) == offer.cursor &&
+            (liveEditorProvider?.invoke()?.let { it.first === ic && it.second === info } != false)
+
+    private fun maybeShowStructuredCompletions(ic: InputConnection?, info: EditorInfo?,
+        ordinaryWords: List<String> = emptyList(), ordinaryScores: List<Int> = emptyList(),
+        ordinaryMetas: List<SuggestionMeta> = emptyList()): Boolean {
+        structuredCompletionOffer = null
+        if (ic == null || info == null || !completionFieldAllowed(info)) return false
+        val token = completionToken(ic) ?: return false
+        val manager = predictionCoordinator.getDictionaryManager() ?: return false
+        val predictor = predictionCoordinator.getWordPredictor() ?: return false
+        val words = manager.getStructuredCompletions(token.prefix)
+            .filterNot { predictor.isWordDisabled(it) }.take(3)
+        if (words.isEmpty()) return false
+        val cursor = editorCursor(ic) ?: return false
+        structuredCompletionOffer = StructuredCompletionOffer(ic, info, token, cursor, words)
+        structuredAddOffer = null
+        val literalToken = token.prefix.any { !it.isLetter() }
+        if (literalToken) {
+            predictionTasks.cancelCurrent()
+            ++editorPredictionRevision
+        }
+        nextWordSuggestionsActive = false
+        specialPromptActive = literalToken
+        // Literal personal spelling: never sentence-capitalize, autocorrect or send to SI.
+        if (token.prefix.codePointCount(0, token.prefix.length) == 1) suggestionBar?.resetScrollPosition()
+        val ordinaryIndices = ordinaryWords.indices.filter { i -> words.none { it.equals(ordinaryWords[i], true) } }
+        suggestionBar?.setSuggestionsWithScores(words + ordinaryIndices.map { ordinaryWords[it] },
+            List(words.size) { 0 } + ordinaryIndices.map { ordinaryScores.getOrElse(it) { 0 } },
+            List(words.size) { SuggestionMeta(SuggestionOrigin.DICTIONARY_PREFIX, preserveExactCase = true) } +
+                ordinaryIndices.map { ordinaryMetas.getOrElse(it) { SuggestionMeta(SuggestionOrigin.DICTIONARY_PREFIX) } })
+        return true
+    }
+
+    private fun commitStructuredCompletion(offer: StructuredCompletionOffer, word: String,
+        ic: InputConnection?, info: EditorInfo?): String? {
+        if (!completionMatches(offer, ic, info) || word !in offer.words ||
+            predictionCoordinator.getDictionaryManager()?.getStructuredCompletions(offer.token.prefix)?.contains(word) != true ||
+            predictionCoordinator.getWordPredictor()?.isWordDisabled(word) != false) return null
+        val connection = offer.connection
+        val start = offer.cursor - offer.token.prefix.length
+        val end = offer.cursor + offer.token.suffix.length
+        if (start < 0) return null
+        val after = try { connection.getTextAfterCursor(PersonalDictionaryToken.MAX_LENGTH + 2, 0)?.toString() }
+            catch (_: Exception) { null } ?: return null
+        val addSpace = config.auto_space_after_suggestion &&
+            EditorSpacingPolicy.allowsAutomaticSpacing(info, (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields) &&
+            !SmartAutoSpace.hasSeparatorAfter(after.drop(offer.token.suffix.length).firstOrNull())
+        val text = word + if (addSpace) " " else ""
+        try { connection.beginBatchEdit() } catch (_: Exception) { return null }
+        val committed = try {
+            // Replace atomically with commitText; a refused commit must not first delete the prefix.
+            if (!connection.setSelection(start, end)) false
+            else connection.commitText(text, 1).also { accepted ->
+                if (!accepted) connection.setSelection(offer.cursor, offer.cursor)
+            }
+        } catch (_: Exception) {
+            runCatching { connection.setSelection(offer.cursor, offer.cursor) }
+            false
+        } finally { runCatching { connection.endBatchEdit() } }
+        if (!committed) return null
+        structuredCompletionOffer = null
+        clearAutocorrectBookmarks()
+        pendingTypedWord = null
+        pendingJoinerStem = null
+        contextTracker.clearCurrentWord()
+        contextTracker.clearCurrentWordSuffix()
+        contextTracker.clearLastAutoInsertedWord()
+        contextTracker.clearAutocorrectTracking()
+        contextTracker.setWasLastInputSwipe(false)
+        contextTracker.setLastCommitSource(PredictionSource.CANDIDATE_SELECTION)
+        contextTracker.invalidateAutoSpacePending()
+        contextTracker.clearTrailingSpaceWatch()
+        if (addSpace) contextTracker.markAutoSpacePending(start + text.length)
+        keyeventhandler.noteEditorTextMutation(connection)
+        predictionTasks.cancelCurrent()
+        ++editorPredictionRevision
+        specialPromptActive = false
+        suggestionBar?.clearSuggestions()
+        return word
+    }
+    private data class StartupSession(
+        val connection: InputConnection, val info: EditorInfo, val before: String, val after: String
+    )
+    private var startupSession: StartupSession? = null
+    private var startupRevision = 0L
+
+    private fun structuredToken(ic: InputConnection?): PersonalDictionaryToken.Snapshot? = try {
+        if (ic == null) null else PersonalDictionaryToken.read(
+            ic.getTextBeforeCursor(PersonalDictionaryToken.MAX_LENGTH + 2, 0)?.toString(),
+            ic.getTextAfterCursor(PersonalDictionaryToken.MAX_LENGTH + 2, 0)?.toString(),
+            ic.getSelectedText(0)?.toString()
+        )
+    } catch (_: Exception) { null }
+
+    private fun editorCursor(ic: InputConnection): Int? = try {
+        herbertSelection(ic)?.let { if (it.selectionStart == it.selectionEnd && it.selectionStart >= 0)
+            it.startOffset + it.selectionStart else null }
+    } catch (_: Exception) { null }
+
+    private fun structuredOfferMatches(offer: StructuredAddOffer?, ic: InputConnection?, info: EditorInfo?): Boolean =
+        offer != null && ic === offer.connection && info === offer.info && !isPasswordMode &&
+            !SuggestionBar.isPasswordField(offer.info) && structuredToken(ic) == offer.token &&
+            (offer.cursor == null || editorCursor(offer.connection) == offer.cursor)
+
+    private fun maybeShowStructuredEntryAdd(ic: InputConnection?, info: EditorInfo?): Boolean {
+        if (ic == null || info == null || isPasswordMode || SuggestionBar.isPasswordField(info) ||
+            !config.word_prediction_enabled || !config.show_exact_typed_word || isTermuxEditor(info) ||
+            (info.inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT) return false
+        val token = structuredToken(ic) ?: return false
+        val predictor = predictionCoordinator.getWordPredictor() ?: return false
+        if (predictor.isInDictionary(token.word, false) || predictor.isWordDisabled(token.word) ||
+            predictionCoordinator.getDictionaryManager()?.isUserWordIgnoringCase(token.word) == true) return false
+        structuredAddOffer = StructuredAddOffer(ic, info, token, editorCursor(ic))
+        predictionTasks.cancelCurrent()
+        nextWordSuggestionsActive = false
+        specialPromptActive = true
+        suggestionBar?.setSuggestionsWithScores(
+            listOf(Suggestion.ExactAdd(token.word).wire), listOf(0),
+            listOf(SuggestionMeta(SuggestionOrigin.EXACT_ADD))
+        )
+        return true
+    }
+
+    private fun idleSnapshot(ic: InputConnection?, info: EditorInfo?): StartupSession? = try {
+        if (ic == null || info == null || isPasswordMode || SuggestionBar.isPasswordField(info) ||
+            !config.word_prediction_enabled || isTermuxEditor(info) ||
+            (info.inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT ||
+            !ic.getSelectedText(0).isNullOrEmpty()) null
+        else {
+            val before = ic.getTextBeforeCursor(32, 0)?.toString()
+            val after = ic.getTextAfterCursor(32, 0)?.toString()
+            if (before == null || after == null ||
+                before.lastOrNull()?.let { it.isLetterOrDigit() || isIntraWordJoiner(it) } == true ||
+                after.firstOrNull()?.let { it.isLetterOrDigit() || isIntraWordJoiner(it) } == true) null
+            else StartupSession(ic, info, before, after)
+        }
+    } catch (_: Exception) { null }
+
+    fun startStartupWords(ic: InputConnection?, info: EditorInfo?) {
+        dismissStartupWords()
+        structuredCompletionOffer = null
+        startupSession = idleSnapshot(ic, info)
+        if (startupSession != null) {
+            clearAutocorrectBookmarks()
+            structuredAddOffer = null
+            specialPromptActive = false
+            swipePreferenceOffer = null
+            nextWordSuggestionsActive = false
+            suggestionBar?.clearSuggestions()
+        }
+        refreshStartupWords()
+    }
+
+    fun dismissStartupWords() {
+        if (startupSession == null) return
+        startupSession = null
+        startupRevision++
+        predictionTasks.cancelCurrent()
+        if (nextWordSuggestionsActive) {
+            nextWordSuggestionsActive = false
+            suggestionBar?.clearSuggestions()
+        }
+    }
+
+    private fun startupMatches(session: StartupSession, live: Pair<InputConnection?, EditorInfo?>): Boolean {
+        if (live.first !== session.connection || live.second !== session.info) return false
+        val snapshot = idleSnapshot(live.first, live.second) ?: return false
+        return snapshot.before == session.before && snapshot.after == session.after
+    }
+
+    /** May be called by the dictionary loader; all editor reads and view writes stay on main. */
+    fun refreshStartupWords() {
+        mainHandler.post {
+            val session = startupSession ?: return@post
+            val current = liveEditorProvider?.invoke() ?: return@post
+            if (!startupMatches(session, current) || specialPromptActive ||
+                suggestionBar?.isShowingMessage() == true) { dismissStartupWords(); return@post }
+            val predictor = predictionCoordinator.getWordPredictor() ?: return@post
+            val ticket = ++startupRevision
+            val personalAllowed = LearningGate.fieldAllowsPersonalizedLearning(session.info.imeOptions)
+            predictionTasks.cancelAndSubmit {
+                val words = predictor.getStartupWords(3, personalAllowed)
+                if (Thread.currentThread().isInterrupted) return@cancelAndSubmit
+                mainHandler.post result@{
+                    val live = liveEditorProvider?.invoke() ?: return@result
+                    if (startupRevision != ticket || startupSession !== session || specialPromptActive ||
+                        suggestionBar?.isShowingMessage() == true ||
+                        !startupMatches(session, live)) return@result
+                    nextWordSuggestionsActive = true
+                    suggestionBar?.setSuggestionsWithScores(words, words.indices.map { words.size - it },
+                        words.map { SuggestionMeta(SuggestionOrigin.NEXT_WORD) })
+                }
+            }
+        }
+    }
+
+    private fun bookmarkMatches(bookmark: AutocorrectBookmark?, ic: InputConnection?, info: EditorInfo?): Boolean {
+        if (bookmark == null || ic !== bookmark.connection || info !== bookmark.info || ic == null || isPasswordMode ||
+            info == null || (info.inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT ||
+            SuggestionBar.isPasswordField(info)) return false
+        return try {
+            val selection = herbertSelection(ic) ?: return false
+            if (selection.selectionStart < 0 || selection.selectionStart != selection.selectionEnd ||
+                selection.startOffset + selection.selectionStart != bookmark.cursor ||
+                !ic.getSelectedText(0).isNullOrEmpty()) return false
+            val token = bookmark.word + bookmark.separator
+            val before = ic.getTextBeforeCursor(token.length + 1, 0)?.toString() ?: return false
+            if (!before.endsWith(token)) return false
+            val preceding = before.dropLast(token.length).lastOrNull()
+            if (preceding != null && (preceding.isLetterOrDigit() || isIntraWordJoiner(preceding))) return false
+            if (bookmark.separator.isEmpty()) {
+                val after = ic.getTextAfterCursor(1, 0)?.firstOrNull()
+                if (after != null && (after.isLetterOrDigit() || isIntraWordJoiner(after))) return false
+            }
+            true
+        } catch (_: Exception) { false }
+    }
+
+    private fun clearAutocorrectBookmarks() {
+        typedAutocorrectBookmark = null
+        restoredAutocorrectOffer = null
+    }
+
+    private fun preserveAutocorrectPrompt(ic: InputConnection?, info: EditorInfo?): Boolean {
+        if (bookmarkMatches(restoredAutocorrectOffer, ic, info)) return specialPromptActive
+        val bookmark = typedAutocorrectBookmark
+        if (!bookmarkMatches(bookmark, ic, info)) return false
+        contextTracker.setLastAutoInsertedWord(bookmark!!.word)
+        contextTracker.setLastAutocorrectOriginalWord(bookmark.original)
+        contextTracker.setLastCommitSource(PredictionSource.AUTOCORRECT)
+        return true
+    }
+
+    fun onEditorCursorChanged() {
+        // Harmless delayed editor notifications must not lose a swiped word that is still waiting.
+        pendingHerbertFallback?.invoke()
+        editorPredictionRevision++
+        cancelPendingHerbert?.invoke()
+        cancelPendingHerbert = null
+        pendingHerbertFallback = null
+        liveEditorProvider?.invoke()?.let { (ic, info) ->
+            if (!bookmarkMatches(typedAutocorrectBookmark, ic, info)) typedAutocorrectBookmark = null
+            if (!bookmarkMatches(restoredAutocorrectOffer, ic, info)) restoredAutocorrectOffer = null
+            if (!structuredOfferMatches(structuredAddOffer, ic, info)) structuredAddOffer = null
+        }
+    }
+
+    /** Finish before the next keyboard touch, preserving input order without waiting for native SI. */
+    fun flushPendingHerbertSwipe() { pendingHerbertFallback?.invoke() }
+
+
     // WP9 R-1 step 6 (D5): single ML-capture implementation for the swipe auto-insert path —
     // the same collector SuggestionBridge uses for the tap path (privacy-gated internally).
     private val mlDataCollector = MLDataCollector(context)
@@ -559,6 +868,10 @@ class SuggestionHandler(
      */
     fun setFieldPersonalizedLearningAllowed(allowed: Boolean) {
         fieldAllowsPersonalizedLearning = allowed
+        if (!allowed && structuredCompletionOffer != null) {
+            structuredCompletionOffer = null
+            suggestionBar?.clearSuggestions()
+        }
         if (!allowed) vlog { "Field requests no personalized learning (incognito)" }
     }
 
@@ -568,7 +881,12 @@ class SuggestionHandler(
      * @param newConfig Updated configuration
      */
     fun setConfig(newConfig: Config) {
+        dismissStartupWords()
+        structuredCompletionOffer = null
+        structuredAddOffer = null
+        onEditorCursorChanged()
         config = newConfig
+        HerbertLiveRuntime.configure(context, newConfig.herbert_live_enabled)
     }
 
     /** Verbose-only debug log; message lambda is not evaluated unless verbose logging is enabled. */
@@ -579,6 +897,11 @@ class SuggestionHandler(
      * callbacks. Called during IME teardown so no prediction thread outlives the service.
      */
     fun shutdown() {
+        dismissStartupWords()
+        structuredCompletionOffer = null
+        structuredAddOffer = null
+        onEditorCursorChanged()
+        if (config.herbert_live_enabled) HerbertLiveRuntime.configure(context, false)
         predictionTasks.shutdown()
         mainHandler.removeCallbacksAndMessages(null)
     }
@@ -588,15 +911,55 @@ class SuggestionHandler(
 
     /**
      * Sets the suggestion bar reference and registers this handler as the
-     * long-press provenance inspector (Task B — SuggestionHandler owns the
-     * pipeline knowledge; the bar stays a dumb display surface).
+     * long-press dictionary action (the handler owns dictionary/editor guards;
+     * the bar only displays the action).
      *
      * @param suggestionBar Suggestion bar for displaying predictions
      */
     fun setSuggestionBar(suggestionBar: SuggestionBar?) {
         this.suggestionBar = suggestionBar
-        suggestionBar?.setOnSuggestionInspectedListener { index, word, meta ->
-            inspectSuggestion(index, word, meta)
+        suggestionBar?.setOnSuggestionInspectedListener { index, word, _ ->
+            offerSuggestionRemoval(index, word)
+        }
+    }
+
+    /** Explicit dictionary action only: neither opening nor confirming edits the editor. */
+    private fun offerSuggestionRemoval(index: Int, word: String) {
+        val bar = suggestionBar ?: return
+        // Add/undo/preference prompts are actions, not removable dictionary entries.
+        if (routeSuggestionSelection(word) !is SelectionRoute.CommitWord || word.startsWith("raw:")) return
+        if (isPasswordMode || !fieldAllowsPersonalizedLearning) return
+        val editor = liveEditorProvider?.invoke()
+        if (SuggestionBar.isPasswordField(editor?.second) ||
+            editor?.second?.let { !LearningGate.fieldAllowsPersonalizedLearning(it.imeOptions) } == true) return
+        val generation = bar.contentGeneration()
+        val revision = editorPredictionRevision
+        val language = activeLanguageCode()
+        if (bar.getCurrentSuggestions().getOrNull(index) != word) return
+        bar.showSuggestionRemovalPopup(word) remove@{
+            val liveEditor = liveEditorProvider?.invoke()
+            if (suggestionBar !== bar || bar.contentGeneration() != generation ||
+                editorPredictionRevision != revision || activeLanguageCode() != language ||
+                liveEditor?.first !== editor?.first || liveEditor?.second !== editor?.second ||
+                SuggestionBar.isPasswordField(liveEditor?.second) ||
+                liveEditor?.second?.let { !LearningGate.fieldAllowsPersonalizedLearning(it.imeOptions) } == true ||
+                bar.getCurrentSuggestions().getOrNull(index) != word ||
+                isPasswordMode || !fieldAllowsPersonalizedLearning) return@remove
+            val dictionary = predictionCoordinator.getDictionaryManager() ?: return@remove
+            if (!dictionary.removeSuggestionWord(word)) return@remove
+            // Invalidate queued prose/SI/idle updates before refreshing the dynamic lexicon.
+            editorPredictionRevision++
+            startupRevision++
+            predictionTasks.cancelCurrent()
+            cancelPendingHerbert?.invoke()
+            cancelPendingHerbert = null
+            pendingHerbertFallback = null
+            predictionCoordinator.refreshCustomWords()
+            predictionCoordinator.getWordPredictor()?.reloadDisabledWords()
+            bar.showTemporaryMessage(
+                context.getString(R.string.suggestion_removed_from_dictionary, word),
+                1500L, clearAfter = true
+            )
         }
     }
 
@@ -751,6 +1114,11 @@ class SuggestionHandler(
      * @param enabled Whether password mode is enabled
      */
     fun setPasswordMode(enabled: Boolean) {
+        dismissStartupWords()
+        structuredCompletionOffer = null
+        structuredAddOffer = null
+        onEditorCursorChanged()
+        clearAutocorrectBookmarks()
         isPasswordMode = enabled
         if (enabled) {
             // Clear predictions when entering password mode
@@ -870,6 +1238,9 @@ class SuggestionHandler(
         languages: List<String>? = null
     ) {
         // Swipe results replace whatever the bar shows — any next-word display state ends here,
+        structuredCompletionOffer = null
+        onEditorCursorChanged()
+        clearAutocorrectBookmarks()
         // and so does an undoable "Added …" confirmation (the user moved on).
         nextWordSuggestionsActive = false
         suggestionBar?.dismissUndoableMessage()
@@ -890,6 +1261,9 @@ class SuggestionHandler(
             return
         }
 
+        // A fresh swipe owns a new candidate slate even if its words match the old slate.
+        suggestionBar?.resetScrollPosition()
+
         // Apply user word case preservation BEFORE shift transformation (proper nouns like "Boston"),
         // then the shift/caps-lock-at-swipe-start transform — IDENTICAL to the legacy IC path so
         // shift/caps casing (oracle 2/3) is unchanged.
@@ -905,7 +1279,9 @@ class SuggestionHandler(
         val casedPredictions = predictionCoordinator.getWordPredictor()
             ?.applyUserWordCaseToList(predictions) ?: predictions
         val autocapAtCursor = !shiftActive && !shiftLocked &&
-            Autocapitalisation.shouldCapitalizeAtCursor(ic, editorInfo, config.autocapitalisation)
+            Autocapitalisation.shouldCapitalizeAtCursor(ic, editorInfo, config.autocapitalisation,
+                allowAdjacentNumericPeriod = config.auto_space_before_suggestion,
+                options = config.edit_behavior ?: EditBehaviorOptions())
         val transformedPredictions = casedPredictions.map {
             applyShiftTransformation(it, shiftActive || autocapAtCursor, shiftLocked)
         }
@@ -943,190 +1319,305 @@ class SuggestionHandler(
         // instead — see [shouldAugmentPossessiveAt]. That path deliberately ignores the active
         // (primary) language: in a merged en+fr slate the primary tells you nothing about the
         // candidate in slot 2.
-        val barWords = rescoredPredictions.toMutableList()
-        val barScores = rescoredScores.toMutableList()
         val activeLanguage = predictionCoordinator.getDictionaryManager()?.getCurrentLanguage()
-        val engineWordCount = barWords.size
-        val barLanguages = rescored.languages
-        if (barLanguages != null) {
-            augmentPredictionsWithPossessives(barWords, barScores, barLanguages)
-        } else if (shouldAugmentPossessives(activeLanguage)) {
-            augmentPredictionsWithPossessives(barWords, barScores, null)
+        val topLanguage = rescored.languages?.firstOrNull() ?: activeLanguage
+        val provider = topLanguage?.let {
+            predictionCoordinator.getDictionaryManager()?.getLanguageIntelligenceProvider(it)
         }
+        val surfaceSlate = SwipeSurfaceVariants.expand(
+            rescoredPredictions, rescoredScores, rescored.languages,
+            provider, shiftActive || autocapAtCursor, shiftLocked,
+            (config.edit_behavior ?: EditBehaviorOptions()).showCaseVariants,
+        )
+        fun publishSwipeSlate(rankedSlate: SwipeSurfaceVariants.Slate) {
+            val surfaceSlate = SwipeSurfaceVariants.present(rankedSlate, topLanguage)
+            val barWords = surfaceSlate.words.toMutableList()
+            val barScores = surfaceSlate.scores.toMutableList()
+            val engineWordCount = barWords.size
+            val barLanguages = surfaceSlate.languages
+            // Metadata only: do not add editor text to logs from arbitrary app fields.
+            sendDebugLog(
+                "TRIAL word-strip-v15 app=${BuildConfig.APPLICATION_ID} " +
+                    "autocap=${config.autocapitalisation} capAtCursor=$autocapAtCursor " +
+                    "before=${config.auto_space_before_suggestion} after=${config.auto_space_after_suggestion} " +
+                    "format=${!passwordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo, (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields)} " +
+                    "language=$topLanguage provider=${provider != null} " +
+                    "exactForms=${surfaceSlate.exactCase.count { it }}\n"
+            )
+            if (barLanguages != null) {
+                augmentPredictionsWithPossessives(barWords, barScores, barLanguages)
+            } else if (shouldAugmentPossessives(activeLanguage)) {
+                augmentPredictionsWithPossessives(barWords, barScores, null)
+            }
 
-        // Task B: provenance metas — engine outputs first, then any appended
-        // possessive forms (augment appends at the end, so index >= engineWordCount
-        // means POSSESSIVE). M2: prefer the routed-engine origin threaded by the
-        // caller; the mode-derived fallback only covers legacy callers.
-        val swipeOrigin = origin ?: SuggestionOrigin.forSwipeEngineMode(config.swipe_engine_mode)
-        val barMetas = MutableList(barWords.size) { i ->
-            SuggestionMeta(if (i < engineWordCount) swipeOrigin else SuggestionOrigin.POSSESSIVE)
-        }
-        // §6.5: a context-promoted rank 1 carries a note, so a misbehaving promotion is
-        // diagnosable from the long-press sheet instead of being invisible. The engine ORIGIN is
-        // deliberately kept — the word still came from the decoder; context only moved it.
-        if (promotedIndex != null && barMetas.isNotEmpty()) {
-            barMetas[0] = barMetas[0].copy(note = ProvenanceNote.PromotedByLearnedContext)
-        }
-
-        suggestionBar?.let { bar ->
-            bar.setShowDebugScores(config.swipe_show_debug_scores)
-            bar.setShowOriginMarkers(config.suggestion_provenance_markers)
-            bar.setSuggestionsWithScores(barWords, barScores, barMetas)
-
-            // Auto-insert the top (highest-scoring) prediction through THE single commit engine
-            // (step 6): haptic + manual-typing termination + tracking clear were absorbed verbatim
-            // from the deleted InputCoordinator.autoInsertTopSuggestion.
-            bar.getTopSuggestion()?.takeIf { it.isNotEmpty() }?.let { topPrediction ->
-                inputCoordinator.triggerSwipeCompleteHaptic()
-
-                // If manual typing was in progress, terminate it with a space. The typed chars are
-                // already committed via KeyEventHandler.send_text() — currentWord is only a tracking
-                // buffer, so committing just the space preserves them ("i" + swipe "think" → "i think ").
-                // W5 (audit 2026-09-26): the swipe ENDS whatever the user was typing (a word, or a
-                // joiner stem like "kids'"), exactly as a typed space would — so it goes through the
-                // learn funnel first, BEFORE the swiped word, and the context LM records
-                // typed→swiped in order. Previously it was never learned. No-op when nothing is
-                // pending. The typing-in-progress test is taken first: a successful flush clears
-                // the tracker's word, and the terminating space below must still be committed.
-                val typingInProgress = contextTracker.getCurrentWordLength() > 0
-                flushPendingTypedWord(ic)
-                if (typingInProgress && ic != null) {
-                    ic.commitText(" ", 1)
-                    contextTracker.clearCurrentWord()
-                    contextTracker.clearLastAutoInsertedWord()
-                    contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
-                }
-
-                // A new swipe supersedes a swipe-correction offer the bar was showing.
-                if (swipePreferenceOffer != null) {
-                    swipePreferenceOffer = null
-                    specialPromptActive = false
-                }
-
-                // Clear tracking BEFORE the commit so consecutive swipes APPEND (the replace branch
-                // in onSuggestionSelected must not fire on an auto-insert).
-                contextTracker.clearLastAutoInsertedWord()
-                contextTracker.setLastCommitSource(PredictionSource.UNKNOWN)
-
-                // D5: snapshot swipe state before the commit resets wasLastInputSwipe.
-                val wasSwipeAutoInsert = contextTracker.wasLastInputSwipe()
-                val swipeData = inputCoordinator.getCurrentSwipeData()
-
-                // Swipe Playground (2026-09-03): enrich the capture with the ranking the bar
-                // displays and the swipe-end→results latency BEFORE either store runs, so
-                // both the gated global row (MLDataCollector copies enrichment over) and the
-                // playground row carry them. timestampUtc is set at capture time (swipe end),
-                // so the delta here is decode + routing + presentation.
-                swipeData?.let {
-                    it.setCandidates(barWords, barScores)
-                    it.setDecodeLatencyMs(System.currentTimeMillis() - it.timestampUtc)
-                }
-
-                val committedWord = onSuggestionSelected(
-                    topPrediction, ic, editorInfo, resources, isManualSelection = false
+            // Task B: provenance metas — engine outputs first, then any appended
+            // possessive forms (augment appends at the end, so index >= engineWordCount
+            // means POSSESSIVE). M2: prefer the routed-engine origin threaded by the
+            // caller; the mode-derived fallback only covers legacy callers.
+            val swipeOrigin = origin ?: SuggestionOrigin.forSwipeEngineMode(config.swipe_engine_mode)
+            val barMetas = MutableList(barWords.size) { i ->
+                SuggestionMeta(
+                    if (i < engineWordCount) swipeOrigin else SuggestionOrigin.POSSESSIVE,
+                    preserveExactCase = surfaceSlate.exactCase.getOrElse(i) { false },
                 )
+            }
+            // §6.5: a context-promoted rank 1 carries a note, so a misbehaving promotion is
+            // diagnosable from the long-press sheet instead of being invisible. The engine ORIGIN is
+            // deliberately kept — the word still came from the decoder; context only moved it.
+            if (promotedIndex != null && barMetas.isNotEmpty()) {
+                barMetas[0] = barMetas[0].copy(note = ProvenanceNote.PromotedByLearnedContext)
+            }
 
-                // D5 LANDED (step 6): swipe ML capture through MLDataCollector — the single
-                // implementation the tap path (SuggestionBridge) already uses.
-                //
-                // 2026-09-09: the `&& config.swipe_debug_detailed_logging` conjunct was REMOVED
-                // (maintainer report: "broken collection toggle"). It was inherited verbatim from
-                // IC's old inline debug block, but it is a DEVELOPER flag: default-off, and only
-                // rendered at all after Swipe Debug mode is switched on in the Advanced section.
-                // Its presence here meant the documented privacy control governed nothing on the
-                // auto-insert path — the dominant path for swipe input — so a user who enabled
-                // "Swipe Pattern Data" and swiped normally stored zero rows while the section's
-                // own empty state told them to "Enable collection above to start storing
-                // patterns". The tap-a-suggestion path (SuggestionBridge) never carried the
-                // conjunct, which is why collection looked half-alive rather than dead.
-                //
-                // Gating is now data availability only. Consent is NOT weakened: the collector
-                // re-checks PrivacyManager.canCollectSwipeData() (the master on-device-learning
-                // gate ANDed with privacy_collect_swipe, both default-safe) before touching the
-                // store, and it owns the daily retention sweep + MAX_STORED_ROWS cap that keep
-                // the database bounded now that the path is actually reachable.
-                // W8 (audit 2026-09-26): a swipe trace in a password field IS the password — it is
-                // never captured, whatever the collection consent says.
-                // Feature B (swipe-correction resolution): keep the stored row's trace id so a
-                // later correction of this swipe relabels exactly that row.
-                var storedTraceId: String? = null
-                val storedGlobally =
-                    if (wasSwipeAutoInsert && swipeData != null && !passwordField) {
-                        mlDataCollector.collectAndStoreSwipeData(
-                            committedWord ?: topPrediction,
-                            swipeData,
-                            inputCoordinator.keyboardHeightPx(),
-                            predictionCoordinator.getMlDataStore(),
-                            onStored = { storedTraceId = it }
-                        )
-                    } else {
-                        false
-                    }
-
-                // Swipe Playground: while the playground activity is open (debug mode on),
-                // persist the enriched trace (skipped when the global path above already
-                // stored this swipe — no duplicate rows) and push the live panel payload.
-                // Explicit-session recording — see PlaygroundTraceRecorder's KDoc for why
-                // this deliberately sits outside LearningGate.canCollectSwipeMl.
-                if (debugMode && !passwordField) {
-                    PlaygroundTraceRecorder.recordAndBroadcast(
-                        context,
-                        swipeData,
-                        committedWord ?: topPrediction.removePrefix("raw:"),
-                        engineWordCount,
-                        storedGlobally
-                    )
-                }
-                inputCoordinator.resetSwipeData()
-
-                // Clear the latched shift indicator after a shift+swipe commit; caps lock stays
-                // until the user unlocks it (was IC.onSuggestionSelected's post-commit clearing).
-                if (shiftActive && !shiftLocked) {
-                    inputCoordinator.clearLatchedShiftAfterSwipe()
-                }
-
-                // Track the auto-inserted word so tapping an alternate replaces ONLY this word.
-                // Resolved 2026-08-06 (was a TODO carried from the deleted IC engine): the word
-                // actually sitting in the editor is onSuggestionSelected's RETURN — final
-                // autocorrect and I-word handling may have rewritten the raw prediction, and the
-                // REPLACE branch deletes lastAutoInsertedWord.length + 1 chars, so tracking the
-                // raw word desynced deletion counts whenever the correction changed the length.
-                // (The learn funnel was already correct either way: updateContext() inside
-                // onSuggestionSelected records the post-autocorrect word.) A null return means
-                // nothing was committed (no InputConnection) — fall back to the raw prediction
-                // so the tracking state stays populated exactly as before.
-                contextTracker.setLastAutoInsertedWord(
-                    committedWord ?: topPrediction.removePrefix("raw:")
-                )
-                contextTracker.setLastCommitSource(PredictionSource.SWIPE)
-
-                // Swipe-correction tracking: remember this auto-insert (the word in the editor,
-                // the engine slate it came from, its ML row) so a bar tap or backspace undo that
-                // rejects it can be recorded as a correction.
-                noteSwipeAutoInsert(
-                    committedWord ?: topPrediction.removePrefix("raw:"),
-                    rescoredPredictions, storedTraceId, ic, editorInfo
-                )
-
-                // Re-display the augmented+transformed correction list (D1: possessives persist in
-                // the final swipe bar).
+            suggestionBar?.let { bar ->
+                bar.setShowDebugScores(config.swipe_show_debug_scores)
+                bar.setShowOriginMarkers(config.suggestion_provenance_markers)
                 bar.setSuggestionsWithScores(barWords, barScores, barMetas)
 
-                // Next-word call-site 3 (audit §4.4): keep the swipe ALTERNATES
-                // (the user may still correct the swipe) and APPEND up to
-                // MAX_SWIPE_APPEND next-word candidates. Per-suggestion NEXT_WORD
-                // metas make the tap path append-after (not replace) for these
-                // entries. Generation runs on the predictionTasks executor (L3 —
-                // the first lookup of a language lazily loads its persisted
-                // n-gram blobs, which janked the UI thread when this ran inline).
-                // W8: no next-word candidates in a password field (the tier gate only sees
-                // the tracked mode, which lags the live EditorInfo before onStartInputView).
-                if (!passwordField) {
-                    appendNextWordToSwipeAlternates(bar, barWords, barScores, barMetas, editorInfo)
+                // Auto-insert the top (highest-scoring) prediction through THE single commit engine
+                // (step 6): haptic + manual-typing termination + tracking clear were absorbed verbatim
+                // from the deleted InputCoordinator.autoInsertTopSuggestion.
+                bar.getTopSuggestion()?.takeIf { it.isNotEmpty() }?.let { topPrediction ->
+                    inputCoordinator.triggerSwipeCompleteHaptic()
+
+                    // Typed chars are already committed via KeyEventHandler.send_text(). End their
+                    // tracking here, but let the shared commit below decide the separator from the
+                    // actual editor text, field and preferences. A separate space commit bypassed
+                    // those rules, including in search/password fields and with leading space off.
+                    // W5 (audit 2026-09-26): the swipe ENDS whatever the user was typing (a word, or a
+                    // joiner stem like "kids'"), exactly as a typed space would — so it goes through the
+                    // learn funnel first, BEFORE the swiped word, and the context LM records
+                    // typed→swiped in order. Previously it was never learned. No-op when nothing is
+                    // pending. Take the typing-in-progress test first: a successful flush clears
+                    // the tracker's word. Cursor synchronization can also populate this buffer;
+                    // its presence alone is never evidence that a separator is missing.
+                    val typingInProgress = contextTracker.getCurrentWordLength() > 0
+                    flushPendingTypedWord(ic)
+                    if (typingInProgress && ic != null) {
+                        contextTracker.clearCurrentWord()
+                        contextTracker.clearLastAutoInsertedWord()
+                        contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
+                    }
+
+                    // A new swipe supersedes a swipe-correction offer the bar was showing.
+                    if (swipePreferenceOffer != null) {
+                        swipePreferenceOffer = null
+                        specialPromptActive = false
+                    }
+
+                    // Clear tracking BEFORE the commit so consecutive swipes APPEND (the replace branch
+                    // in onSuggestionSelected must not fire on an auto-insert).
+                    contextTracker.clearLastAutoInsertedWord()
+                    contextTracker.setLastCommitSource(PredictionSource.UNKNOWN)
+
+                    // D5: snapshot swipe state before the commit resets wasLastInputSwipe.
+                    val wasSwipeAutoInsert = contextTracker.wasLastInputSwipe()
+                    val swipeData = inputCoordinator.getCurrentSwipeData()
+
+                    // Swipe Playground (2026-09-03): enrich the capture with the ranking the bar
+                    // displays and the swipe-end→results latency BEFORE either store runs, so
+                    // both the gated global row (MLDataCollector copies enrichment over) and the
+                    // playground row carry them. timestampUtc is set at capture time (swipe end),
+                    // so the delta here is decode + routing + presentation.
+                    swipeData?.let {
+                        it.setCandidates(barWords, barScores)
+                        it.setDecodeLatencyMs(System.currentTimeMillis() - it.timestampUtc)
+                    }
+
+                    val committedWord = onSuggestionSelected(
+                        topPrediction, ic, editorInfo, resources, isManualSelection = false
+                    )
+
+                    // D5 LANDED (step 6): swipe ML capture through MLDataCollector — the single
+                    // implementation the tap path (SuggestionBridge) already uses.
+                    //
+                    // 2026-09-09: the `&& config.swipe_debug_detailed_logging` conjunct was REMOVED
+                    // (maintainer report: "broken collection toggle"). It was inherited verbatim from
+                    // IC's old inline debug block, but it is a DEVELOPER flag: default-off, and only
+                    // rendered at all after Swipe Debug mode is switched on in the Advanced section.
+                    // Its presence here meant the documented privacy control governed nothing on the
+                    // auto-insert path — the dominant path for swipe input — so a user who enabled
+                    // "Swipe Pattern Data" and swiped normally stored zero rows while the section's
+                    // own empty state told them to "Enable collection above to start storing
+                    // patterns". The tap-a-suggestion path (SuggestionBridge) never carried the
+                    // conjunct, which is why collection looked half-alive rather than dead.
+                    //
+                    // Gating is now data availability only. Consent is NOT weakened: the collector
+                    // re-checks PrivacyManager.canCollectSwipeData() (the master on-device-learning
+                    // gate ANDed with privacy_collect_swipe, both default-safe) before touching the
+                    // store, and it owns the daily retention sweep + MAX_STORED_ROWS cap that keep
+                    // the database bounded now that the path is actually reachable.
+                    // W8 (audit 2026-09-26): a swipe trace in a password field IS the password — it is
+                    // never captured, whatever the collection consent says.
+                    // Feature B (swipe-correction resolution): keep the stored row's trace id so a
+                    // later correction of this swipe relabels exactly that row.
+                    var storedTraceId: String? = null
+                    val storedGlobally =
+                        if (wasSwipeAutoInsert && swipeData != null && !passwordField) {
+                            mlDataCollector.collectAndStoreSwipeData(
+                                committedWord ?: topPrediction,
+                                swipeData,
+                                inputCoordinator.keyboardHeightPx(),
+                                predictionCoordinator.getMlDataStore(),
+                                onStored = { storedTraceId = it }
+                            )
+                        } else {
+                            false
+                        }
+
+                    // Swipe Playground: while the playground activity is open (debug mode on),
+                    // persist the enriched trace (skipped when the global path above already
+                    // stored this swipe — no duplicate rows) and push the live panel payload.
+                    // Explicit-session recording — see PlaygroundTraceRecorder's KDoc for why
+                    // this deliberately sits outside LearningGate.canCollectSwipeMl.
+                    if (debugMode && !passwordField) {
+                        PlaygroundTraceRecorder.recordAndBroadcast(
+                            context,
+                            swipeData,
+                            committedWord ?: topPrediction.removePrefix("raw:"),
+                            engineWordCount,
+                            storedGlobally
+                        )
+                    }
+                    inputCoordinator.resetSwipeData()
+
+                    // Clear the latched shift indicator after a shift+swipe commit; caps lock stays
+                    // until the user unlocks it (was IC.onSuggestionSelected's post-commit clearing).
+                    if (shiftActive && !shiftLocked) {
+                        inputCoordinator.clearLatchedShiftAfterSwipe()
+                    }
+
+                    // Track the auto-inserted word so tapping an alternate replaces ONLY this word.
+                    // Resolved 2026-08-06 (was a TODO carried from the deleted IC engine): the word
+                    // actually sitting in the editor is onSuggestionSelected's RETURN — final
+                    // autocorrect and I-word handling may have rewritten the raw prediction, and the
+                    // REPLACE branch deletes lastAutoInsertedWord.length + 1 chars, so tracking the
+                    // raw word desynced deletion counts whenever the correction changed the length.
+                    // (The learn funnel was already correct either way: updateContext() inside
+                    // onSuggestionSelected records the post-autocorrect word.) A null return means
+                    // nothing was committed (no InputConnection) — fall back to the raw prediction
+                    // so the tracking state stays populated exactly as before.
+                    contextTracker.setLastAutoInsertedWord(
+                        committedWord ?: topPrediction.removePrefix("raw:")
+                    )
+                    contextTracker.setLastCommitSource(PredictionSource.SWIPE)
+
+                    // Swipe-correction tracking: remember this auto-insert (the word in the editor,
+                    // the engine slate it came from, its ML row) so a bar tap or backspace undo that
+                    // rejects it can be recorded as a correction.
+                    noteSwipeAutoInsert(
+                        committedWord ?: topPrediction.removePrefix("raw:"),
+                        rescoredPredictions, storedTraceId, ic, editorInfo
+                    )
+
+                    // Re-display the augmented+transformed correction list (D1: possessives persist in
+                    // the final swipe bar).
+                    bar.setSuggestionsWithScores(barWords, barScores, barMetas)
+
+                    // Next-word call-site 3 (audit §4.4): keep the swipe ALTERNATES
+                    // (the user may still correct the swipe) and APPEND up to
+                    // MAX_SWIPE_APPEND next-word candidates. Per-suggestion NEXT_WORD
+                    // metas make the tap path append-after (not replace) for these
+                    // entries. Generation runs on the predictionTasks executor (L3 —
+                    // the first lookup of a language lazily loads its persisted
+                    // n-gram blobs, which janked the UI thread when this ran inline).
+                    // W8: no next-word candidates in a password field (the tier gate only sees
+                    // the tracked mode, which lags the live EditorInfo before onStartInputView).
+                    if (!passwordField) {
+                        appendNextWordToSwipeAlternates(bar, barWords, barScores, barMetas, editorInfo)
+                    }
                 }
             }
         }
+        if (!tryHerbertSwipe(surfaceSlate, ic, editorInfo, topLanguage, provider,
+                shiftActive || shiftLocked || autocapAtCursor || casedPredictions != predictions,
+                origin ?: SuggestionOrigin.forSwipeEngineMode(config.swipe_engine_mode), ::publishSwipeSlate)) {
+            publishSwipeSlate(surfaceSlate)
+        }
+    }
+
+    private var herbertExtractionRequest: android.view.inputmethod.ExtractedTextRequest? = null
+    private fun herbertSelection(ic: InputConnection): android.view.inputmethod.ExtractedText? {
+        val request = herbertExtractionRequest ?: android.view.inputmethod.ExtractedTextRequest().also {
+            herbertExtractionRequest = it
+        }
+        return ic.getExtractedText(request, 0)
+    }
+
+    /** Bounded pre-commit trial: source group only, original editor bytes and snapshot identity. */
+    private fun tryHerbertSwipe(
+        slate: SwipeSurfaceVariants.Slate, ic: InputConnection?, info: EditorInfo?,
+        language: String?, provider: LanguageIntelligenceProvider?, protectedCase: Boolean,
+        origin: SuggestionOrigin, publish: (SwipeSurfaceVariants.Slate) -> Unit,
+    ): Boolean {
+        if (!config.herbert_live_enabled || protectedCase || origin != SuggestionOrigin.GEOMETRIC ||
+            language != "pl" || provider == null || ic == null || info == null ||
+            !fieldAllowsPersonalizedLearning || (info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) != 0 ||
+            isPasswordMode || SuggestionBar.isPasswordField(info) ||
+            !EditorSpacingPolicy.allowsAutomaticSpacing(info, false) || isTermuxEditor(info) ||
+            liveEditorProvider == null) return false
+        if (HerbertLiveRuntime.state != HerbertLiveRuntime.State.READY) return false
+        val group = HerbertLiveSlate.group(slate, provider) ?: return false
+        val raw = try { ic.getTextBeforeCursor(HerbertContextWindow.MAX_UNITS + 1, 0)?.toString() } catch (_: Exception) { null }
+            ?: return false
+        val et = try { herbertSelection(ic) } catch (_: Exception) { null }
+            ?: return false
+        if (et.selectionStart < 0 || et.selectionStart != et.selectionEnd) return false
+        val anchor = et.startOffset + et.selectionStart
+        if (anchor < raw.length) return false
+        val after = try { ic.getTextAfterCursor(32, 0)?.toString() } catch (_: Exception) { null } ?: return false
+        if (after.firstOrNull()?.isLetterOrDigit() == true) return false
+        var safeRaw = raw
+        // A provider may return fewer bytes than requested. Discard a possibly partial oldest word.
+        if (anchor > raw.length && raw.length <= HerbertContextWindow.MAX_UNITS && raw.firstOrNull()?.isWhitespace() == false) {
+            safeRaw = raw.dropWhile { !it.isWhitespace() }
+        }
+        val words = config.herbert_context_words
+        val wait = config.herbert_wait_ms
+        val enabled = config.herbert_live_enabled
+        val showVariants = (config.edit_behavior ?: EditBehaviorOptions()).showCaseVariants
+        val contextText = HerbertContextWindow.retain(safeRaw, words)
+        if (contextText.isBlank()) return false
+        val revision = editorPredictionRevision
+        val modelRevision = HerbertLiveRuntime.revision
+        val identity = HerbertRequestIdentity(revision, revision, anchor, anchor, revision, "pl",
+            provider.packageInfo().toString(), modelRevision, contextText)
+        val deadline = System.nanoTime() + wait * 1_000_000L
+        val decision = HerbertSwipeDecision(slate, group, identity, deadline)
+        fun current(): HerbertRequestIdentity? = try {
+            val live = liveEditorProvider?.invoke()
+            val currentLanguage = predictionCoordinator.getDictionaryManager()?.getCurrentLanguage()
+            val currentProvider = predictionCoordinator.getDictionaryManager()?.getLanguageIntelligenceProvider("pl")
+            val selection = herbertSelection(ic)
+            if (live == null || live.first !== ic || live.second !== info || editorPredictionRevision != revision ||
+                !fieldAllowsPersonalizedLearning || SuggestionBar.isPasswordField(info) ||
+                (info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) != 0 ||
+                !EditorSpacingPolicy.allowsAutomaticSpacing(info, false) ||
+                currentLanguage != "pl" || currentProvider !== provider ||
+                config.herbert_live_enabled != enabled || config.herbert_context_words != words ||
+                config.herbert_wait_ms != wait || (config.edit_behavior ?: EditBehaviorOptions()).showCaseVariants != showVariants ||
+                HerbertLiveRuntime.revision != modelRevision ||
+                selection == null || selection.startOffset + selection.selectionStart != anchor ||
+                selection.selectionStart != selection.selectionEnd ||
+                ic.getTextBeforeCursor(HerbertContextWindow.MAX_UNITS + 1, 0)?.toString() != raw ||
+                ic.getTextAfterCursor(32, 0)?.toString() != after) null else identity
+        } catch (_: Exception) { null }
+        lateinit var timeout: Runnable
+        fun finish(scores: Map<String, Float>?) {
+            val result = decision.finish(scores, current(), System.nanoTime()) ?: return
+            mainHandler.removeCallbacks(timeout)
+            cancelPendingHerbert = null; pendingHerbertFallback = null
+            HerbertLiveRuntime.noteResult(scores != null && System.nanoTime() < deadline)
+            publish(result)
+        }
+        timeout = Runnable { finish(null) }
+        if (!HerbertLiveRuntime.rank(contextText, group, words) { scores, token ->
+                if (token == modelRevision) finish(scores) else decision.cancel()
+            }) return false
+        suggestionBar?.clearSuggestions()
+        pendingHerbertFallback = { finish(null) }
+        cancelPendingHerbert = { decision.cancel(); mainHandler.removeCallbacks(timeout) }
+        mainHandler.postDelayed(timeout, wait.toLong())
+        return true
     }
 
     /**
@@ -1152,6 +1643,7 @@ class SuggestionHandler(
         editorInfo: EditorInfo?
     ) {
         val generationAtSubmit = bar.contentGeneration()
+        val revisionAtSubmit = editorPredictionRevision
         val contextWords = contextTracker.getContextWords().toList()
         predictionTasks.cancelAndSubmit {
             if (Thread.currentThread().isInterrupted) return@cancelAndSubmit
@@ -1179,6 +1671,7 @@ class SuggestionHandler(
                 // M6: the swipe-alternates bar this append targets must still be
                 // the live content — abort if anything replaced it while queued.
                 if (bar.contentGeneration() != generationAtSubmit) return@post
+                if (editorPredictionRevision != revisionAtSubmit || isPasswordMode) return@post
                 barWords.addAll(appendWords)
                 barScores.addAll(appendScores)
                 barMetas.addAll(appendMetas)
@@ -1243,6 +1736,13 @@ class SuggestionHandler(
     ): String? {
         // Null/empty check
         if (word.isNullOrBlank()) return null
+        val completion = structuredCompletionOffer?.takeIf { word in it.words }
+        if (completion != null) {
+            onEditorCursorChanged()
+            return commitStructuredCompletion(completion, word, ic, editorInfo)
+        }
+        structuredCompletionOffer = null
+        onEditorCursorChanged()
 
         // A suggestion tap supersedes an undoable "Added …" confirmation (none can be on screen
         // while a chip is tappable, but a programmatic selection must not leave one armed).
@@ -1252,10 +1752,13 @@ class SuggestionHandler(
         // 3) a per-suggestion NEXT_WORD meta on a mixed swipe-alternates bar —
         // either way the commit is tagged NEXT_WORD below. Consumed either way —
         // any selection ends the next-word display state.
-        val tappedOrigin = suggestionBar?.getMetaForSuggestion(word)?.origin
+        val selectedMeta = suggestionBar?.getMetaForSuggestion(word)
+        val preserveExactCase = selectedMeta?.preserveExactCase == true
+        val tappedOrigin = selectedMeta?.origin
         val wasNextWordSelection =
             nextWordSuggestionsActive || tappedOrigin == SuggestionOrigin.NEXT_WORD
         nextWordSuggestionsActive = false
+        dismissStartupWords()
 
         // R3: Route the special-suggestion protocol through the shared typed
         // routing decision (single source of truth) instead of ad-hoc prefix
@@ -1266,7 +1769,7 @@ class SuggestionHandler(
                 handleAddToDictionary(route.word)
                 return null
             }
-            // #42: "+word" tap → commit the exact typed word and add to dictionary.
+            // "+word" adds the live exact token to the dictionary without rewriting text.
             is SelectionRoute.ExactAdd -> {
                 handleExactWordAdd(route.word, ic, editorInfo)
                 return null
@@ -1285,6 +1788,7 @@ class SuggestionHandler(
             is SelectionRoute.CommitWord -> Unit
         }
 
+        clearAutocorrectBookmarks()
         // Check if this is an autocorrect undo (user tapped the original word after autocorrect)
         val lastAutocorrectOriginal = contextTracker.getLastAutocorrectOriginalWord()
         if (contextTracker.getLastCommitSource() == PredictionSource.AUTOCORRECT &&
@@ -1306,7 +1810,7 @@ class SuggestionHandler(
         processedWord = processedWord.replace(Regex("^raw:"), "")
 
         // Issue #72: Capitalize "I" words (i → I, i'm → I'm, i'll → I'll)
-        processedWord = capitalizeIWord(processedWord)
+        if (!preserveExactCase) processedWord = capitalizeIWord(processedWord)
 
         // Check if this is a known contraction (already has apostrophes from displayText)
         // If it is, skip autocorrect to prevent fuzzy matching to wrong words
@@ -1322,7 +1826,7 @@ class SuggestionHandler(
         // 2. Contraction keys (apostrophe-free forms — same protection)
         // 3. Raw predictions (user explicitly selected this decoder output)
         // 4. Manual selections (user explicitly tapped a swipe prediction - issue #63 fix)
-        if (isKnownContraction || isContractionKey || isRawPrediction || isManualSelection) {
+        if (isKnownContraction || isContractionKey || isRawPrediction || isManualSelection || preserveExactCase) {
             if (isKnownContraction) {
                 vlog { "KNOWN CONTRACTION: \"$processedWord\" - skipping autocorrect" }
             }
@@ -1402,6 +1906,7 @@ class SuggestionHandler(
                 // these fields up front and (a) force the editor-scan fallback,
                 // (b) never inject a leading space (it would corrupt the value).
                 val syncSuppressedField = !contextTracker.shouldSyncForInputType(editorInfo)
+                val automaticSpacing = !inPasswordField && EditorSpacingPolicy.allowsAutomaticSpacing(editorInfo, (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields)
 
                 // Next-word call-site 3 (audit §4.4): a NEXT_WORD candidate that
                 // was APPENDED after swipe alternates must append after the
@@ -1440,55 +1945,26 @@ class SuggestionHandler(
                     vlog { "REPLACE: Deleting auto-inserted word: '${contextTracker.getLastAutoInsertedWord()}'" }
                     val rejectedWord = contextTracker.getLastAutoInsertedWord().orEmpty()
 
-                    var deleteCount = (contextTracker.getLastAutoInsertedWord()?.length ?: 0) + 1 // Word + trailing space
-                    var deletedLeadingSpace = false
-
-                    if (inTermuxApp) {
-                        // TERMUX: Use backspace key events instead of InputConnection methods
-                        // Termux doesn't support deleteSurroundingText properly
-                        vlog { "TERMUX: Using backspace key events to delete $deleteCount chars" }
-
-                        // Check if there's a leading space to delete
-                        val textBefore = inputConnection.getTextBeforeCursor(1, 0)
-                        if (textBefore != null && textBefore.isNotEmpty() && textBefore[0] == ' ') {
-                            deleteCount++ // Include leading space
-                            deletedLeadingSpace = true
+                    val before = inputConnection.getTextBeforeCursor(rejectedWord.length + 2, 0)?.toString()
+                    val deleteCount = SmartAutoSpace.committedWordDeleteCount(before, rejectedWord)
+                        ?: if (inTermuxApp && before == null) {
+                            rejectedWord.length + if (automaticSpacing && config.auto_space_after_suggestion) 1 else 0
+                        } else {
+                            // Stale alternate: never erase unrelated text at a moved caret.
+                            contextTracker.clearLastAutoInsertedWord()
+                            contextTracker.invalidateAutoSpacePending()
+                            contextTracker.clearTrailingSpaceWatch()
+                            return null
                         }
-
-                        // Send backspace key events
+                    if (inTermuxApp) {
                         repeat(deleteCount) {
                             keyeventhandler.send_key_down_up(KeyEvent.KEYCODE_DEL, 0)
                         }
                     } else {
-                        // NORMAL APPS: Use InputConnection methods
-                        if (BuildConfig.ENABLE_VERBOSE_LOGGING) {
-                            val debugBefore = inputConnection.getTextBeforeCursor(50, 0)
-                            Log.d(TAG, "REPLACE: Text before cursor (50 chars): '$debugBefore'")
-                        }
-                        vlog { "REPLACE: Delete count = $deleteCount" }
-
-                        // Delete the auto-inserted word and its space
                         inputConnection.deleteSurroundingText(deleteCount, 0)
-
-                        if (BuildConfig.ENABLE_VERBOSE_LOGGING) {
-                            val debugAfter = inputConnection.getTextBeforeCursor(50, 0)
-                            Log.d(TAG, "REPLACE: After deleting word, text before cursor: '$debugAfter'")
-                        }
-
-                        // Also need to check if there was a space added before it
-                        val textBefore = inputConnection.getTextBeforeCursor(1, 0)
-                        vlog { "REPLACE: Checking for leading space, got: '$textBefore'" }
-                        if (textBefore != null && textBefore.isNotEmpty() && textBefore[0] == ' ') {
-                            vlog { "REPLACE: Deleting leading space" }
-                            // Delete the leading space too
-                            inputConnection.deleteSurroundingText(1, 0)
-
-                            if (BuildConfig.ENABLE_VERBOSE_LOGGING) {
-                                val debugFinal = inputConnection.getTextBeforeCursor(50, 0)
-                                Log.d(TAG, "REPLACE: After deleting leading space: '$debugFinal'")
-                            }
-                        }
                     }
+                    // Preserve any existing separator BEFORE the word; the leading-space
+                    // decision below adds one only when genuinely needed.
 
                     // W2 (audit 2026-09-26): the replaced swipe word was REJECTED. Its commit
                     // already ran the learn funnel (prev→rejected, window += rejected); roll that
@@ -1580,10 +2056,9 @@ class SuggestionHandler(
                 }
 
                 // Add space before word if previous character isn't whitespace.
-                // For tapped suggestions (not swipe), respect auto_space_before_suggestion setting.
-                // Swipe auto-inserts always get the leading space since the swipe replaces no typed text.
-                val needsSpaceBefore = if (!isSwipeAutoInsert && !config.auto_space_before_suggestion) {
-                    false  // User disabled leading space before tapped suggestions
+                // Swipe and tap share both the preference and live-field formatting policy.
+                val needsSpaceBefore = if (!automaticSpacing || !config.auto_space_before_suggestion) {
+                    false  // User disabled leading space, or the field requires literal spacing
                 } else if (syncSuppressedField) {
                     // #151: never inject a leading space into URL/email/etc. fields —
                     // after replacing "exa" in "https://exa" the previous char is '/',
@@ -1610,11 +2085,10 @@ class SuggestionHandler(
                     }
                 }
 
-                // v1.2.6 FIX: Check if there's already a space after cursor (mid-sentence replacement)
-                // Don't add trailing space if one already exists to avoid double spaces
+                // Existing whitespace/closing punctuation after a replacement stays attached.
                 val hasSpaceAfter = try {
                     val textAfter = inputConnection.getTextAfterCursor(1, 0)
-                    textAfter != null && textAfter.isNotEmpty() && textAfter[0].isWhitespace()
+                    SmartAutoSpace.hasSeparatorAfter(textAfter?.firstOrNull())
                 } catch (e: Exception) {
                     false
                 }
@@ -1622,7 +2096,7 @@ class SuggestionHandler(
                 // Apply capitalization if user was typing with shift (first letter uppercase)
                 val currentWord = contextTracker.getCurrentWord()
                 val shouldCapitalize = currentWord.isNotEmpty() && currentWord[0].isUpperCase()
-                val capitalizedWord = if (shouldCapitalize && processedWord.isNotEmpty()) {
+                val capitalizedWord = if (!preserveExactCase && shouldCapitalize && processedWord.isNotEmpty()) {
                     processedWord.replaceFirstChar {
                         if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString()
                     }
@@ -1639,14 +2113,14 @@ class SuggestionHandler(
                 // The decision itself lives in SmartAutoSpace (pure, unit-tested) so it
                 // can't drift from AutoSpaceLogicTest.
                 val trailingSpaceMode = SmartAutoSpace.decideTrailingSpace(
-                    autoSpaceAfterEnabled = config.auto_space_after_suggestion,
+                    autoSpaceAfterEnabled = automaticSpacing && config.auto_space_after_suggestion,
                     isSwipeAutoInsert = isSwipeAutoInsert,
                     hasSpaceAfter = hasSpaceAfter
                 )
                 val insertMode: String
                 val textToInsert = when (trailingSpaceMode) {
                     SmartAutoSpace.TrailingSpaceMode.NO_SPACE_USER_DISABLED -> {
-                        // #82: User disabled auto-space after suggestion (tap selection only)
+                        // Preference or field policy disables trailing space for both swipe and tap
                         insertMode = "AUTO-SPACE DISABLED"
                         if (needsSpaceBefore) " $capitalizedWord" else capitalizedWord
                     }
@@ -1679,6 +2153,7 @@ class SuggestionHandler(
 
                 vlog { "Committing text: len=${textToInsert.length}" }
                 inputConnection.commitText(textToInsert, 1)
+                keyeventhandler.noteEditorTextMutation(inputConnection)
 
                 if (addedTrailingSpace) {
                     contextTracker.markAutoSpacePending(
@@ -1804,6 +2279,7 @@ class SuggestionHandler(
         // autocorrect prompt, another prediction pass) bumps it, and the post
         // aborts instead of overwriting the newer state.
         val generationAtSubmit = suggestionBar?.contentGeneration() ?: return
+        val revisionAtSubmit = editorPredictionRevision
 
         predictionTasks.cancelAndSubmit {
             if (Thread.currentThread().isInterrupted) return@cancelAndSubmit
@@ -1831,7 +2307,8 @@ class SuggestionHandler(
             mainHandler.post {
                 // Skip if state moved on while queued: special prompt appeared or the
                 // user already started typing the next word.
-                if (specialPromptActive || isPasswordMode) return@post
+                if (specialPromptActive || isPasswordMode ||
+                    editorPredictionRevision != revisionAtSubmit) return@post
                 if (contextTracker.getCurrentWordLength() > 0) return@post
                 suggestionBar?.let { bar ->
                     // M6: abort when the bar changed since submit — this post is stale.
@@ -1862,6 +2339,11 @@ class SuggestionHandler(
      * failure) the session context is the fallback — the pre-fix behavior.
      */
     fun handleCursorParkPrediction(editorInfo: EditorInfo?, ic: InputConnection? = null) {
+        onEditorCursorChanged()
+        if (preserveAutocorrectPrompt(ic, editorInfo)) return
+        if (maybeShowStructuredCompletions(ic, editorInfo)) return
+        if (maybeShowStructuredEntryAdd(ic, editorInfo)) return
+        if (startupSession != null) { refreshStartupWords(); return }
         // W5: no word before the cursor — nothing typed is pending any more. (A joiner stem
         // survives: right after typing "don'" the sync parks here too; completion re-checks the
         // stem against the editor before learning it.)
@@ -1871,6 +2353,7 @@ class SuggestionHandler(
         // here (no word at the cursor) — the offer must survive it, as the add-to-dictionary
         // prompt survives via InputCoordinator's preserve branch.
         if (swipePreferenceOffer != null && specialPromptActive) return
+        specialPromptActive = false
         suggestionBar?.clearSuggestions()
         // The bar is idle with nothing at the cursor — the moment for an offer deferred from
         // Enter / a field exit / a settled re-swipe (it replaces the next-word candidates).
@@ -2264,56 +2747,51 @@ class SuggestionHandler(
         swipeCorrectionTracker ?: SwipeCorrectionTracker().also { swipeCorrectionTracker = it }
 
     /**
-     * #42: Handle exact typed word tap: commit the word, add to dictionary, and insert trailing space.
-     * Unlike handleAddToDictionary, this is used during typing (not after word completion).
-     *
-     * @param exactWord The exact word user typed that they want to add
-     * @param ic InputConnection for text manipulation
-     * @param editorInfo Editor info for app detection
+     * Shared field-aware separator for ordinary suggestion/undo commits.
      */
+    private fun suggestionSpaceSuffix(ic: InputConnection?, info: EditorInfo?): String {
+        if (isPasswordMode || !config.auto_space_after_suggestion ||
+            !EditorSpacingPolicy.allowsAutomaticSpacing(info, (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields)) return ""
+        return if (SmartAutoSpace.hasSeparatorAfter(ic?.getTextAfterCursor(1, 0)?.firstOrNull())) "" else " "
+    }
+
+    /** Adds the exact token already displayed in the editor, with no text mutation. */
     private fun handleExactWordAdd(exactWord: String, ic: InputConnection?, editorInfo: EditorInfo?) {
         if (exactWord.isEmpty()) {
             Log.w(TAG, "EXACT ADD: Empty word, ignoring")
             return
         }
 
-        vlog { "EXACT ADD: Committing and adding '$exactWord' to dictionary" }
-
-        // First, delete the partial word that was typed (since we're replacing it)
-        val currentWord = contextTracker.getCurrentWord()
-        if (currentWord.isNotEmpty() && ic != null) {
-            // Detect Termux
-            val inTermuxApp = isTermuxEditor(editorInfo)
-
-            if (inTermuxApp) {
-                // Termux: Use backspace key events
-                repeat(currentWord.length) {
-                    keyeventhandler.send_key_down_up(android.view.KeyEvent.KEYCODE_DEL, 0)
-                }
-            } else {
-                ic.deleteSurroundingText(currentWord.length, 0)
-            }
+        // ExactAdd names text ALREADY in the editor. Never delete/recommit it using
+        // cached tracker lengths (which can describe text from before cut/paste).
+        // Reject a stale chip rather than adding a word unrelated to the live token.
+        val matches = try {
+            (structuredAddOffer?.token?.word == exactWord && structuredOfferMatches(structuredAddOffer, ic, editorInfo)) ||
+            (restoredAutocorrectOffer?.word == exactWord &&
+                bookmarkMatches(restoredAutocorrectOffer, ic, editorInfo)) || exactWordMatchesEditor(
+                exactWord,
+                ic?.getTextBeforeCursor(exactWord.length + 2, 0)?.toString(),
+                ic?.getTextAfterCursor(exactWord.length + 1, 0)?.toString(),
+                ic?.getSelectedText(0)?.toString()
+            )
+        } catch (_: Exception) { false }
+        if (!matches) {
+            structuredAddOffer = null
+            restoredAutocorrectOffer = null
+            specialPromptActive = false
+            suggestionBar?.clearSuggestions()
+            return
         }
-
-        // Commit the exact word with trailing space
-        ic?.commitText("$exactWord ", 1)
 
         // Add to user dictionary
         val inserted = predictionCoordinator.getDictionaryManager()?.addUserWord(exactWord) ?: false
         predictionCoordinator.refreshCustomWords()
+        structuredAddOffer = null
+        restoredAutocorrectOffer = null
 
-        // Update context with the committed word (it replaces the typed partial, so the
-        // partial must not be flushed again later — W5/W7)
-        pendingTypedWord = null
-        pendingJoinerStem = null
-        updateContext(exactWord)
-
-        // Reset state
-        contextTracker.clearCurrentWord()
-        predictionCoordinator.getWordPredictor()?.reset()
-        suggestionBar?.clearSuggestions()
-
-        // Tappable confirmation; its undo takes the word out of the dictionary, not the field.
+        // Keep the typed word pending until its ordinary completion; adding to the
+        // dictionary neither completes a word nor changes the editor or caret.
+        specialPromptActive = false
         confirmDictionaryAdd(exactWord, inserted, R.string.suggestion_added_to_dictionary)
     }
 
@@ -2356,8 +2834,9 @@ class SuggestionHandler(
                 inputConnection.deleteSurroundingText(deleteCount, 0)
             }
 
-            // Insert the original word with trailing space
-            inputConnection.commitText("$tappedWord ", 1)
+            // Insert the original word with the shared field-aware separator.
+            inputConnection.commitText(tappedWord + suggestionSpaceSuffix(inputConnection, editorInfo), 1)
+            keyeventhandler.noteEditorTextMutation(inputConnection)
 
             // Learning rollback (2026-08-06): the REJECTED correction was already
             // fed through the learn funnel when it was committed. Remove it from
@@ -2519,6 +2998,9 @@ class SuggestionHandler(
      * learned stores, so the flushed word is persisted with the rest.
      */
     fun flushTypedWordOnFinishInput(ic: InputConnection?) {
+        onEditorCursorChanged()
+        clearAutocorrectBookmarks()
+        specialPromptActive = false
         flushPendingTypedWord(ic)
         // Leaving the field ends every pending swipe correction (a kept re-swipe is recorded; its
         // offer, if earned, waits for the next field's idle bar).
@@ -2537,6 +3019,8 @@ class SuggestionHandler(
      * the same way sentence-final punctuation does (audit §4.6 — no bigram across it).
      */
     override fun onEditorWordBoundary(ic: InputConnection?) {
+        clearAutocorrectBookmarks()
+        if (!isPasswordMode) suggestionBar?.resetScrollPosition()
         flushPendingTypedWord(ic)
         predictionCoordinator.getWordPredictor()?.onSentenceBoundary()
         // Swipe corrections resolved here are recorded; the offer is not shown now (the editor is
@@ -2566,6 +3050,57 @@ class SuggestionHandler(
         }
     }
 
+    override fun canUndoTypedAutocorrect(ic: InputConnection?, info: EditorInfo?): Boolean {
+        val bookmark = typedAutocorrectBookmark ?: return false
+        if (!bookmarkMatches(bookmark, ic, info) || bookmark.original.isNullOrEmpty()) return false
+        // Prediction refreshes can clear their transient replacement state even while
+        // the correction still occupies its exact editor/caret bookmark. Restore the
+        // pair consumed by KeyEventHandler from this verified transaction, not the bar.
+        contextTracker.setLastAutoInsertedWord(bookmark.word)
+        contextTracker.setLastAutocorrectOriginalWord(bookmark.original)
+        contextTracker.setLastCommitSource(PredictionSource.AUTOCORRECT)
+        return true
+    }
+
+    override fun onAutocorrectUndoRestored(originalWord: String, ic: InputConnection,
+        info: EditorInfo?, originalCompleted: Boolean, expectedCursor: Int) {
+        onEditorCursorChanged()
+        predictionTasks.cancelCurrent()
+        clearAutocorrectBookmarks()
+        contextTracker.clearCurrentWord()
+        contextTracker.clearLastAutoInsertedWord()
+        contextTracker.clearAutocorrectTracking()
+        contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
+        pendingTypedWord = null
+        pendingJoinerStem = null
+        nextWordSuggestionsActive = false
+        specialPromptActive = false
+        val bookmark = AutocorrectBookmark(ic, info, originalWord,
+            if (originalCompleted) " " else "", expectedCursor)
+        if (!bookmarkMatches(bookmark, ic, info)) {
+            suggestionBar?.clearSuggestions()
+            return
+        }
+        val predictor = predictionCoordinator.getWordPredictor()
+        val dictionary = predictionCoordinator.getDictionaryManager()
+        // Selection history just learned the restored word. It must not masquerade
+        // as an explicit dictionary entry and suppress this add action.
+        val known = predictor?.isInDictionary(originalWord, false) ?: true
+        if (!isPasswordMode && config.word_prediction_enabled && config.show_exact_typed_word && originalWord.length >= 2 &&
+            !known && dictionary?.isUserWordIgnoringCase(originalWord) != true &&
+            predictor?.isWordDisabled(originalWord) != true) {
+            restoredAutocorrectOffer = bookmark
+            specialPromptActive = true
+            suggestionBar?.setSuggestionsWithScores(
+                listOf(Suggestion.ExactAdd(originalWord).wire), listOf(0),
+                listOf(SuggestionMeta(SuggestionOrigin.EXACT_ADD))
+            )
+            if ((config.edit_behavior ?: EditBehaviorOptions()).resetSuggestionsOnDelete) {
+                suggestionBar?.resetScrollPosition()
+            }
+        } else suggestionBar?.clearSuggestions()
+    }
+
     /**
      * Handle regular typing predictions (non-swipe).
      * Updates predictions as user types each character.
@@ -2575,6 +3110,11 @@ class SuggestionHandler(
      * @param editorInfo Editor info for app detection
      */
     fun handleRegularTyping(text: String, ic: InputConnection?, editorInfo: EditorInfo?) {
+        dismissStartupWords()
+        structuredCompletionOffer = null
+        structuredAddOffer = null
+        onEditorCursorChanged()
+        clearAutocorrectBookmarks()
         // Any typing dismisses an undoable "Added …" confirmation — BEFORE the prediction update
         // below, which a showing bar message would otherwise swallow.
         suggestionBar?.dismissUndoableMessage()
@@ -2589,311 +3129,350 @@ class SuggestionHandler(
             return
         }
 
-        // Track current word being typed
-        when {
-            text.length == 1 && text[0].isLetter() -> {
-                // A typed letter starts/extends a partial — next-word candidates (if
-                // showing) are superseded by ordinary prefix predictions below.
-                nextWordSuggestionsActive = false
-                contextTracker.appendToCurrentWord(text)
-                // If just started a new word (first letter), clear auto-insert and autocorrect tracking
-                // This prevents incorrectly deleting a previously swiped word when
-                // user types a new word then taps a prediction
-                if (contextTracker.getCurrentWordLength() == 1) {
+        // Recognized personal identifiers are not prose: don't learn/correct their fragments
+        // when a dot, digit or @ is typed. Read the literal editor token for every update.
+        if (ic != null && editorInfo != null && completionFieldAllowed(editorInfo) &&
+            completionToken(ic)?.prefix?.any { !it.isLetter() } == true &&
+            maybeShowStructuredCompletions(ic, editorInfo)) {
+            pendingTypedWord = null
+            pendingJoinerStem = null
+            contextTracker.clearCurrentWord()
+            contextTracker.clearCurrentWordSuffix()
+            contextTracker.clearLastAutoInsertedWord()
+            contextTracker.clearAutocorrectTracking()
+            contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
+            return
+        }
+
+        try {
+            // Track current word being typed
+            when {
+                text.length == 1 && text[0].isLetter() -> {
+                    // A typed letter starts/extends a partial — next-word candidates (if
+                    // showing) are superseded by ordinary prefix predictions below.
+                    nextWordSuggestionsActive = false
+                    specialPromptActive = false
+                    swipePreferenceOffer = null
+                    if (!contextTracker.refreshCurrentWordFromEditor(ic, config.primary_language, editorInfo)) {
+                        contextTracker.appendToCurrentWord(text)
+                    }
+                    val partial = contextTracker.getCurrentWord()
+                    if (partial.codePointCount(0, partial.length) == 1) {
+                        suggestionBar?.resetScrollPosition()
+                    }
+                    // Editing ANY token supersedes the previous swipe/autocorrect slate,
+                    // including a pasted or cursor-synced token longer than one letter.
                     contextTracker.clearLastAutoInsertedWord()
                     contextTracker.clearAutocorrectTracking()
                     contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
-                    // v1.2.6: Clear special prompt flag - user is typing a new word
-                    specialPromptActive = false
-                    swipePreferenceOffer = null
+                    // W5: this word is now typed-but-unlearned until something completes it.
+                    pendingTypedWord = contextTracker.getCurrentWord()
+                    updatePredictionsForCurrentWord()
                 }
-                // W5: this word is now typed-but-unlearned until something completes it.
-                pendingTypedWord = contextTracker.getCurrentWord()
-                updatePredictionsForCurrentWord()
-            }
-            // W7 (audit 2026-09-26): an apostrophe/hyphen INSIDE a word ("don'", "co-") does not
-            // end the word for LEARNING. It used to fall into the branch below and learn "don",
-            // then "t" at the space — a fragment unigram plus the bigram don→t. The tracker, the
-            // bar and the predictor reset exactly as before (typing-prediction behaviour is
-            // unchanged); only the stem is held so the completed token is learned whole.
-            text.length == 1 && isIntraWordJoiner(text[0]) && contextTracker.getCurrentWordLength() > 0 -> {
-                pendingJoinerStem = joinedLearnToken(pendingJoinerStem, contextTracker.getCurrentWord()) + text
-                pendingTypedWord = null
-                contextTracker.clearCurrentWord()
-                predictionCoordinator.getWordPredictor()?.reset()
-                nextWordSuggestionsActive = false
-                suggestionBar?.clearSuggestions()
-            }
-            text.length == 1 && !text[0].isLetter() -> {
-                // Any non-letter character - update context and reset current word
-
-                // Swipe-correction offer earned by this completion (shown at the end of the branch).
-                var swipeOffer: String? = null
-
-                // W7: a joiner stem followed directly by a non-letter ("kids'" + space, "word--")
-                // is a finished word — learn the stem without its trailing joiner.
-                val danglingStem = pendingJoinerStem
-                if (danglingStem != null && contextTracker.getCurrentWordLength() == 0) {
-                    pendingJoinerStem = null
-                    val stemWord = trimJoiners(danglingStem)
-                    if (stemWord.isNotEmpty() && editorEndsWithWholeToken(ic, danglingStem, text)) {
-                        updateContext(stemWord)
-                    }
-                }
-
-                // If we had a word being typed, add it to context before clearing
-                if (contextTracker.getCurrentWordLength() > 0) {
-                    val completedWord = contextTracker.getCurrentWord()
-
-                    // W7: glue a pending joiner stem ("don'") to this letter run ("t"). When the
-                    // stem is NOT already merged into the tracker word (cursor-sync merges it by
-                    // reading the editor), the tracker word is only the tail after the joiner —
-                    // a fragment that must be neither autocorrected nor I-capitalized on its own,
-                    // and is learned only as the joined token, only if the editor confirms it.
-                    val joinerStem = pendingJoinerStem
-                    val stemUnmerged = joinerStem != null && !completedWord.startsWith(joinerStem)
-                    val rawLearnToken = joinedLearnToken(joinerStem, completedWord)
-                    pendingJoinerStem = null
-                    // Learn-once (review of 59bd4159): only a word the user TYPED in this
-                    // session is learned here. A word cursor-sync merely re-read from the editor
-                    // (the user parked on it — e.g. came back to "hello|" after leaving the field,
-                    // where the flush already learned it — and pressed space) was learned when it
-                    // was typed; learning it again double-counts it. Typing onto a parked word
-                    // makes it pending again (handleCursorSyncPrediction adopts the synced form),
-                    // so "cat" + "s" still learns "cats". Text edits below (I-capitalization,
-                    // autocorrect) still apply to a parked word; only the learning is skipped.
-                    val typedThisSession = pendingTypedWord != null
-                    // W5: this word is completed here — never flush it again.
+                // W7 (audit 2026-09-26): an apostrophe/hyphen INSIDE a word ("don'", "co-") does not
+                // end the word for LEARNING. It used to fall into the branch below and learn "don",
+                // then "t" at the space — a fragment unigram plus the bigram don→t. The tracker, the
+                // bar and the predictor reset exactly as before (typing-prediction behaviour is
+                // unchanged); only the stem is held so the completed token is learned whole.
+                text.length == 1 && isIntraWordJoiner(text[0]) && contextTracker.getCurrentWordLength() > 0 -> {
+                    pendingJoinerStem = joinedLearnToken(pendingJoinerStem, contextTracker.getCurrentWord()) + text
                     pendingTypedWord = null
+                    contextTracker.clearCurrentWord()
+                    predictionCoordinator.getWordPredictor()?.reset()
+                    nextWordSuggestionsActive = false
+                    suggestionBar?.clearSuggestions()
+                }
+                text.length == 1 && !text[0].isLetter() -> {
+                    // Any non-letter character - update context and reset current word
+                    suggestionBar?.resetScrollPosition()
 
-                    // Auto-correct the typed word if feature is enabled
-                    // DISABLED in Termux app due to erratic behavior with terminal input
-                    val inTermuxApp = isTermuxEditor(editorInfo)
+                    // Swipe-correction offer earned by this completion (shown at the end of the branch).
+                    var swipeOffer: String? = null
 
-                    // Issue #72: Auto-capitalize "I" words when completed
-                    // Check BEFORE autocorrect so this works even if autocorrect is disabled
-                    val capitalizedWord = capitalizeIWord(completedWord)
-                    val needsICapitalization = text == " " && !inTermuxApp && !stemUnmerged &&
-                        capitalizedWord != completedWord
-
-                    if (needsICapitalization) {
-                        ic?.let { inputConnection ->
-                            // Delete the typed word + space (already committed)
-                            inputConnection.deleteSurroundingText(completedWord.length + 1, 0)
-                            // Insert the capitalized word with trailing space
-                            inputConnection.commitText("$capitalizedWord ", 1)
-                            if (typedThisSession) updateContext(capitalizedWord)
-                            noteTypedWordCommitted(capitalizedWord, inputConnection, editorInfo)
-                                ?.let { deferSwipeOffer(it) }
-                            contextTracker.clearCurrentWord()
-                            contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
-                            vlog { "I-WORD CAPITALIZE: '$completedWord' → '$capitalizedWord'" }
-                            predictionCoordinator.getWordPredictor()?.reset()
-                            suggestionBar?.clearSuggestions()
-                            return
+                    // W7: a joiner stem followed directly by a non-letter ("kids'" + space, "word--")
+                    // is a finished word — learn the stem without its trailing joiner.
+                    val danglingStem = pendingJoinerStem
+                    if (danglingStem != null && contextTracker.getCurrentWordLength() == 0) {
+                        pendingJoinerStem = null
+                        val stemWord = trimJoiners(danglingStem)
+                        if (stemWord.isNotEmpty() && editorEndsWithWholeToken(ic, danglingStem, text)) {
+                            updateContext(stemWord)
                         }
                     }
 
-                    // Non-prose guard (2026-07-13): the word tracker only sees
-                    // LETTERS, so "teh" inside "foo.teh" / "user@teh" /
-                    // "https://teh…" looks identical to prose "teh". The editor
-                    // text reveals the real token — skip autocorrect when the
-                    // cursor just left a URL/email/path-like token, otherwise
-                    // domains and pasted-then-edited URLs get corrupted.
-                    val inNonProseToken = AutocorrectContextGuard.isNonProseContext(
-                        ic?.getTextBeforeCursor(72, 0)
-                    )
+                    // If we had a word being typed, add it to context before clearing
+                    if (contextTracker.getCurrentWordLength() > 0) {
+                        val completedWord = contextTracker.getCurrentWord()
 
-                    if (config.autocorrect_enabled && predictionCoordinator.getWordPredictor() != null &&
-                        text == " " && !inTermuxApp && !inNonProseToken && !stemUnmerged) {
-                        var correctedWord = predictionCoordinator.getWordPredictor()?.autoCorrect(completedWord)
+                        // W7: glue a pending joiner stem ("don'") to this letter run ("t"). When the
+                        // stem is NOT already merged into the tracker word (cursor-sync merges it by
+                        // reading the editor), the tracker word is only the tail after the joiner —
+                        // a fragment that must be neither autocorrected nor I-capitalized on its own,
+                        // and is learned only as the joined token, only if the editor confirms it.
+                        val joinerStem = pendingJoinerStem
+                        val stemUnmerged = joinerStem != null && !completedWord.startsWith(joinerStem)
+                        val rawLearnToken = joinedLearnToken(joinerStem, completedWord)
+                        pendingJoinerStem = null
+                        // Learn-once (review of 59bd4159): only a word the user TYPED in this
+                        // session is learned here. A word cursor-sync merely re-read from the editor
+                        // (the user parked on it — e.g. came back to "hello|" after leaving the field,
+                        // where the flush already learned it — and pressed space) was learned when it
+                        // was typed; learning it again double-counts it. Typing onto a parked word
+                        // makes it pending again (handleCursorSyncPrediction adopts the synced form),
+                        // so "cat" + "s" still learns "cats". Text edits below (I-capitalization,
+                        // autocorrect) still apply to a parked word; only the learning is skipped.
+                        val typedThisSession = pendingTypedWord != null
+                        // W5: this word is completed here — never flush it again.
+                        pendingTypedWord = null
 
-                        // If correction was made, replace the typed word
-                        if (correctedWord != null && correctedWord != completedWord) {
-                            // Preserve original capitalization pattern
-                            correctedWord = preserveCapitalization(completedWord, correctedWord)
-                            // Also apply I-word capitalization
-                            correctedWord = capitalizeIWord(correctedWord)
+                        // Auto-correct the typed word if feature is enabled
+                        // DISABLED in Termux app due to erratic behavior with terminal input
+                        val inTermuxApp = isTermuxEditor(editorInfo)
 
+                        // Issue #72: Auto-capitalize "I" words when completed
+                        // Check BEFORE autocorrect so this works even if autocorrect is disabled
+                        val capitalizedWord = capitalizeIWord(completedWord)
+                        val needsICapitalization = text == " " && !inTermuxApp && !stemUnmerged &&
+                            capitalizedWord != completedWord
+
+                        if (needsICapitalization) {
                             ic?.let { inputConnection ->
-                                // At this point:
-                                // - The typed word "thid" has been committed via KeyEventHandler.send_text()
-                                // - The space " " has ALSO been committed via handle_text_typed(" ")
-                                // - Editor contains "thid "
-                                // - We need to delete both the word AND the space, then insert corrected word + space
-
                                 // Delete the typed word + space (already committed)
                                 inputConnection.deleteSurroundingText(completedWord.length + 1, 0)
-
-                                // Insert the corrected word WITH trailing space (normal apps only)
-                                inputConnection.commitText("$correctedWord ", 1)
-
-                                // Update context with corrected word (learn-once: typed words only)
-                                if (typedThisSession) updateContext(correctedWord)
-                                // Swipe corrections: the committed word is autocorrect's, not the
-                                // user's — it cannot answer a swipe undo. (A kept re-swipe settles;
-                                // the bar is about to show the autocorrect undo, so its offer waits.)
-                                noteSwipeCorrectionBoundary(editorInfo)?.let { deferSwipeOffer(it) }
-
-                                // Clear current word
+                                // Insert the capitalized word with trailing space
+                                inputConnection.commitText("$capitalizedWord ", 1)
+                                keyeventhandler.noteEditorTextMutation(inputConnection)
+                                if (typedThisSession) updateContext(capitalizedWord)
+                                noteTypedWordCommitted(capitalizedWord, inputConnection, editorInfo)
+                                    ?.let { deferSwipeOffer(it) }
                                 contextTracker.clearCurrentWord()
+                                contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
+                                vlog { "I-WORD CAPITALIZE: '$completedWord' → '$capitalizedWord'" }
+                                predictionCoordinator.getWordPredictor()?.reset()
+                                suggestionBar?.clearSuggestions()
+                                return
+                            }
+                        }
 
-                                // Track autocorrect state for undo functionality
-                                // When user taps original word in suggestions, we can detect and replace
-                                contextTracker.setLastAutoInsertedWord(correctedWord)
-                                contextTracker.setLastCommitSource(PredictionSource.AUTOCORRECT)
-                                contextTracker.setLastAutocorrectOriginalWord(completedWord)
+                        // Non-prose guard (2026-07-13): the word tracker only sees
+                        // LETTERS, so "teh" inside "foo.teh" / "user@teh" /
+                        // "https://teh…" looks identical to prose "teh". The editor
+                        // text reveals the real token — skip autocorrect when the
+                        // cursor just left a URL/email/path-like token, otherwise
+                        // domains and pasted-then-edited URLs get corrupted.
+                        val inNonProseToken = AutocorrectContextGuard.isNonProseContext(
+                            ic?.getTextBeforeCursor(72, 0)
+                        )
 
-                                vlog { "AUTOCORRECT: '$completedWord' → '$correctedWord' (tracking for undo)" }
+                        if (config.autocorrect_enabled && predictionCoordinator.getWordPredictor() != null &&
+                            text == " " && !inTermuxApp && !inNonProseToken && !stemUnmerged) {
+                            var correctedWord = predictionCoordinator.getWordPredictor()?.autoCorrect(completedWord)
 
+                            // If correction was made, replace the typed word
+                            if (correctedWord != null && correctedWord != completedWord) {
+                                // Preserve original capitalization pattern
+                                correctedWord = preserveCapitalization(completedWord, correctedWord)
+                                // Also apply I-word capitalization
+                                correctedWord = capitalizeIWord(correctedWord)
+
+                                ic?.let { inputConnection ->
+                                    // At this point:
+                                    // - The typed word "thid" has been committed via KeyEventHandler.send_text()
+                                    // - The space " " has ALSO been committed via handle_text_typed(" ")
+                                    // - Editor contains "thid "
+                                    // - We need to delete both the word AND the space, then insert corrected word + space
+
+                                    // Delete the typed word + space (already committed)
+                                    val selection = try { herbertSelection(inputConnection) } catch (_: Exception) { null }
+                                    val beforeCorrectionCursor = selection?.takeIf {
+                                        it.selectionStart >= 0 && it.selectionStart == it.selectionEnd
+                                    }?.let { it.startOffset + it.selectionStart }
+                                    inputConnection.deleteSurroundingText(completedWord.length + 1, 0)
+
+                                    // Insert the corrected word WITH trailing space (normal apps only)
+                                    val correctionAccepted = inputConnection.commitText("$correctedWord ", 1)
+                                    keyeventhandler.noteEditorTextMutation(inputConnection)
+
+                                    // Update context with corrected word (learn-once: typed words only)
+                                    if (typedThisSession) updateContext(correctedWord)
+                                    // Swipe corrections: the committed word is autocorrect's, not the
+                                    // user's — it cannot answer a swipe undo. (A kept re-swipe settles;
+                                    // the bar is about to show the autocorrect undo, so its offer waits.)
+                                    noteSwipeCorrectionBoundary(editorInfo)?.let { deferSwipeOffer(it) }
+
+                                    // Clear current word
+                                    contextTracker.clearCurrentWord()
+
+                                    // Track autocorrect state for undo functionality
+                                    // When user taps original word in suggestions, we can detect and replace
+                                    contextTracker.setLastAutoInsertedWord(correctedWord)
+                                    contextTracker.setLastCommitSource(PredictionSource.AUTOCORRECT)
+                                    contextTracker.setLastAutocorrectOriginalWord(completedWord)
+                                    if (correctionAccepted && beforeCorrectionCursor != null) {
+                                        // Composing-less search editors can discard the trailing
+                                        // space of a replacement commit. Stamp the actual verified
+                                        // word ending, rather than disarming immediate BS undo.
+                                        val start = beforeCorrectionCursor - completedWord.length - 1
+                                        typedAutocorrectBookmark = listOf(" ", "").map { separator ->
+                                            AutocorrectBookmark(inputConnection, editorInfo, correctedWord,
+                                                separator, start + correctedWord.length + separator.length,
+                                                completedWord)
+                                        }.firstOrNull { bookmarkMatches(it, inputConnection, editorInfo) }
+                                    }
+
+                                    vlog { "AUTOCORRECT: '$completedWord' → '$correctedWord' (tracking for undo)" }
+
+                                    // v1.2.6 FIX: Cancel pending prediction task and set flag to prevent overwriting
+                                    predictionTasks.cancelCurrent()
+                                    specialPromptActive = true
+
+                                    // Show original word as first suggestion for easy undo
+                                    suggestionBar?.setSuggestionsWithScores(
+                                        listOf(completedWord, correctedWord), // Original word first for undo
+                                        listOf(0, 0),
+                                        listOf(
+                                            SuggestionMeta(
+                                                SuggestionOrigin.AUTOCORRECT,
+                                                note = ProvenanceNote.TypedWordUndo
+                                            ),
+                                            SuggestionMeta(
+                                                SuggestionOrigin.AUTOCORRECT,
+                                                note = ProvenanceNote.AutocorrectedFrom(completedWord)
+                                            )
+                                        )
+                                    )
+
+                                    // Reset prediction state
+                                    predictionCoordinator.getWordPredictor()?.reset()
+
+                                    return // Skip normal text processing - we've handled everything
+                                }
+                            }
+                        }
+
+                        // W7: learn the whole token ("don't", "co-op"), never the post-joiner tail.
+                        // An unmerged join the editor contradicts is dropped rather than learned.
+                        val learnWord = trimJoiners(rawLearnToken)
+                        if (typedThisSession && learnWord.isNotEmpty() &&
+                            (!stemUnmerged || editorEndsWithWholeToken(ic, rawLearnToken, text))
+                        ) {
+                            updateContext(learnWord)
+                        }
+
+                        // Swipe corrections: a word typed this session may answer a swipe undo; one
+                        // cursor-sync merely re-read cannot (it was not typed in reply to anything).
+                        swipeOffer = if (typedThisSession && learnWord.isNotEmpty()) {
+                            noteTypedWordCommitted(learnWord, ic, editorInfo)
+                        } else {
+                            noteSwipeCorrectionBoundary(editorInfo)
+                        }
+
+                        // Check if this word is NOT in dictionary - offer to add it
+                        // Only prompt if:
+                        // 1. Word was just completed with space (text == " ")
+                        // 2. Word is at least 3 characters (avoid prompts for short words)
+                        // 3. Word is not in dictionary
+                        // 4. Not a valid possessive of a known word (UT-2) and not a
+                        //    URL/email/path fragment (UT-3) — see
+                        //    AutocorrectContextGuard.shouldOfferAddToDictionary.
+                        // W7: never offer a post-joiner fragment ("roll" of "rock-n-roll") to the dictionary.
+                        if (text == " " && !stemUnmerged && swipeOffer == null) {
+                            val wordPredictor = predictionCoordinator.getWordPredictor()
+                            val dictionaryManager = predictionCoordinator.getDictionaryManager()
+                            val shouldPrompt = AutocorrectContextGuard.shouldOfferAddToDictionary(
+                                token = completedWord,
+                                inNonProseToken = inNonProseToken,
+                                /**
+                                 * ARC-101: this UI prompt intentionally asks the exact-case user-word
+                                 * view. A differently cased stored word may still offer an additive
+                                 * prompt; folding would change prompt timing, not protect any data.
+                                 */
+                                isKnownWord = { w ->
+                                    // Predictor not ready → treat as known (never prompt),
+                                    // preserving the original `?: true` behavior. The field flag
+                                    // keeps learned selection history (which can also admit a
+                                    // word) out of this decision in an incognito field (M5).
+                                    (wordPredictor?.isInDictionary(w, fieldAllowsPersonalizedLearning) ?: true) ||
+                                        (dictionaryManager?.isUserWord(w) ?: false)
+                                },
+                                isDisabledWord = { w -> wordPredictor?.isWordDisabled(w) ?: false }
+                            )
+
+                            if (shouldPrompt) {
                                 // v1.2.6 FIX: Cancel pending prediction task and set flag to prevent overwriting
                                 predictionTasks.cancelCurrent()
                                 specialPromptActive = true
 
-                                // Show original word as first suggestion for easy undo
+                                // Store word for add-to-dictionary handling
+                                contextTracker.setLastAutocorrectOriginalWord(completedWord)
+                                contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
+
+                                // Show "Add to dictionary?" prompt. The wire string is
+                                // produced by the shared typed model (single source of
+                                // truth for the dict_add: protocol).
                                 suggestionBar?.setSuggestionsWithScores(
-                                    listOf(completedWord, correctedWord), // Original word first for undo
-                                    listOf(0, 0),
-                                    listOf(
-                                        SuggestionMeta(
-                                            SuggestionOrigin.AUTOCORRECT,
-                                            note = ProvenanceNote.TypedWordUndo
-                                        ),
-                                        SuggestionMeta(
-                                            SuggestionOrigin.AUTOCORRECT,
-                                            note = ProvenanceNote.AutocorrectedFrom(completedWord)
-                                        )
-                                    )
+                                    listOf(Suggestion.AddToDictionary(completedWord).wire),
+                                    listOf(0)
                                 )
 
-                                // Reset prediction state
-                                predictionCoordinator.getWordPredictor()?.reset()
+                                vlog { "UNKNOWN WORD: '$completedWord' - showing add to dictionary prompt" }
 
-                                return // Skip normal text processing - we've handled everything
+                                // Skip clearing suggestions below
+                                contextTracker.clearCurrentWord()
+                                predictionCoordinator.getWordPredictor()?.reset()
+                                return
                             }
                         }
                     }
 
-                    // W7: learn the whole token ("don't", "co-op"), never the post-joiner tail.
-                    // An unmerged join the editor contradicts is dropped rather than learned.
-                    val learnWord = trimJoiners(rawLearnToken)
-                    if (typedThisSession && learnWord.isNotEmpty() &&
-                        (!stemUnmerged || editorEndsWithWholeToken(ic, rawLearnToken, text))
-                    ) {
-                        updateContext(learnWord)
+                    // Sentence boundary (audit 2026-08-06 §4.6): after `.` `?` `!` the
+                    // learned-context window resets so recordSequence never learns
+                    // bigrams spanning a sentence boundary (noise for both context
+                    // boosting and next-word generation).
+                    if (text[0] == '.' || text[0] == '?' || text[0] == '!') {
+                        predictionCoordinator.getWordPredictor()?.onSentenceBoundary()
+                        // No word can answer a swipe undo across a sentence end; a kept re-swipe settles.
+                        swipeOffer = swipeOffer ?: noteSwipeCorrectionBoundary(editorInfo)
                     }
 
-                    // Swipe corrections: a word typed this session may answer a swipe undo; one
-                    // cursor-sync merely re-read cannot (it was not typed in reply to anything).
-                    swipeOffer = if (typedThisSession && learnWord.isNotEmpty()) {
-                        noteTypedWordCommitted(learnWord, ic, editorInfo)
-                    } else {
-                        noteSwipeCorrectionBoundary(editorInfo)
-                    }
+                    // Reset current word
+                    contextTracker.clearCurrentWord()
+                    predictionCoordinator.getWordPredictor()?.reset()
+                    nextWordSuggestionsActive = false
+                    suggestionBar?.clearSuggestions()
 
-                    // Check if this word is NOT in dictionary - offer to add it
-                    // Only prompt if:
-                    // 1. Word was just completed with space (text == " ")
-                    // 2. Word is at least 3 characters (avoid prompts for short words)
-                    // 3. Word is not in dictionary
-                    // 4. Not a valid possessive of a known word (UT-2) and not a
-                    //    URL/email/path fragment (UT-3) — see
-                    //    AutocorrectContextGuard.shouldOfferAddToDictionary.
-                    // W7: never offer a post-joiner fragment ("roll" of "rock-n-roll") to the dictionary.
-                    if (text == " " && !stemUnmerged && swipeOffer == null) {
-                        val wordPredictor = predictionCoordinator.getWordPredictor()
-                        val dictionaryManager = predictionCoordinator.getDictionaryManager()
-                        val shouldPrompt = AutocorrectContextGuard.shouldOfferAddToDictionary(
-                            token = completedWord,
-                            inNonProseToken = inNonProseToken,
-                            /**
-                             * ARC-101: this UI prompt intentionally asks the exact-case user-word
-                             * view. A differently cased stored word may still offer an additive
-                             * prompt; folding would change prompt timing, not protect any data.
-                             */
-                            isKnownWord = { w ->
-                                // Predictor not ready → treat as known (never prompt),
-                                // preserving the original `?: true` behavior. The field flag
-                                // keeps learned selection history (which can also admit a
-                                // word) out of this decision in an incognito field (M5).
-                                (wordPredictor?.isInDictionary(w, fieldAllowsPersonalizedLearning) ?: true) ||
-                                    (dictionaryManager?.isUserWord(w) ?: false)
-                            },
-                            isDisabledWord = { w -> wordPredictor?.isWordDisabled(w) ?: false }
-                        )
-
-                        if (shouldPrompt) {
-                            // v1.2.6 FIX: Cancel pending prediction task and set flag to prevent overwriting
-                            predictionTasks.cancelCurrent()
-                            specialPromptActive = true
-
-                            // Store word for add-to-dictionary handling
-                            contextTracker.setLastAutocorrectOriginalWord(completedWord)
-                            contextTracker.setLastCommitSource(PredictionSource.USER_TYPED_TAP)
-
-                            // Show "Add to dictionary?" prompt. The wire string is
-                            // produced by the shared typed model (single source of
-                            // truth for the dict_add: protocol).
-                            suggestionBar?.setSuggestionsWithScores(
-                                listOf(Suggestion.AddToDictionary(completedWord).wire),
-                                listOf(0)
-                            )
-
-                            vlog { "UNKNOWN WORD: '$completedWord' - showing add to dictionary prompt" }
-
-                            // Skip clearing suggestions below
-                            contextTracker.clearCurrentWord()
-                            predictionCoordinator.getWordPredictor()?.reset()
-                            return
+                    // Next-word prediction call-site 1 (audit §4.4): after a typed word
+                    // completes with a space, offer context-only candidates instead of
+                    // leaving the bar empty. Space only — after sentence-final punct the
+                    // context was just cleared, and other punctuation keeps the bar empty.
+                    // A swipe-correction offer earned by this word takes the bar instead — or, after a
+                    // space or sentence end, one deferred from a moment the bar could not show it.
+                    // (Not after other characters: a digit or a comma mid-token is no idle moment.)
+                    val offerNow = swipeOffer
+                        ?: if (text == " " || text[0] == '.' || text[0] == '?' || text[0] == '!') {
+                            takeDeferredSwipeOffer(editorInfo)
+                        } else {
+                            null
                         }
+                    if (offerNow != null) {
+                        showSwipePreferenceOffer(offerNow)
+                    } else if (text == " ") {
+                        maybeShowNextWordPredictions(editorInfo)
                     }
                 }
-
-                // Sentence boundary (audit 2026-08-06 §4.6): after `.` `?` `!` the
-                // learned-context window resets so recordSequence never learns
-                // bigrams spanning a sentence boundary (noise for both context
-                // boosting and next-word generation).
-                if (text[0] == '.' || text[0] == '?' || text[0] == '!') {
-                    predictionCoordinator.getWordPredictor()?.onSentenceBoundary()
-                    // No word can answer a swipe undo across a sentence end; a kept re-swipe settles.
-                    swipeOffer = swipeOffer ?: noteSwipeCorrectionBoundary(editorInfo)
-                }
-
-                // Reset current word
-                contextTracker.clearCurrentWord()
-                predictionCoordinator.getWordPredictor()?.reset()
-                nextWordSuggestionsActive = false
-                suggestionBar?.clearSuggestions()
-
-                // Next-word prediction call-site 1 (audit §4.4): after a typed word
-                // completes with a space, offer context-only candidates instead of
-                // leaving the bar empty. Space only — after sentence-final punct the
-                // context was just cleared, and other punctuation keeps the bar empty.
-                // A swipe-correction offer earned by this word takes the bar instead — or, after a
-                // space or sentence end, one deferred from a moment the bar could not show it.
-                // (Not after other characters: a digit or a comma mid-token is no idle moment.)
-                val offerNow = swipeOffer
-                    ?: if (text == " " || text[0] == '.' || text[0] == '?' || text[0] == '!') {
-                        takeDeferredSwipeOffer(editorInfo)
-                    } else {
-                        null
-                    }
-                if (offerNow != null) {
-                    showSwipePreferenceOffer(offerNow)
-                } else if (text == " ") {
-                    maybeShowNextWordPredictions(editorInfo)
+                text.length > 1 -> {
+                    // Multi-character input (paste, etc) - reset. The typed word / joiner stem it
+                    // interrupted is abandoned, not learned (W5/W7: when in doubt, don't learn).
+                    pendingTypedWord = null
+                    pendingJoinerStem = null
+                    contextTracker.clearCurrentWord()
+                    predictionCoordinator.getWordPredictor()?.reset()
+                    nextWordSuggestionsActive = false
+                    suggestionBar?.clearSuggestions()
                 }
             }
-            text.length > 1 -> {
-                // Multi-character input (paste, etc) - reset. The typed word / joiner stem it
-                // interrupted is abandoned, not learned (W5/W7: when in doubt, don't learn).
-                pendingTypedWord = null
-                pendingJoinerStem = null
-                contextTracker.clearCurrentWord()
-                predictionCoordinator.getWordPredictor()?.reset()
-                nextWordSuggestionsActive = false
-                suggestionBar?.clearSuggestions()
-            }
+        } finally {
+            if (!maybeShowStructuredCompletions(ic, editorInfo)) maybeShowStructuredEntryAdd(ic, editorInfo)
         }
     }
 
@@ -2902,6 +3481,13 @@ class SuggestionHandler(
      * Updates predictions as user deletes characters.
      */
     fun handleBackspace() {
+        dismissStartupWords()
+        structuredCompletionOffer = null
+        structuredAddOffer = null
+        onEditorCursorChanged()
+        clearAutocorrectBookmarks()
+        specialPromptActive = false
+        swipePreferenceOffer = null
         suggestionBar?.dismissUndoableMessage()
 
         // Handle password mode: update password display
@@ -2910,29 +3496,35 @@ class SuggestionHandler(
             return
         }
 
-        // Backspace dismisses next-word candidates (audit §4.4 replacement
-        // semantics — the only new state next-word introduces).
-        if (nextWordSuggestionsActive && contextTracker.getCurrentWordLength() == 0) {
-            nextWordSuggestionsActive = false
-            suggestionBar?.clearSuggestions()
-            return
-        }
-
-        if (contextTracker.getCurrentWordLength() > 0) {
-            contextTracker.deleteLastChar()
-            // W5: the pending typed word shrinks with the tracker (and is gone once empty).
-            if (pendingTypedWord != null) {
-                pendingTypedWord = contextTracker.getCurrentWord().ifEmpty { null }
-            }
-            if (contextTracker.getCurrentWordLength() > 0) {
-                updatePredictionsForCurrentWord()
-            } else {
+        try {
+            // Backspace dismisses next-word candidates (audit §4.4 replacement
+            // semantics — the only new state next-word introduces).
+            if (nextWordSuggestionsActive && contextTracker.getCurrentWordLength() == 0) {
+                nextWordSuggestionsActive = false
                 suggestionBar?.clearSuggestions()
+                return
             }
-        } else {
-            // W7: with no partial, this backspace deleted the joiner (or text before it) — the
-            // held stem no longer describes the editor. Abandon it unlearned.
-            pendingJoinerStem = null
+
+            if (contextTracker.getCurrentWordLength() > 0) {
+                contextTracker.deleteLastChar()
+                // W5: the pending typed word shrinks with the tracker (and is gone once empty).
+                if (pendingTypedWord != null) {
+                    pendingTypedWord = contextTracker.getCurrentWord().ifEmpty { null }
+                }
+                if (contextTracker.getCurrentWordLength() > 0) {
+                    updatePredictionsForCurrentWord()
+                } else {
+                    suggestionBar?.clearSuggestions()
+                }
+            } else {
+                // W7: with no partial, this backspace deleted the joiner (or text before it) — the
+                // held stem no longer describes the editor. Abandon it unlearned.
+                pendingJoinerStem = null
+            }
+        } finally {
+            liveEditorProvider?.invoke()?.let { (ic, info) ->
+                if (!maybeShowStructuredCompletions(ic, info)) maybeShowStructuredEntryAdd(ic, info)
+            }
         }
     }
 
@@ -2971,16 +3563,33 @@ class SuggestionHandler(
      * so there is no gateable possessive delta here (oracle scenario 25 stays as-is).
      */
     fun handleCursorSyncPrediction() {
+        onEditorCursorChanged()
         // Password mode: never surface predictions from a cursor move (matches the tap-path guard
         // in handleRegularTyping and handlePredictionResults). synchronizeWithCursor already skips
         // password input types, so currentWord is normally empty here — this is defence in depth.
         if (isPasswordMode) return
+        liveEditorProvider?.invoke()?.let { (ic, info) ->
+            if (preserveAutocorrectPrompt(ic, info)) return
+            if (maybeShowStructuredCompletions(ic, info)) return
+            if (maybeShowStructuredEntryAdd(ic, info)) return
+        }
+        clearAutocorrectBookmarks()
+        specialPromptActive = false
+        swipePreferenceOffer = null
         // W5/W7: cursor-sync REPLACED the tracker word with the word at the cursor. Typing a
         // letter also moves the cursor, so a sync that shows the typed word (possibly with a
         // prefix the user typed onto, "abc" + "d" → "abcd") keeps it pending and adopts the
         // synced form; a sync onto a different word, or into the middle of one, means the
         // cursor moved away and the pending word is abandoned unlearned.
         val synced = contextTracker.getCurrentWord()
+        if (synced != contextTracker.getLastAutoInsertedWord() ||
+            contextTracker.getCurrentWordSuffixLength() > 0) {
+            // A prediction chosen in an edited/pasted token replaces THAT token,
+            // rather than taking the stale swipe/autocorrect replacement branch.
+            contextTracker.clearLastAutoInsertedWord()
+            contextTracker.clearAutocorrectTracking()
+            contextTracker.setLastCommitSource(PredictionSource.UNKNOWN)
+        }
         pendingTypedWord = pendingTypedWord?.takeIf {
             contextTracker.getCurrentWordSuffixLength() == 0 && synced.endsWith(it)
         }?.let { synced }
@@ -3000,8 +3609,10 @@ class SuggestionHandler(
      * legacy IC cursor-sync's dual-search so contraction bases hidden behind an apostrophe still hit.
      */
     private fun updatePredictionsForCurrentWord() {
+        val revisionAtSubmit = ++editorPredictionRevision
         if (contextTracker.getCurrentWordLength() > 0) {
             val partial = contextTracker.getCurrentWord()
+            val suffixAtSubmit = contextTracker.getCurrentWordSuffix()
 
             // Check if first letter is uppercase (user typed with Shift, or cursor-synced from a
             // capitalized token). Mirrors the legacy IC cursor-sync rawPrefix capitalization check.
@@ -3134,12 +3745,13 @@ class SuggestionHandler(
                 val finalMetas: List<SuggestionMeta>
                 if (config.show_exact_typed_word && partial.length >= 2) {
                     // Check if the exact partial (with capitalization) is already in predictions
+                    val fullTyped = partial + suffixAtSubmit
                     val exactTyped = if (shouldCapitalize) {
-                        partial.replaceFirstChar {
+                        fullTyped.replaceFirstChar {
                             if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString()
                         }
                     } else {
-                        partial
+                        fullTyped
                     }
                     val exactLower = exactTyped.lowercase()
                     val alreadyInPredictions = transformedWords.any { it.lowercase() == exactLower }
@@ -3152,13 +3764,12 @@ class SuggestionHandler(
                     val isInDictionary = predictionCoordinator.getWordPredictor()?.isInDictionary(exactTyped) ?: true
 
                     if (!alreadyInPredictions && !isUserWord && !isInDictionary) {
-                        // Add exact typed word at the end as an ExactAdd suggestion.
-                        // Wire string from the shared typed model (single source of
-                        // truth for the exact_add: protocol). End position so it
-                        // doesn't displace the best prediction.
-                        finalWords = transformedWords + Suggestion.ExactAdd(exactTyped).wire
-                        finalScores = mergedScores + 0  // Low score since it's at the end
-                        finalMetas = mergedMetas + SuggestionMeta(SuggestionOrigin.EXACT_ADD)
+                        val first = (config.edit_behavior ?: EditBehaviorOptions()).exactAddFirst
+                        val chip = listOf(Suggestion.ExactAdd(exactTyped).wire)
+                        val chipMeta = listOf(SuggestionMeta(SuggestionOrigin.EXACT_ADD))
+                        finalWords = if (first) chip + transformedWords else transformedWords + chip
+                        finalScores = if (first) listOf(0) + mergedScores else mergedScores + listOf(0)
+                        finalMetas = if (first) chipMeta + mergedMetas else mergedMetas + chipMeta
                         vlog { "EXACT ADD: Added '$exactTyped' as tap-to-add option" }
                     } else {
                         finalWords = transformedWords
@@ -3179,7 +3790,10 @@ class SuggestionHandler(
                     // drops runnables when the View is not attached to a window
                     mainHandler.post {
                         // v1.2.6: Skip if special prompt became active while queued
-                        if (specialPromptActive) return@post
+                        if (specialPromptActive || isPasswordMode ||
+                            editorPredictionRevision != revisionAtSubmit ||
+                            contextTracker.getCurrentWord() != partial ||
+                            contextTracker.getCurrentWordSuffix() != suffixAtSubmit) return@post
 
                         suggestionBar?.let { bar ->
                             // Prefix predictions supersede any next-word display state
@@ -3188,6 +3802,9 @@ class SuggestionHandler(
                             nextWordSuggestionsActive = false
                             bar.setShowDebugScores(config.swipe_show_debug_scores)
                             bar.setShowOriginMarkers(config.suggestion_provenance_markers)
+                            val live = liveEditorProvider?.invoke()
+                            if (live != null && maybeShowStructuredCompletions(live.first, live.second,
+                                finalWords, finalScores, finalMetas)) return@post
                             // v1.2.0: Use merged scores that include contraction scores
                             bar.setSuggestionsWithScores(finalWords, finalScores, finalMetas)
                         }

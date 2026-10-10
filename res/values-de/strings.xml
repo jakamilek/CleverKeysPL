@@ -492,9 +492,9 @@
     <string name="input_suggestion_bar_opacity_title">Deckkraft der Vorschlagsleiste</string>
     <string name="input_suggestion_bar_opacity_desc">Transparenz der Vorschlagsleiste</string>
     <string name="input_auto_space_after_title">Automatisches Leerzeichen nach Vorschlag</string>
-    <string name="input_auto_space_after_desc">Nachgestelltes Leerzeichen beim Auswählen eines Vorschlags hinzufügen</string>
+    <string name="input_auto_space_after_desc">Nachgestelltes Leerzeichen beim Auswählen eines Vorschlags hinzufügen Gilt für gewischte Wörter und angetippte Vorschläge.</string>
     <string name="input_auto_space_before_title">Automatisches Leerzeichen vor Vorschlag</string>
-    <string name="input_auto_space_before_desc">Führendes Leerzeichen vor einem getippten Vorschlag einfügen (Wischeingabe fügt immer Leerzeichen hinzu)</string>
+    <string name="input_auto_space_before_desc">Führendes Leerzeichen vor einem getippten Vorschlag einfügen (Wischeingabe fügt immer Leerzeichen hinzu) Gilt für gewischte Wörter und angetippte Vorschläge.</string>
     <string name="input_backspace_undo_swipe_title">Rücktaste macht Wischgeste rückgängig</string>
     <string name="input_backspace_undo_swipe_desc">Durch Tippen auf Rücktaste unmittelbar nach einem Wischtatwort wird das gesamte Wort gelöscht</string>
     <string name="input_show_exact_typed_title">Exakt getipptes Wort anzeigen</string>
@@ -2237,4 +2237,36 @@
     <string name="cmd_timestamp_iso_desc">Zeitstempel nach ISO 8601 einfügen (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">in %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Kurzer Backspace</string>
+    <string name="edit_backspace_hold_select_title">Wort beim Halten auswählen</string>
+    <string name="edit_backspace_release_delete_title">Auswahl beim Loslassen löschen</string>
+    <string name="edit_backspace_pause_enabled_title">Pause bei Richtungswechsel</string>
+    <string name="edit_backspace_pause_dp_title">Bremsweg</string>
+    <string name="edit_backspace_resume_dp_title">Weg zum Fortsetzen</string>
+    <string name="edit_backspace_speed_percent_title">Auswahlgeschwindigkeit</string>
+    <string name="edit_backspace_fast_percent_title">Schnelle Auswahl</string>
+    <string name="edit_backspace_accel_percent_title">Beschleunigungsschwelle</string>
+    <string name="edit_punctuation_remove_space_title">Leerzeichen vor Satzzeichen entfernen</string>
+    <string name="edit_punctuation_add_space_title">Leerzeichen nach Satzzeichen einfügen</string>
+    <string name="edit_format_search_fields_title">Automatische Formatierung in der Suche</string>
+    <string name="edit_numeric_period_caps_title">Großbuchstabe nach Zahl und Punkt</string>
+    <string name="edit_shift_word_case_title">Shift ändert Wortanfang</string>
+    <string name="edit_shift_word_end_title">Shift auch am Wortende</string>
+    <string name="edit_show_case_variants_title">Schreibweisen aus dem Wörterbuch zeigen</string>
+    <string name="edit_exact_add_first_title">Wort hinzufügen an erster Stelle</string>
+    <string name="edit_reset_suggestions_on_delete_title">Vorschläge nach Backspace zurücksetzen</string>
+    <string name="edit_tap_character">Zeichen oder Leerzeichen löschen</string>
+    <string name="edit_tap_autocorrect">Autokorrektur zurücknehmen, dann Zeichen</string>
+    <string name="edit_tap_swipe">Letztes Wischwort löschen, dann Zeichen</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Textformatierung</string>
+    <string name="edit_backspace_help">Auswahl beim Halten funktioniert auf der ganzen Tastatur. Ohne diese Option erfordert normales Löschen die Tastenwiederholung. Alternative Tippaktionen gelten direkt nach einem Vorschlag.</string>
+    <string name="edit_pause_help">Eine kurze Gegenbewegung pausiert. Eine längere Bewegung ab der Pausenposition setzt fort.</string>
+    <string name="edit_speed_help" formatted="false">Relativ zur bisherigen Gestengeschwindigkeit: 80% ist langsamer, 100% unverändert.</string>
+    <string name="edit_fast_help">Beschleunigung beginnt nach Überschreiten dieses Anteils der Bildschirmbreite. Ein Richtungswechsel setzt den Weg zurück.</string>
+    <string name="edit_format_help">Passwörter und technische Felder werden nie automatisch formatiert. Satzzeichenoptionen erfordern intelligente Interpunktion; Großschreibung nach Zahlen automatische Großschreibung.</string>
+    <string name="edit_fallback_header">Ältere zweiachsige Auswahl</string>
 </resources>
+

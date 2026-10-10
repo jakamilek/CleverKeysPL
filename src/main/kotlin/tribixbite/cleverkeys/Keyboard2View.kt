@@ -487,6 +487,7 @@ class Keyboard2View @JvmOverloads constructor(
     }
 
     fun reset() {
+        traceBackspace("view reset")
         _mods = Pointers.Modifiers.EMPTY
         _pointers.clear()
         requestLayout()
@@ -497,6 +498,7 @@ class Keyboard2View @JvmOverloads constructor(
      * Clear swipe typing state after suggestion selection
      */
     fun clearSwipeState() {
+        traceBackspace("view clear swipe state")
         // Clear any ongoing swipe gestures
         _pointers.clear()
         invalidate()
@@ -572,6 +574,28 @@ class Keyboard2View @JvmOverloads constructor(
         _config.handler?.key_up(k, mods)
         updateFlags()
         invalidate()
+    }
+
+    override fun tryWordCapitalization(): Boolean =
+        _config.handler?.tryWordCapitalization() ?: false
+
+    override fun beginBackspaceHold(): Boolean = _config.handler?.beginBackspaceHold() ?: false
+    override fun beginBackspaceDrag(): Boolean = _config.handler?.beginBackspaceDrag() ?: false
+    override fun deleteBackspaceHoldWord(): Boolean = _config.handler?.deleteBackspaceHoldWord() ?: false
+    override fun previewPreviousBackspaceWord(): Boolean = _config.handler?.previewPreviousBackspaceWord() ?: false
+    override fun stepBackspaceHold(direction: Int): Boolean =
+        _config.handler?.stepBackspaceHold(direction) ?: false
+    override fun finishBackspaceHold(commit: Boolean) {
+        _config.handler?.finishBackspaceHold(commit)
+        updateFlags()
+        invalidate()
+    }
+    override fun keepBackspaceHoldSelection() { _config.handler?.keepBackspaceHoldSelection() }
+    override fun backspaceDensity(): Float = resources.displayMetrics.density
+    override fun backspaceScreenWidth(): Float = resources.displayMetrics.widthPixels.toFloat()
+    override fun backspaceKeyboardWidth(): Float = width.toFloat()
+    override fun traceBackspace(message: String) {
+        _keyboard2?.traceBackspaceGesture("POINTER $message")
     }
 
     override fun onPointerHold(k: KeyValue, mods: Pointers.Modifiers) {
@@ -1272,6 +1296,7 @@ class Keyboard2View @JvmOverloads constructor(
                 _pointers.onTouchUp(event.getPointerId(event.actionIndex))
             }
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                _keyboard2?.flushPendingHerbertSwipe()
                 val p = event.actionIndex
                 val tx = event.getX(p)
                 val ty = event.getY(p)
@@ -1284,6 +1309,7 @@ class Keyboard2View @JvmOverloads constructor(
                     _pointers.onTouchMove(event.getX(p), event.getY(p), event.getPointerId(p))
             }
             MotionEvent.ACTION_CANCEL -> {
+                traceBackspace("touch CANCEL")
                 _pointers.onTouchCancel()
             }
             else -> return false

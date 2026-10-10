@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="herbert_live_title">SI HerBERT — test w klawiaturze</string>
+    <string name="herbert_live_explanation">Test lokalnej SI dla małej grupy form słowa, np. kapitalizacją / kapitalizacja lub praca / pracy. SI porównuje najwyżej cztery pisownie dwóch słów rozpoznanych przez dekoder. Bliskość wynika z polskich znaków diakrytycznych albo wspólnego lematu w źródłowych metadanych. Metadane kapitalizacji są potrzebne do dodania pisowni wielką literą, ale nie do porównania zwykłych form rozpoznanych przez dekoder. Pierwsze miejsca pokazują różne formy słów, jeśli są dostępne. Dodatkowe warianty wielkości liter pozostają do wyboru dalej na pasku, także bez SI. Kontekst pochodzi wyłącznie z bieżącego pola i zachowuje wielkość liter oraz interpunkcję. Hasła, pola prywatne, wyszukiwarki, adresy WWW i e-mail są pomijane. FP32 zużywał na telefonie testowym około 2,1 GiB pamięci całego procesu — to wersja eksperymentalna. Osobno zaimportuj zweryfikowany ZIP testowy FP32. Model i wpisywany kontekst nie trafiają do kopii zapasowych.</string>
+    <string name="herbert_live_enable">SI w podpowiedziach (test)</string>
+    <string name="herbert_live_absent">Brak zaimportowanego modelu. Działają podpowiedzi geometryczne.</string>
+    <string name="herbert_live_off">SI wyłączona. Zaimportowany plik pozostaje dostępny.</string>
+    <string name="herbert_live_loading">Wczytywanie / sprawdzanie modelu. Do zakończenia weryfikacji działają podpowiedzi geometryczne.</string>
+    <string name="herbert_live_ready">SI gotowa — zgodne: tokenizer, 232 paczki wyników natywnych i suma kontrolna modelu.</string>
+    <string name="herbert_live_failed">SI niedostępna. Wyłącz ją i włącz ponownie albo ponownie zaimportuj zweryfikowany ZIP. Podpowiedzi zachowują kolejność geometryczną.</string>
+    <string name="herbert_live_importing">Importowanie i sprawdzanie zweryfikowanego ZIP-a testowego…</string>
+    <string name="herbert_live_imported">Model zaimportowany. Włącz SI, aby uruchomić weryfikację natywną i test w klawiaturze.</string>
+    <string name="herbert_live_context">Kontekst SI: do %1$d poprzednich słów</string>
+    <string name="herbert_live_wait">Maksymalny czas oczekiwania: %1$d ms. Po jego upływie lub po następnym dotknięciu klawiatury słowo zostaje wstawione według dotychczasowej kolejności.</string>
+    <string name="herbert_live_statistics">Analizy: %1$d; przyjęte w terminie: %2$d; powrót do dotychczasowej kolejności: %3$d; ostatnia analiza: %4$.1f ms. Same liczniki, bez wpisywanego tekstu.</string>
+    <string name="herbert_live_reset">Przywróć ustawienia domyślne SI</string>
+</resources>

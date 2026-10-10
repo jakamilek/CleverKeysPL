@@ -19,9 +19,22 @@ Configure how CleverKeys processes your input, including capitalization, punctua
 
 ## Word Prediction Section
 
+### Starting a new word
+
+The Polish fork trial returns the suggestion strip to its first candidate for a new
+swipe, the first typed letter of a word, and a word-ending separator or Enter.
+Continuing to type the same word preserves your scroll position. The Backspace reset
+switch continues to affect deletion only.
+
+The Polish dictionary's ale/lub spelling correction requires importing the updated
+language pack version 4; updating the keyboard APK alone does not replace an imported
+dictionary. After extracting the GitHub artifact, import its inner
+`cleverkeys-pl-function-words-trial.zip` through the language-pack manager. Test ale/lub
+in the middle of a sentence; sentence-start capitalization and explicit Shift still apply.
+
 ### Auto-Space After Suggestion
 
-Automatically add a space after tapping a suggestion:
+Automatically add a space after a swiped word or a tapped suggestion:
 
 | Setting | Result |
 |---------|--------|
@@ -173,3 +186,47 @@ A: Settings > Gesture Tuning > Double-Space to Period > Off.
 - [Accessibility](accessibility.md) - Haptic feedback settings
 - [Next-Word Prediction](../typing/next-word-prediction.md) - Next-word suggestions (built-in + learned)
 - [Privacy Settings](privacy.md) - The Learn From My Typing master switch
+
+
+## Editing controls in the Polish trial fork (v9)
+
+The maintainer accepted the v9 controls on the phone. The v12 gesture update below
+requires separate build and phone verification.
+In **Gesture Tuning → Backspace**, choose a short-tap action. The default deletes
+one character or space. The optional alternatives undo the last autocorrection or
+delete the last swiped word while it is still the verified token before the cursor.
+
+Drag left directly from Backspace to start character selection without waiting.
+Hold without moving to preview and delete successive preceding words. The preview
+lasts 350 ms, followed by a 200 ms gap before the next preview. Lift to stop.
+Moving left during the word cycle switches to character selection.
+Drag left across the keyboard to extend selection, or right to shrink it. Stop your
+finger to stop selection; slow motion gives precision and quick motion accelerates.
+Other keys do not activate. Release deletes by default; switch **Delete selection on
+release** off to keep the selected range. This does not disable automatic word deletion
+while holding still. Disabling **Drag selection and word deletion** restores ordinary
+repeat when Key Repeat is on.
+
+Space and Backspace share **Space and Backspace Slider Sensitivity** in Input Behavior
+and speed response / maximum acceleration in **Gesture Tuning → Cursor and Selection
+Sliding**. Lower sensitivity values mean less travel per character. The former
+Backspace brake, resume, edge speed and travel acceleration controls are retired;
+old backup values are ignored. Resetting Backspace does not reset shared Space settings.
+
+The older vertical controls belong to the fallback gesture for unsupported editors.
+Each editing group has its own reset button, and the options are searchable and
+included in settings backup/restore.
+
+In **Input Behavior → Text formatting**, independently control spaces before/after
+punctuation, formatting in search boxes (initially off), numeric-period sentence
+capitalization, and Shift changing a word's first letter, including at its end.
+Passwords and technical fields always keep literal input. Shift still needs a cursor
+you returned to an existing word; after whitespace it has its ordinary function.
+
+The prediction group lets you show dictionary case alternatives, place the add-word
+chip first or last, and return the strip to its start after Backspace. **Show Exact
+Typed Word** remains the master for the add-word chip. Adding a word never deletes
+or rewrites the text already in the editor.
+
+See the [technical specification](../specs/settings/input-behavior-spec.md#configurable-editing-behavior-polish-fork-trial-v9)
+for keys, ranges, field guards and the trial's verification status.

@@ -473,9 +473,9 @@
     <string name="input_suggestion_bar_opacity_title">Dekking suggestiebalk</string>
     <string name="input_suggestion_bar_opacity_desc">Transparantie van de suggestiebalk</string>
     <string name="input_auto_space_after_title">Automatische spatie na suggestie</string>
-    <string name="input_auto_space_after_desc">Achterliggende spatie toevoegen bij het selecteren van een suggestie</string>
+    <string name="input_auto_space_after_desc">Achterliggende spatie toevoegen bij het selecteren van een suggestie Voor geveegde woorden en aangetikte suggesties.</string>
     <string name="input_auto_space_before_title">Automatische spatie voor suggestie</string>
-    <string name="input_auto_space_before_desc">Spatie invoegen vóór een getikt voorstel (vegen voegt altijd een spatie toe)</string>
+    <string name="input_auto_space_before_desc">Spatie invoegen vóór een getikt voorstel (vegen voegt altijd een spatie toe) Voor geveegde woorden en aangetikte suggesties.</string>
     <string name="input_backspace_undo_swipe_title">Backspace maakt veegwoord ongedaan</string>
     <string name="input_backspace_undo_swipe_desc">Backspace direct na een veegwoord verwijdert het volledige woord</string>
     <string name="input_show_exact_typed_title">Exact getypt woord tonen</string>
@@ -2217,4 +2217,36 @@
     <string name="cmd_timestamp_iso_desc">ISO 8601-tijdstempel invoegen (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">in %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Korte Backspace</string>
+    <string name="edit_backspace_hold_select_title">Woord selecteren bij vasthouden</string>
+    <string name="edit_backspace_release_delete_title">Selectie wissen bij loslaten</string>
+    <string name="edit_backspace_pause_enabled_title">Pauze bij richtingswissel</string>
+    <string name="edit_backspace_pause_dp_title">Remafstand</string>
+    <string name="edit_backspace_resume_dp_title">Afstand om te hervatten</string>
+    <string name="edit_backspace_speed_percent_title">Selectiesnelheid</string>
+    <string name="edit_backspace_fast_percent_title">Snelle selectie</string>
+    <string name="edit_backspace_accel_percent_title">Versnellingsdrempel</string>
+    <string name="edit_punctuation_remove_space_title">Spatie vóór leesteken verwijderen</string>
+    <string name="edit_punctuation_add_space_title">Spatie na leesteken toevoegen</string>
+    <string name="edit_format_search_fields_title">Automatische opmaak bij zoeken</string>
+    <string name="edit_numeric_period_caps_title">Hoofdletter na getal en punt</string>
+    <string name="edit_shift_word_case_title">Shift wijzigt beginletter</string>
+    <string name="edit_shift_word_end_title">Shift ook aan woordeinde</string>
+    <string name="edit_show_case_variants_title">Hoofdlettervarianten tonen</string>
+    <string name="edit_exact_add_first_title">Woord toevoegen als eerste suggestie</string>
+    <string name="edit_reset_suggestions_on_delete_title">Suggesties terug naar begin met Backspace</string>
+    <string name="edit_tap_character">Teken of spatie wissen</string>
+    <string name="edit_tap_autocorrect">Autocorrectie terugdraaien, daarna tekens</string>
+    <string name="edit_tap_swipe">Laatste veegwoord wissen, daarna tekens</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Tekstopmaak</string>
+    <string name="edit_backspace_help">Selectie bij vasthouden werkt over het hele toetsenbord. Zonder deze optie vereist gewoon wissen toetsherhaling. Andere tikacties gelden direct na een suggestie.</string>
+    <string name="edit_pause_help">Een korte tegenbeweging pauzeert. Een langere beweging vanaf de pauzeplek hervat.</string>
+    <string name="edit_speed_help" formatted="false">Ten opzichte van de vorige gebaarsnelheid: 80% is langzamer, 100% ongewijzigd.</string>
+    <string name="edit_fast_help">Snelle modus begint na deze afstand als deel van de schermbreedte. Van richting wisselen zet de afstand terug.</string>
+    <string name="edit_format_help">Wachtwoorden en technische velden krijgen nooit automatische opmaak. Leestekenopties vereisen slimme leestekens; hoofdletters na getallen automatische hoofdletters.</string>
+    <string name="edit_fallback_header">Oudere selectie met twee assen</string>
 </resources>
+

@@ -329,8 +329,7 @@ class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPreferen
     internal var autoSpaceAfterSuggestion by mutableStateOf(true)  // #82: Add trailing space after selecting suggestion
     internal var autoSpaceBeforeSuggestion by mutableStateOf(true)  // Add leading space before tapped suggestion
     internal var showExactTypedWord by mutableStateOf(Defaults.SHOW_EXACT_TYPED_WORD)  // F-8 / #42: exact-typed-word suggestion
-    internal var backspaceUndoSwipe by mutableStateOf(true)  // #110: Backspace after swipe deletes entire swiped word
-    internal var backspaceUndoAutocorrect by mutableStateOf(true)  // #110: Backspace after autocorrect reverts to original word
+    internal var editBehavior by mutableStateOf(EditBehaviorOptions())
     internal var suggestionBarOpacity by mutableIntStateOf(90)
     internal var autoCorrectEnabled by mutableStateOf(true)
     internal var termuxModeEnabled by mutableStateOf(false)
@@ -666,6 +665,7 @@ class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPreferen
             // ===== Hand-maintained NON-control entries (activity navigation, FAQ) =====
             // Titles are the screens' own string resources, so they read exactly like the
             // screen they open, in the UI language.
+            searchEntry(R.string.herbert_live_title, listOf("si", "ai", "herbert", "kontekst", "context", "model"), "activities", HerbertLiveActivity::class.java),
             searchEntry(R.string.activities_theme_title, listOf("color", "dark mode", "light", "appearance", "theme"), "activities", ThemeSettingsActivity::class.java),
             searchEntry(R.string.activities_dictionary_title, listOf("words", "custom", "disabled", "vocabulary"), "activities", DictionaryManagerActivity::class.java),
             searchEntry(R.string.activities_layout_title, listOf("keyboard layout", "qwerty", "azerty"), "activities", LayoutManagerActivity::class.java),
@@ -908,3 +908,4 @@ class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPreferen
     }
 
 }
+
