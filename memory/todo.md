@@ -6,7 +6,8 @@
 - [x] Explicit full email/hyphenated entry add without rewriting editor; no implicit learning expansion.
 - [x] Registered pure/controller/real-handler regressions; Polish/base resources, other locales backlog.
 - Live38063878832 / CI38063882258: compile+2896 pure+original conformance PASS; one mock harness failure.
-- [x] Narrow typed-result seam repairs JVM Android Trace stub failure; production behavior/gates unchanged.
+- Live38069889084 / CI38069891533: Trace seam fixed; same test now gets relaxed contraction mock's empty string.
+- [x] Explicit no-contraction responses retain exact grzeje/one predictor call/intact editor assertions; gates unchanged.
 - [ ] Current-head CI compile/tests/lint/APK; instrumented View execution and phone check pending.
 
 ## Ordinary-field typed-autocorrect undo — 2026-10-10

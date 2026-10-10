@@ -63,6 +63,7 @@ class LearningFunnelBookkeepingTest {
     private lateinit var tracker: PredictionContextTracker
     private lateinit var bigramStore: BigramStore
     private lateinit var predictor: WordPredictor
+    private lateinit var contractions: ContractionManager
     private lateinit var personalization: PersonalizationEngine
     private lateinit var adaptation: UserAdaptationManager
     private lateinit var coordinator: PredictionCoordinator
@@ -168,7 +169,7 @@ class LearningFunnelBookkeepingTest {
         }
         every { ic.getCursorCapsMode(any()) } returns 0
 
-        val contractions = mockk<ContractionManager>(relaxed = true)
+        contractions = mockk<ContractionManager>(relaxed = true)
         every { contractions.isKnownContraction(any()) } returns false
         every { contractions.isContractionKey(any()) } returns false
         every { contractions.generatePossessive(any()) } returns null
@@ -300,6 +301,11 @@ class LearningFunnelBookkeepingTest {
         // real handler's prefix publish, but supply the predictor's result here.
         every { predictor.predictWordsWithContext("g", any()) } returns
             WordPredictor.PredictionResult(listOf("grzeje"), listOf(200))
+        // Relaxed nullable String mocks answer ""; neither prefix nor candidate
+        // has a contraction here, so explicitly supply the real no-mapping result.
+        every { contractions.getNonPairedMapping("g") } returns null
+        every { contractions.getNonPairedMapping("grzeje") } returns null
+        every { contractions.getPairedContractions("g") } returns emptyList()
         handler.startStartupWords(ic, field)
         posts.removeAt(0).run() // Result is now queued on main.
         type("g", field)
