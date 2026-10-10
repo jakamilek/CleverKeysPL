@@ -482,7 +482,7 @@
     <string name="advanced_detailed_logging_desc">Include verbose trace information</string>
     <string name="advanced_open_debug_log">Open Debug Log</string>
     <string name="advanced_provenance_markers_title">Suggestion Origin Markers</string>
-    <string name="advanced_provenance_markers_desc">Show a colored dot on each suggestion indicating which engine produced it (long-press any suggestion for full details)</string>
+    <string name="advanced_provenance_markers_desc">Shows a colored dot on each suggestion indicating which engine produced it</string>
 
     <!-- Long-press suggestion provenance sheet. All pipeline metadata remains structured;
          these Android-layer templates are the only user-facing wording. -->

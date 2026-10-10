@@ -159,8 +159,9 @@ class SuggestionBar : LinearLayout {
     }
 
     /**
-     * Task B: long-press provenance inspection. Fired when the user long-presses
-     * a suggestion; the handler composes and displays the provenance sheet.
+     * Long-press action for a word candidate. The handler offers dictionary removal.
+     * The legacy listener name is retained for callers; provenance stays available
+     * internally, but is no longer the strip's long-press action.
      */
     fun interface OnSuggestionInspectedListener {
         fun onSuggestionInspected(index: Int, word: String, meta: SuggestionMeta?)
@@ -235,7 +236,7 @@ class SuggestionBar : LinearLayout {
                 }
             }
 
-            // Task B: long-press opens the provenance sheet for this suggestion.
+            // A long press opens the dictionary action; it never commits the word.
             setOnLongClickListener {
                 val inspector = inspectListener
                 if (inspector != null && index < currentSuggestions.size) {
@@ -513,6 +514,15 @@ class SuggestionBar : LinearLayout {
      * outside it dismisses it.
      */
     fun showProvenancePopup(text: String) {
+        showSuggestionPopup(text, null)
+    }
+
+    /** One explicit action, using the same themed IME surface without editor focus. */
+    fun showSuggestionRemovalPopup(word: String, remove: () -> Unit) {
+        showSuggestionPopup(context.getString(R.string.suggestion_remove_from_dictionary, word), remove)
+    }
+
+    private fun showSuggestionPopup(text: String, action: (() -> Unit)?) {
         dismissProvenancePopup()
 
         val content = TextView(context).apply {
@@ -541,7 +551,15 @@ class SuggestionBar : LinearLayout {
             isFocusable = false // never steal focus from the edited field
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         }
-        content.setOnClickListener { popup.dismiss() }
+        val generation = contentGeneration
+        content.isFocusable = true
+        content.isClickable = true
+        content.minHeight = dpToPx(context, 48)
+        content.setOnClickListener {
+            val current = provenancePopup === popup && contentGeneration == generation
+            popup.dismiss()
+            if (current) action?.invoke()
+        }
         popup.setOnDismissListener { if (provenancePopup === popup) provenancePopup = null }
 
         // Measure so the sheet opens fully ABOVE the bar.

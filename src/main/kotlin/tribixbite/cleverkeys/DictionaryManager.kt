@@ -197,6 +197,30 @@ class DictionaryManager(private val context: Context) {
     }
 
     /**
+     * Strip removal uses a fresh store. Preserve exact-case ownership: a transformed
+     * display casing may resolve to one unique stored entry, never arbitrarily to one
+     * of several. When no owned spelling remains, disable the base word as well so it
+     * cannot immediately return from the langpack. Other languages are untouched.
+     */
+    fun removeSuggestionWord(word: String): Boolean {
+        if (word.isBlank()) return false
+        val stored = readStoredWordMap(getCustomWordsKey())
+        val folded = word.lowercase(Locale.ROOT)
+        val matches = stored.keys.filter { it.lowercase(Locale.ROOT) == folded }
+        val owned = when {
+            word in stored -> word
+            matches.size == 1 -> matches.single()
+            matches.isNotEmpty() -> return false
+            else -> null
+        }
+        if (owned != null) persistUserWords(removed = setOf(owned))
+        if (matches.none { it != owned }) {
+            DisabledDictionarySource(prefs, currentLanguage).setWordEnabled(folded, false)
+        }
+        return true
+    }
+
+    /**
      * Check if a word is in the user dictionary, EXACTLY as stored.
      *
      * This is the storage's own semantics and the right question for "is this string, as

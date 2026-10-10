@@ -69,3 +69,12 @@ phase_closed, phase_warmup, phase_workload, phase_case (all with herbert_benchma
 Also review changed report-v2 heading and running message. Evidence: phase diagnostic
 resources, base/Polish complete; fallback English until later translation. Preserve
 indexed argument types and phase sample units. Global lint remains unchanged.
+
+## Usuwanie podpowiedzi ze słownika — 2026-10-10
+
+Nowy klucz suggestion_remove_from_dictionary ma wersję bazową i polską, z argumentem
+%1$s. Pozostałe 21 locale wymagają tłumaczenia później; lokalny MissingTranslation ignore
+obejmuje tylko nowy suggestion_removal.xml. advanced_provenance_markers_desc w pozostałych
+locale nadal mówi o przytrzymaniu w celu otwarcia statystyk; ten opis jest już nieaktualny
+po zmianie listenera. W bazowym i polskim usunięto tę instrukcję. Pozostałe locale
+zapisać do korekty; nie zmieniać globalnego lint. Dowód: obsługa offerSuggestionRemoval.

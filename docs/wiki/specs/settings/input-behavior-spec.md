@@ -399,6 +399,36 @@ are added. Actual-View icon/label/tap/hold tests compile in CI; their device exe
 still pending. CI compilation, current-head regression/lint/APK and phone behavior must
 be reported separately. Previous ordinary-field BS correction was confirmed on phone.
 
+### Polish trial — suggestion dictionary removal (2026-10-10)
+
+Holding a normal word suggestion offers one explicit, themed action to remove that
+word from the active dictionary. Opening the action does not commit, learn or remove
+anything. Confirming never edits the text field. Clipboard hold still opens the existing
+clipboard panel; add/undo/preference prompts do not offer word removal. The statistics
+formatter and origin markers remain internal/optional; the strip no longer opens statistics.
+
+DictionaryManager reads the fresh custom-word store. Removal is exact-case, or resolves
+one unique case-insensitive stored spelling when display casing differs. Ambiguous casing
+is rejected; separately owned spellings and foreign entries/frequencies survive. The
+structured completion index is invalidated with the ordinary mutation. If no owned casing
+remains, the lowercase word enters the existing active-language disabled set, excluding
+its base/langpack entry without rewriting the pack. Existing explicit custom/platform
+user-dictionary overrides are preserved; this action never deletes Android provider rows.
+Base exclusions can be restored through Dictionary Manager's Disabled tab.
+
+The popup action revalidates bar/generation/slot, editor identity/revision, active language
+and privacy. A changed or dismissed popup cannot remove a word through an old callback.
+Confirming invalidates queued prose/SI/idle work before refreshing custom and disabled
+words; swipe adapters already fingerprint these stores. The confirmation clears the strip.
+Polish/base labels and provenance-marker help are updated; other locales are recorded
+in LOCALIZATION_BACKLOG_POLISH_AI.md. No new option, model, rank or default is introduced.
+
+Eight production-handler/store mock regressions cover explicit action/text preservation,
+stale language/slate/editor/caret/privacy, prompts, failure, email-cache invalidation,
+case ownership/diacritics and scoped base exclusion. The actual-View dispatch test checks
+long press versus tap with a clipboard chip and recycled candidate. Local source/resource
+review is separate from CI compilation/test/lint/APK and phone validation, all pending.
+
 ### Polish trial v15 — new-word suggestion viewport
 
 `SuggestionBar.resetScrollPosition` posts a reset on its current parent

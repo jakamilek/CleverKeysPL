@@ -1,15 +1,16 @@
 # Current work queue
 
-## Clipboard panel, idle words and whole-entry add — 2026-10-10
-- [x] Icon + Schowek label; tap exact paste, hold existing clipboard panel.
-- [x] Three source-backed frequent idle words; usage gates, dictionary fallback, stale UI guards.
-- [x] Explicit full email/hyphenated entry add without rewriting editor; no implicit learning expansion.
-- [x] Registered pure/controller/real-handler regressions; Polish/base resources, other locales backlog.
-- Live38070883727 / CI38070886854 SUCCESS at8375724e;2896 pure,238/315 overlapping integration,debug235warnings/vital/APK.
-- Phone: clipboard/idle/add work; saved email cannot be recalled by prefix (missing completion path).
-- [x] Derived active-language structured index; literal first-character/whole-token completion, guarded atomic tap.
-- [x] Ten pure + eight handler regressions; previous44 and all conformance/lint/security gates retained.
-- [ ] New-head compile/tests/lint/APK and phone prefix/middle/BS checks; instrumented View execution pending.
+## Suggestion dictionary removal and personal prefix — 2026-10-10
+- [x] Clipboard icon/hold panel, idle words, whole email/hyphen add and prefix recall; phone works.
+- [x] Prefix live38073753788/CI38073754846 SUCCESS at53767fdf;2906 pure,246/323 overlapping integration.
+- [x] APK SHA752faacfa02d4dfb0aaa2db8713f4b4227585d0ec64753b7eaedda5b75e67cee verified; phone accepted.
+- [x] Hold word now offers explicit dictionary removal; ordinary tap/clipboard hold unchanged.
+- [x] Fresh exact/unique-case personal removal, base exclusion, dynamic reload and stale callback guards.
+- [x] Eight actual handler/store regressions plus View dispatch regression; Polish/base action/help.
+- [ ] Current-head Android compile/pure/mock/lint/APK and phone removal checks; View execution pending.
+- [ ] Other locales: new action and obsolete provenance-help text; keep global lint/defaults unchanged.
+- Platform user-dictionary entries retain existing custom-over-disabled policy; no cross-app row deletion.
+- Dictionary coverage, native SI RAM/quality, BS timing and other locale review remain; monitoring<=60s/run.
 
 ## Ordinary-field typed-autocorrect undo — 2026-10-10
 - [x] Verified correction bookmark reseeds BS pair after prediction-state resets.

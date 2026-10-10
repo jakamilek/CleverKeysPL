@@ -1145,6 +1145,135 @@ class LearningFunnelBookkeepingTest {
 
     // ------------------------------------------------------------------ reflection
 
+    private fun removalOffer(word: String = "grzeje"): () -> Unit {
+        val listener = io.mockk.slot<SuggestionBar.OnSuggestionInspectedListener>()
+        val remove = io.mockk.slot<() -> Unit>()
+        every { bar.setOnSuggestionInspectedListener(capture(listener)) } just runs
+        every { bar.getCurrentSuggestions() } returns listOf(word)
+        every { bar.showSuggestionRemovalPopup(word, capture(remove)) } just runs
+        every { dictionary.removeSuggestionWord(word) } returns true
+        every { predictor.reloadDisabledWords() } just runs
+        handler.setSuggestionBar(bar)
+        listener.captured.onSuggestionInspected(0, word, null)
+        verify(exactly = 0) { dictionary.removeSuggestionWord(any()) }
+        verify(exactly = 0) { bar.showProvenancePopup(any()) }
+        return remove.captured
+    }
+
+    @Test fun holdingSuggestionOffersRemovalAndConfirmingLeavesEditorUntouched() {
+        attachAutocorrectEditor()
+        editor.append("grzeje ")
+        val remove = removalOffer()
+        remove()
+        assertWithMessage("dictionary action keeps typed text").that(editor.toString()).isEqualTo("grzeje ")
+        verify(exactly = 1) { dictionary.removeSuggestionWord("grzeje") }
+        verify(exactly = 1) { coordinator.refreshCustomWords() }
+        verify(exactly = 1) { predictor.reloadDisabledWords() }
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+        verify(exactly = 0) { ic.deleteSurroundingText(any(), any()) }
+        remove() // A stale/double action cannot repeat the removal.
+        verify(exactly = 1) { dictionary.removeSuggestionWord("grzeje") }
+    }
+
+    @Test fun removalCannotApplyAfterLanguageSlateOrEditorChanges() {
+        val field = attachAutocorrectEditor()
+        val remove = removalOffer()
+        every { dictionary.getCurrentLanguage() } returns "pl"
+        remove()
+        every { dictionary.getCurrentLanguage() } returns "en"
+        every { bar.contentGeneration() } returns 2
+        remove()
+        every { bar.contentGeneration() } returns 0
+        handler.liveEditorProvider = { mockk<InputConnection>(relaxed = true) to field }
+        remove()
+        verify(exactly = 0) { dictionary.removeSuggestionWord(any()) }
+    }
+
+    @Test fun removalCannotApplyAfterCaretRevisionOrPrivateModeChanges() {
+        attachAutocorrectEditor()
+        val remove = removalOffer()
+        handler.setField("editorPredictionRevision", 1L)
+        remove()
+        handler.setField("editorPredictionRevision", 0L)
+        handler.setField("fieldAllowsPersonalizedLearning", false)
+        remove()
+        verify(exactly = 0) { dictionary.removeSuggestionWord(any()) }
+    }
+
+    @Test fun exactAddPromptAndPasswordDoNotOpenRemoval() {
+        val listener = io.mockk.slot<SuggestionBar.OnSuggestionInspectedListener>()
+        every { bar.setOnSuggestionInspectedListener(capture(listener)) } just runs
+        handler.setSuggestionBar(bar)
+        listener.captured.onSuggestionInspected(0, Suggestion.ExactAdd("grzeje").wire, null)
+        handler.setField("isPasswordMode", true)
+        listener.captured.onSuggestionInspected(0, "grzeje", null)
+        verify(exactly = 0) { bar.showSuggestionRemovalPopup(any(), any()) }
+        verify(exactly = 0) { dictionary.removeSuggestionWord(any()) }
+    }
+
+    @Test fun failedDictionaryRemovalDoesNotAnnounceSuccessOrRefresh() {
+        attachAutocorrectEditor()
+        val remove = removalOffer()
+        every { dictionary.removeSuggestionWord(any()) } returns false
+        remove()
+        verify(exactly = 0) { coordinator.refreshCustomWords() }
+        verify(exactly = 0) { bar.showTemporaryMessage(any(), any(), any()) }
+    }
+
+    /** Real dictionary mutation over fake prefs: merge/case/cache behavior is production code. */
+    private fun removalDictionary(entries: Map<String, Int>): Triple<DictionaryManager, () -> Map<String, Int>, () -> Set<String>> {
+        val gson = com.google.gson.Gson()
+        var json = gson.toJson(entries)
+        var disabled = setOf("other")
+        val prefs = mockk<android.content.SharedPreferences>()
+        val edit = mockk<android.content.SharedPreferences.Editor>(relaxed = true)
+        every { prefs.getString("custom_words_pl", any()) } answers { json }
+        every { prefs.getStringSet("disabled_words_pl", any()) } answers { disabled }
+        every { prefs.edit() } returns edit
+        every { edit.putString("custom_words_pl", any()) } answers { json = secondArg(); edit }
+        every { edit.putStringSet("disabled_words_pl", any()) } answers { disabled = secondArg<Set<String>>().toSet(); edit }
+        val real = objenesis.newInstance(DictionaryManager::class.java)
+        real.setField("prefs", prefs)
+        real.setField("gson", gson)
+        real.setField("currentLanguage", "pl")
+        real.setField("userWords", entries.keys.toMutableSet())
+        val read = {
+            val type = object : com.google.gson.reflect.TypeToken<Map<String, Int>>() {}.type
+            gson.fromJson<Map<String, Int>>(json, type)
+        }
+        return Triple(real, read, { disabled })
+    }
+
+    @Test fun removingSavedEmailInvalidatesPrefixCacheAndPreservesForeignEntries() {
+        val word = "przykład.ten@gmail.com"
+        val (real, stored, disabled) = removalDictionary(mapOf(word to 255, "obcy" to 17))
+        assertWithMessage("before removal").that(real.getStructuredCompletions("prz")).contains(word)
+        assertWithMessage("removed").that(real.removeSuggestionWord(word)).isTrue()
+        assertWithMessage("new index").that(real.getStructuredCompletions("prz")).isEmpty()
+        assertWithMessage("other frequency").that(stored()).containsExactly("obcy", 17)
+        assertWithMessage("base exclusion").that(disabled()).containsExactly("other", word)
+    }
+
+    @Test fun removalResolvesDisplayCaseButKeepsSeparatelyOwnedCaseAndDiacritics() {
+        val (real, stored, disabled) = removalDictionary(mapOf("foo" to 19, "Foo" to 41, "łódź" to 255))
+        assertWithMessage("ambiguous casing must not choose").that(real.removeSuggestionWord("FOO")).isFalse()
+        assertWithMessage("exact case removed").that(real.removeSuggestionWord("Foo")).isTrue()
+        assertWithMessage("remaining ownership").that(stored()).containsExactly("foo", 19, "łódź", 255)
+        assertWithMessage("remaining owned case stays enabled").that(disabled()).containsExactly("other")
+        assertWithMessage("unique capitalized display").that(real.removeSuggestionWord("Łódź")).isTrue()
+        assertWithMessage("accented key").that(disabled()).containsExactly("other", "łódź")
+        assertWithMessage("diacritics are not stripped").that(stored()).containsExactly("foo", 19)
+    }
+
+    @Test fun baseRemovalUsesLanguageScopedDisabledSetWithoutEditingStoredWords() {
+        val (real, stored, disabled) = removalDictionary(mapOf("email@example.com" to 255))
+        assertWithMessage("base exclusion").that(real.removeSuggestionWord("Praca")).isTrue()
+        assertWithMessage("base exclusion repeat").that(real.removeSuggestionWord("praca")).isTrue()
+        assertWithMessage("blank rejected").that(real.removeSuggestionWord(" ")).isFalse()
+        assertWithMessage("lowercase key").that(disabled()).containsExactly("other", "praca")
+        assertWithMessage("personal dictionary preserved").that(stored()).containsExactly("email@example.com", 255)
+    }
+
     /**
      * Give the predictor a real, NON-EMPTY lexicon so its [LearnableWordPolicy] judges words.
      * Without this the Objenesis-allocated predictor has no dictionary, and the production

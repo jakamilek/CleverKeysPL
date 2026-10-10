@@ -540,7 +540,7 @@ class SuggestionHandler(
 
     private fun completionFieldAllowed(info: EditorInfo): Boolean =
         !isPasswordMode && !SuggestionBar.isPasswordField(info) && fieldAllowsPersonalizedLearning &&
-            (info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) == 0 &&
+            LearningGate.fieldAllowsPersonalizedLearning(info.imeOptions) &&
             (info.inputType and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT &&
             config.word_prediction_enabled && !isTermuxEditor(info)
 
@@ -911,15 +911,55 @@ class SuggestionHandler(
 
     /**
      * Sets the suggestion bar reference and registers this handler as the
-     * long-press provenance inspector (Task B — SuggestionHandler owns the
-     * pipeline knowledge; the bar stays a dumb display surface).
+     * long-press dictionary action (the handler owns dictionary/editor guards;
+     * the bar only displays the action).
      *
      * @param suggestionBar Suggestion bar for displaying predictions
      */
     fun setSuggestionBar(suggestionBar: SuggestionBar?) {
         this.suggestionBar = suggestionBar
-        suggestionBar?.setOnSuggestionInspectedListener { index, word, meta ->
-            inspectSuggestion(index, word, meta)
+        suggestionBar?.setOnSuggestionInspectedListener { index, word, _ ->
+            offerSuggestionRemoval(index, word)
+        }
+    }
+
+    /** Explicit dictionary action only: neither opening nor confirming edits the editor. */
+    private fun offerSuggestionRemoval(index: Int, word: String) {
+        val bar = suggestionBar ?: return
+        // Add/undo/preference prompts are actions, not removable dictionary entries.
+        if (routeSuggestionSelection(word) !is SelectionRoute.CommitWord || word.startsWith("raw:")) return
+        if (isPasswordMode || !fieldAllowsPersonalizedLearning) return
+        val editor = liveEditorProvider?.invoke()
+        if (SuggestionBar.isPasswordField(editor?.second) ||
+            editor?.second?.let { !LearningGate.fieldAllowsPersonalizedLearning(it.imeOptions) } == true) return
+        val generation = bar.contentGeneration()
+        val revision = editorPredictionRevision
+        val language = activeLanguageCode()
+        if (bar.getCurrentSuggestions().getOrNull(index) != word) return
+        bar.showSuggestionRemovalPopup(word) remove@{
+            val liveEditor = liveEditorProvider?.invoke()
+            if (suggestionBar !== bar || bar.contentGeneration() != generation ||
+                editorPredictionRevision != revision || activeLanguageCode() != language ||
+                liveEditor?.first !== editor?.first || liveEditor?.second !== editor?.second ||
+                SuggestionBar.isPasswordField(liveEditor?.second) ||
+                liveEditor?.second?.let { !LearningGate.fieldAllowsPersonalizedLearning(it.imeOptions) } == true ||
+                bar.getCurrentSuggestions().getOrNull(index) != word ||
+                isPasswordMode || !fieldAllowsPersonalizedLearning) return@remove
+            val dictionary = predictionCoordinator.getDictionaryManager() ?: return@remove
+            if (!dictionary.removeSuggestionWord(word)) return@remove
+            // Invalidate queued prose/SI/idle updates before refreshing the dynamic lexicon.
+            editorPredictionRevision++
+            startupRevision++
+            predictionTasks.cancelCurrent()
+            cancelPendingHerbert?.invoke()
+            cancelPendingHerbert = null
+            pendingHerbertFallback = null
+            predictionCoordinator.refreshCustomWords()
+            predictionCoordinator.getWordPredictor()?.reloadDisabledWords()
+            bar.showTemporaryMessage(
+                context.getString(R.string.suggestion_removed_from_dictionary, word),
+                1500L, clearAfter = true
+            )
         }
     }
 

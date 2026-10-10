@@ -9,6 +9,28 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ClipboardSuggestionBarTest {
+    @Test fun holdingWordDispatchesDictionaryActionWithoutCommittingAndKeepsRecycledIndex() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.runOnMainSync {
+            val bar = SuggestionBar(instrumentation.targetContext)
+            var selected: String? = null
+            var held: String? = null
+            bar.setOnSuggestionSelectedListener { selected = it }
+            bar.setOnSuggestionInspectedListener { index, word, _ -> assertEquals(0, index); held = word }
+            bar.setClipboardSuggestion("tekst", {}, {})
+            bar.setSuggestions(listOf("grzeje", "praca"))
+            val word = (0 until bar.childCount).map { bar.getChildAt(it) }
+                .filterIsInstance<TextView>().first { it.text.toString() == "grzeje" }
+            assertTrue(word.performLongClick())
+            assertEquals("grzeje", held)
+            assertNull(selected)
+            bar.setSuggestions(listOf("obcy", "praca"))
+            assertTrue(word.performLongClick())
+            assertEquals("obcy", held)
+            word.performClick()
+            assertEquals("obcy", selected)
+        }
+    }
     @Test fun pasteChipStaysSeparateFromWordCandidatesAndSurvivesIdleRefresh() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.runOnMainSync {
