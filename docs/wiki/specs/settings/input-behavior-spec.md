@@ -286,6 +286,16 @@ default character mode. This is a narrowly verified exception, not swipe undo an
 not a new default preference value. Subsequent Backspace follows `backspace_tap_mode`.
 Hold and shared-slider drag keep their current pointer/haptic paths.
 
+Follow-up (2026-10-10): BS eligibility takes the corrected/original pair from the
+verified typed-correction bookmark, then refreshes the transient tracker used by
+KeyEventHandler. A prediction-state reset is not evidence of a text edit and does
+not cancel an otherwise exact bookmark. Real typing, changed editor/caret/token,
+selection and field exit retain their invalidation guards. Three new registered
+LearningFunnelBookkeepingTest cases cover real BS restore after a tracker reset in
+an ordinary spaced field (different-length correction after preceding text),
+ExactAdd without field mutation, and rejection after more typing/field/caret change.
+Compilation and execution of this follow-up are pending CI/phone verification.
+
 SuggestionHandler keeps an in-memory connection/EditorInfo/collapsed-caret/token
 bookmark, checked against live editor text. Another field, changed text, selection,
 cursor move, typing, swipe or field exit disarms it. An editor acknowledgement at

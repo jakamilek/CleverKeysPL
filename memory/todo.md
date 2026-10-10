@@ -1,5 +1,10 @@
 # Current work queue
 
+## Ordinary-field typed-autocorrect undo — 2026-10-10
+- [x] Verified correction bookmark reseeds BS pair after prediction-state resets.
+- [x] Three registered normal-field restore/add and stale typing/field/caret regressions.
+- [ ] New CI compile/tests/lint/APK and phone check; no local Kotlin/Android SDK.
+
 ## Clipboard paste suggestion and search autocorrect undo — 2026-10-10
 
 - [x] Separate localized clipboard action before first editor mutation/cursor move;

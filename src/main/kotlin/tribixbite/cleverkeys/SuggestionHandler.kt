@@ -2758,11 +2758,17 @@ class SuggestionHandler(
         }
     }
 
-    override fun canUndoTypedAutocorrect(ic: InputConnection?, info: EditorInfo?): Boolean =
-        bookmarkMatches(typedAutocorrectBookmark, ic, info) &&
-            contextTracker.getLastCommitSource() == PredictionSource.AUTOCORRECT &&
-            contextTracker.getLastAutoInsertedWord() == typedAutocorrectBookmark?.word &&
-            contextTracker.getLastAutocorrectOriginalWord() == typedAutocorrectBookmark?.original
+    override fun canUndoTypedAutocorrect(ic: InputConnection?, info: EditorInfo?): Boolean {
+        val bookmark = typedAutocorrectBookmark ?: return false
+        if (!bookmarkMatches(bookmark, ic, info) || bookmark.original.isNullOrEmpty()) return false
+        // Prediction refreshes can clear their transient replacement state even while
+        // the correction still occupies its exact editor/caret bookmark. Restore the
+        // pair consumed by KeyEventHandler from this verified transaction, not the bar.
+        contextTracker.setLastAutoInsertedWord(bookmark.word)
+        contextTracker.setLastAutocorrectOriginalWord(bookmark.original)
+        contextTracker.setLastCommitSource(PredictionSource.AUTOCORRECT)
+        return true
+    }
 
     override fun onAutocorrectUndoRestored(originalWord: String, ic: InputConnection,
         info: EditorInfo?, originalCompleted: Boolean, expectedCursor: Int) {

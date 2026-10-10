@@ -313,6 +313,93 @@ class LearningFunnelBookkeepingTest {
             .that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
     }
 
+    private fun tapBackspace(field: EditorInfo) {
+        val receiver = mockk<KeyEventHandler.IReceiver>(relaxed = true)
+        every { receiver.getCurrentInputConnection() } returns ic
+        every { receiver.getCurrentEditorInfo() } returns field
+        every { receiver.getLastAutoInsertedWord() } answers { tracker.getLastAutoInsertedWord() }
+        every { receiver.getLastAutocorrectOriginalWord() } answers { tracker.getLastAutocorrectOriginalWord() }
+        val request = KeyEventHandler::class.java.getDeclaredField("moveCursorReq").apply { isAccessible = true }
+        request.set(null, mockk<ExtractedTextRequest>(relaxed = true))
+        try {
+            KeyEventHandler(receiver).apply { learningHooks = handler }
+                .key_up(KeyValue.getKeyByName("backspace"), Pointers.Modifiers.EMPTY, false)
+        } finally { request.set(null, null) }
+    }
+
+    @Test fun ordinaryFieldBackspaceRestoresCorrectionAndSpaceAfterPredictionStateReset() {
+        val field = attachAutocorrectEditor()
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect("grzeje") } returns "grzejemy"
+        editor.append("fix ")
+        var range: Pair<Int, Int>? = null
+        every { ic.setSelection(any(), any()) } answers { range = firstArg<Int>() to secondArg<Int>(); true }
+        every { ic.getSelectedText(0) } answers { range?.let { editor.substring(it.first, it.second) } }
+        every { ic.commitText(any(), any()) } answers {
+            val replacement = firstArg<CharSequence>().toString()
+            range?.let { editor.replace(it.first, it.second, replacement) } ?: editor.append(replacement)
+            range = null
+            true
+        }
+        type("grzeje ", field)
+        assertWithMessage("different-length correction after preceding text")
+            .that(editor.toString()).isEqualTo("fix grzejemy ")
+        tracker.synchronizeWithCursor(ic, "en", field)
+        tracker.clearAutocorrectTracking()
+        tracker.clearLastAutoInsertedWord()
+        tracker.setLastCommitSource(PredictionSource.UNKNOWN)
+        // No handler park callback has rebuilt the tracker before this actual BS tap.
+        tapBackspace(field)
+        assertWithMessage("first BS restores whole original and keeps exactly one space")
+            .that(editor.toString()).isEqualTo("fix grzeje ")
+        assertWithMessage("restoration is single-use").that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+        val chip = Suggestion.ExactAdd("grzeje").wire
+        assertWithMessage("unknown original remains available to add").that(barWords).containsExactly(chip)
+        tracker.synchronizeWithCursor(ic, "en", field)
+        handler.handleCursorParkPrediction(field, ic)
+        tap(chip, field)
+        verify(exactly = 1) { dictionary.addUserWord("grzeje") }
+        assertWithMessage("adding never removes text or its space")
+            .that(editor.toString()).isEqualTo("fix grzeje ")
+    }
+
+    @Test fun predictionStateResetCannotResurrectCorrectionAfterFurtherTyping() {
+        val field = attachAutocorrectEditor()
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect("grzeje") } returns "grzeją"
+        type("grzeje ", field)
+        type("x", field)
+        editor.setLength(editor.length - 1)
+        tracker.clearLastAutoInsertedWord()
+        tracker.clearAutocorrectTracking()
+        tracker.setLastCommitSource(PredictionSource.UNKNOWN)
+        assertWithMessage("same suffix after deleting a new letter is not immediate undo")
+            .that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+        assertWithMessage("rejected bookmark does not reseed original")
+            .that(tracker.getLastAutocorrectOriginalWord()).isNull()
+    }
+
+    @Test fun resetPredictionStateCannotUndoInAnotherFieldOrAtAnotherCaret() {
+        val field = attachAutocorrectEditor()
+        config.autocorrect_enabled = true
+        every { predictor.autoCorrect("grzeje") } returns "grzeją"
+        type("grzeje ", field)
+        tracker.clearLastAutoInsertedWord()
+        tracker.clearAutocorrectTracking()
+        tracker.setLastCommitSource(PredictionSource.UNKNOWN)
+        assertWithMessage("other field is still rejected").that(handler.canUndoTypedAutocorrect(ic, textField())).isFalse()
+        every { ic.getExtractedText(any(), any()) } answers {
+            objenesis.newInstance(ExtractedText::class.java).apply {
+                startOffset = 0; selectionStart = 1; selectionEnd = 1
+            }
+        }
+        handler.onEditorCursorChanged()
+        assertWithMessage("moved caret stays rejected after prediction reset")
+            .that(handler.canUndoTypedAutocorrect(ic, field)).isFalse()
+        assertWithMessage("rejected bookmark never reseeds replacement")
+            .that(tracker.getLastAutoInsertedWord()).isNull()
+    }
+
     @Test fun searchEditorDroppingCorrectionSpaceStillAllowsImmediateBackspaceUndoAndAdd() {
         val field = attachAutocorrectEditor().apply {
             imeOptions = EditorInfo.IME_ACTION_SEARCH
