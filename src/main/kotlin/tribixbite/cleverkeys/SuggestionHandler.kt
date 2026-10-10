@@ -955,7 +955,6 @@ class SuggestionHandler(
             cancelPendingHerbert = null
             pendingHerbertFallback = null
             predictionCoordinator.refreshCustomWords()
-            predictionCoordinator.getWordPredictor()?.reloadDisabledWords()
             bar.showTemporaryMessage(
                 context.getString(R.string.suggestion_removed_from_dictionary, word),
                 1500L, clearAfter = true

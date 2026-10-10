@@ -610,7 +610,7 @@ class WordPredictor : Predictor {
     }
 
     /**
-     * Reload custom words and user dictionary (called when Dictionary Manager makes changes)
+     * Reload custom/user and disabled words through the Predictor lifecycle contract.
      * PERFORMANCE: Only reloads small dynamic sets, overwrites existing entries
      * Also rebuilds prefix index to include new words
      *
@@ -618,13 +618,16 @@ class WordPredictor : Predictor {
      */
     override fun reloadCustomAndUserWords() {
         context?.let {
+            loadDisabledWords()
             // Issue #72: Clear proper noun case map before reloading
             userWordOriginalCase.clear()
             // v1.1.90: Pass currentLanguage to filter by locale
             val customWords = loadCustomAndUserWords(it, currentLanguage)
+            // Mirror observer removals: retract vanished custom keys, or restore
+            // their shadowed base frequency before rebuilding the prefix index.
+            handleIncrementalUpdate(emptyMap(), customAndUserWords - customWords)
             customAndUserWords = customWords  // Track for disabled-word override check
-            // NOTE: Full rebuild needed here because we don't track which words were removed
-            // Future optimization: track previous custom words to compute diff (added/removed)
+            // Additions and updates still need the full prefix rebuild.
             buildPrefixIndex()
             lastReloadTime = System.currentTimeMillis()
             if (BuildConfig.ENABLE_VERBOSE_LOGGING) {
@@ -647,7 +650,6 @@ class WordPredictor : Predictor {
             // means a signal raised DURING the reload is kept for the next prediction
             // instead of being swallowed.
             needsReload = false
-            reloadDisabledWords()
             reloadCustomAndUserWords()
             if (BuildConfig.ENABLE_VERBOSE_LOGGING) Log.d(TAG, "Auto-reloaded dictionaries due to signal")
         }

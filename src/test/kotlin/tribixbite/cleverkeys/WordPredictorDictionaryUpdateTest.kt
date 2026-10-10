@@ -134,6 +134,61 @@ class WordPredictorDictionaryUpdateTest {
     // ------------------------------------------------------ C-2: calibration parity
 
     @Test
+    fun interfaceRefreshRemovesAPersonalOnlyEntryFromServingMapAndPrefixIndex() {
+        val context = mockLoadSeams()
+        setField("context", context)
+        seedBaseDictionary()
+        incrementalUpdate(mapOf("email@example.com" to 255), emptySet())
+
+        val serving: Predictor = predictor
+        serving.reloadCustomAndUserWords()
+
+        assertThat(dict()).doesNotContainKey("email@example.com")
+        assertThat(prefixIndex()["ema"] ?: emptySet<String>()).doesNotContain("email@example.com")
+        assertThat(customAndUserWords()).doesNotContain("email@example.com")
+    }
+
+    @Test
+    fun interfaceRefreshAfterRemovalRestoresBaseButHonorsItsNewExclusion() {
+        val context = mockLoadSeams()
+        setField("context", context)
+        seedBaseDictionary("hello" to 800_000)
+        incrementalUpdate(mapOf("hello" to 255), emptySet())
+        val prefs = DirectBootAwarePreferences.get_shared_preferences(context)
+        every { prefs.getStringSet("disabled_words_en", any()) } returns setOf("hello")
+
+        // The handler only sees Predictor. Its existing lifecycle refresh must load
+        // both stores, without a downcast or a concrete-only method call.
+        val serving: Predictor = predictor
+        serving.reloadCustomAndUserWords()
+
+        assertThat(dict()["hello"]).isEqualTo(800_000)
+        assertThat(customAndUserWords()).doesNotContain("hello")
+        assertThat(serving.isWordDisabled("Hello")).isTrue()
+        every { prefs.getStringSet("disabled_words_en", any()) } returns emptySet()
+        serving.reloadCustomAndUserWords()
+        assertThat(serving.isWordDisabled("hello")).isFalse()
+    }
+
+    @Test
+    fun interfaceRefreshKeepsAnExplicitOwnedCaseAboveBaseExclusion() {
+        val context = mockLoadSeams()
+        setField("context", context)
+        seedBaseDictionary("hello" to 800_000)
+        val prefs = DirectBootAwarePreferences.get_shared_preferences(context)
+        every { prefs.getStringSet("disabled_words_en", any()) } returns setOf("hello")
+        mockkObject(UserDictionaryWords)
+        every { UserDictionaryWords.read(any(), "en") } returns listOf("Hello" to 255)
+
+        val serving: Predictor = predictor
+        serving.reloadCustomAndUserWords()
+
+        assertThat(serving.isWordDisabled("hello")).isFalse()
+        assertThat(predictor.applyUserWordCase("hello")).isEqualTo("Hello")
+        assertThat(customAndUserWords()).contains("hello")
+    }
+
+    @Test
     fun observerDeliveredWordIsCalibratedOntoTheBaseScale() {
         seedBaseDictionary()
 

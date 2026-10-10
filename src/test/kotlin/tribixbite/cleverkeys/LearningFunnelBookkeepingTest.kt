@@ -1152,7 +1152,6 @@ class LearningFunnelBookkeepingTest {
         every { bar.getCurrentSuggestions() } returns listOf(word)
         every { bar.showSuggestionRemovalPopup(word, capture(remove)) } just runs
         every { dictionary.removeSuggestionWord(word) } returns true
-        every { predictor.reloadDisabledWords() } just runs
         handler.setSuggestionBar(bar)
         listener.captured.onSuggestionInspected(0, word, null)
         verify(exactly = 0) { dictionary.removeSuggestionWord(any()) }
@@ -1168,7 +1167,6 @@ class LearningFunnelBookkeepingTest {
         assertWithMessage("dictionary action keeps typed text").that(editor.toString()).isEqualTo("grzeje ")
         verify(exactly = 1) { dictionary.removeSuggestionWord("grzeje") }
         verify(exactly = 1) { coordinator.refreshCustomWords() }
-        verify(exactly = 1) { predictor.reloadDisabledWords() }
         verify(exactly = 0) { ic.commitText(any(), any()) }
         verify(exactly = 0) { ic.deleteSurroundingText(any(), any()) }
         remove() // A stale/double action cannot repeat the removal.

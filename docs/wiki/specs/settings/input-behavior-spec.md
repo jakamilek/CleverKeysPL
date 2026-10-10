@@ -429,6 +429,18 @@ case ownership/diacritics and scoped base exclusion. The actual-View dispatch te
 long press versus tap with a clipboard chip and recycled candidate. Local source/resource
 review is separate from CI compilation/test/lint/APK and phone validation, all pending.
 
+Compile follow-up: a3d4eef7 failed in both live38076340590 and CI38076343391 because
+the handler called concrete-only reloadDisabledWords on the Predictor interface.
+The handler now uses only the coordinator's existing refreshCustomWords lifecycle;
+WordPredictor.reloadCustomAndUserWords honors its documented custom/user/disabled
+refresh contract. Lazy checkAndReload uses that same path without an extra disabled
+read. Retired custom keys use the existing observer removal path, restoring shadowed
+base frequencies or removing personal-only keys from serving/prefix maps. Three
+WordPredictorDictionaryUpdateTest regressions invoke the real implementation through
+Predictor, testing custom/base exclusion/restoration, personal-only serving removal and
+retained platform ownership override. The live workflow explicitly runs this existing registered
+suite. Current repaired-head compile/test/lint/APK and phone checks remain pending.
+
 ### Polish trial v15 — new-word suggestion viewport
 
 `SuggestionBar.resetScrollPosition` posts a reset on its current parent

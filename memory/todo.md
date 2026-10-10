@@ -7,7 +7,7 @@
 - [x] Hold word now offers explicit dictionary removal; ordinary tap/clipboard hold unchanged.
 - [x] Fresh exact/unique-case personal removal, base exclusion, dynamic reload and stale callback guards.
 - [x] Eight actual handler/store regressions plus View dispatch regression; Polish/base action/help.
-- [ ] Current-head Android compile/pure/mock/lint/APK and phone removal checks; View execution pending.
+- [ ] a3d4eef7 compile failed: concrete-only reload on Predictor; shared refresh/removal fixed, three real regressions; rerun/phone pending.
 - [ ] Other locales: new action and obsolete provenance-help text; keep global lint/defaults unchanged.
 - Platform user-dictionary entries retain existing custom-over-disabled policy; no cross-app row deletion.
 - Dictionary coverage, native SI RAM/quality, BS timing and other locale review remain; monitoring<=60s/run.
