@@ -10,6 +10,7 @@
 - [x] Eight clipboard mock cases, two real learn/BS regressions, two instrumented
   View cases; registered mocks and current-head instrumentation compilation in CI.
 - [ ] Fresh CI compile/pure/mock/lint/APK and phone behavior. No local Kotlin/Android SDK.
+- Live38054047905/CI38054050655 stopped at missing InputType import; fixed, rerun pending.
 - [ ] Run instrumented View tests on Android; compilation alone is not a UI result.
 - [ ] Other-locale clipboard label translation (base/Polish done, recorded backlog).
 - No new settings, gesture/SI/model/langpack changes. Monitor Actions<=60s total/run.

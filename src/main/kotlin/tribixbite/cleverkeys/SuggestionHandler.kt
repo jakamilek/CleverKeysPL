@@ -5,6 +5,7 @@ import android.content.res.Resources
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import tribixbite.cleverkeys.ai.*
 import tribixbite.cleverkeys.langpack.LanguageIntelligenceProvider
 import android.util.Log
