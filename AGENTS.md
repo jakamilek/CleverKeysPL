@@ -134,8 +134,14 @@ Ordinary decoded forms do not need capitalization metadata. Add case variants on
 when declared by source and enabled in the display setting. formGroupSize is separate
 from exact-case policy; moving a word moves its score/language/case flag. Outside order
 is preserved. No invented inflections or scanning the whole dictionary.
-Family presentation also works without SI; disabling case variants leaves ordinary
-form ranking available. Model/trust/default32/deadline350ms and editor/privacy guards
+The model group is separate from terminal presentation. SwipeSurfaceVariants.present
+keeps one best spelling per grouped key plus other decoder candidates before extra case
+alternatives, targeting three different forms when available. Every surface remains
+selectable; model inputs and winner are unchanged. The display slate resets formGroupSize
+to zero and marks presentationOnly; both live group/pair gates reject reuse. Apply at the single publish
+point for SI, off, timeout, busy and protected-case paths; no raw-score confidence gate.
+No guaranteed top-three slot for a losing capitalization variant in v4. Disabling case
+variants leaves ordinary form ranking available. Model/trust/default32/deadline350ms and editor/privacy guards
 remain; no raw model-score mixing or retroactive edits.
 Use a separate bounded live editor context preserving case/punctuation, never the
 lowercase two-word PredictionContextTracker history. Preserve all source variants,

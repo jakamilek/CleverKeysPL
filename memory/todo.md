@@ -1,26 +1,23 @@
 # Current work queue
 
-## Approved ordinary word-form ranking v3 — 2026-10-10
+## Compact case presentation v4 — 2026-10-10
 
-User confirms Maliną remains selectable after SI inserts maliną; exact strip rank/timing
-not supplied. Requests further SI work before global dictionary: swipe after
-„Tak, była w podpowiedziach właściwa” chooses kapitalizacją before kapitalizacja.
-Verified v5: kapitalizacja is CKDT key rank196, kapitalizacją absent; neither has
-capitalization metadata (sidecar16199 vs CKDT106363). Installed phone pack/custom
-words and actual native scores/deadline are uninspected. Do not claim exact phone cause.
-Previous gate definitely skipped first keys lacking capitalization metadata.
-Implemented: ordinary already-decoded same-fold forms can enter bounded group without
-case metadata; optional shared lemma/POS from existing source evidence links different
-endings. Typed immutable identities are derived at import, <=32 per key; no inferred stems
-or descriptions. Group membership independent of exact-case flag / display toggle.
-Max two keys among first five /four surfaces; SI worker/trust/32 words/350ms unchanged.
-Eleven registered regressions added: missing metadata, source lemma/POS/immutability,
-case toggle, language/decoded-only bounds, order/score guards, real original tokenizer feeds,
-actual handler precommit. Compilation/tests/lint/APK and phone quality pending new CI.
-Other locales remain translation backlog; Polish/base explanation updated.
-Global dictionary task includes kapitalizacją/kapitalizacje coverage alongside earlier nine.
-No producer/model/langpack data edits, merge/release/version bump; Actions wait<=60s.
-
+- V3 live38032850945/standard38032853742 SUCCESS at0acb6476:2874 pure,193/298 integration.
+  Phone: works very well, but praca/Praca/Pracą/pracą crowds first slots; exact scores unknown.
+- [x] Separate full max-four model input from terminal strip. One best spelling/key,
+  other decoder choices toward3 first, extra capitalization later; every alternative retained.
+  SI/off/timeout/protected-case share one publish; winner/weights/languages/flags preserved.
+- [x] Seven pure regressions (including24 rankings) plus two actual-handler cases; old names
+  and late/editor/fallback protections kept. No model/data/context/BS/settings changes.
+- [ ] New current-head compile/pure/mock/debug+vital lint/APK and phone quality/performance.
+  A losing case variant no longer has a guaranteed Top3 slot; no calibrated rarity penalty yet.
+- [ ] Source-derived use priors: docs/specs/polish-case-usage-priors.md. Corpus first,
+  geography/population auxiliary; unknown is not zero/rare, no hand-authored descriptions.
+- V3 ordinary forms/shared source lemma remains: two keys among first5/four surfaces,
+  no capitalization metadata needed for ordinary decoded forms, imported immutable lemmas.
+- Global dictionary task still includes earlier nine missing keys and kapitalizacją/kapitalizacje.
+  Native quality/source-prior calibration, wider word ranking, punctuation, BS times and
+  other locales remain separate. No merge/release/version bump; Actions monitoring<=60s TOTAL.
 
 ## Approved live case-family-v2 — 2026-10-06
 

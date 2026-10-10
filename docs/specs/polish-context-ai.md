@@ -1,6 +1,6 @@
 # Feature specification: Polish contextual SI
 
-**Priority:** P1. **Status:** maintainer authorizes isolated HerBERT FP32 live trial v1 plus BS haptics on 2026-10-06; CI and phone verification pending. Historical failed quality/INT8 gates remain failed.
+**Priority:** P1. **Status:** word-forms-v3 CI PASS and positive qualitative phone feedback; maintainer authorizes compact case presentation v4 on 2026-10-10. New CI/device validation pending. Historical failed quality/INT8 gates remain failed.
 **Target version:** isolated trial, no release/version change. Created 2026-10-04.
 
 ## Overview and motivation
@@ -547,3 +547,40 @@ Other locales remain translation backlog; Polish/base explanation updated.
 Global dictionary task includes kapitalizacją/kapitalizacje coverage alongside earlier nine.
 No producer/model/langpack data edits, merge/release/version bump; Actions wait<=60s.
 
+
+## Approved compact case presentation v4 — 2026-10-10
+
+Phone v3 works very well per maintainer, but praca / Praca / Pracą / pracą occupies
+four leading slots. Actual v5 evidence has common lemma praca and geographic lemma
+Praca, added by the global source audit; this is not a manually imported duplicate key.
+No exact native scores, deadline or city identity are present in that metadata.
+
+Do not force a case alternative into Top3. Terminal SwipeSurfaceVariants.present
+is applied only after ranking/fallback at the single publishSwipeSlate continuation:
+1. Keep the first ranked surface for each of at most two grouped case-folded keys.
+2. Fill toward three displayed choices from the unchanged decoder remainder.
+3. Place unused case variants next, in their current model/source order, then the rest.
+All words, scores, languages and exact-case flags move together; no deduplication of
+foreign-language entries or loss of alternatives. Winner and unrelated relative order
+are unchanged. Short slates do not invent fillers; cases can still be within Top3
+when fewer distinct candidates exist. Malformed/foreign/ordinary non-case groups pass
+through. Display group membership resets to zero and presentationOnly=true; both group/pair
+gates reject reuse as a contiguous model input.
+
+Original contiguous max-four input group still reaches HerBERT, including praca/Praca
+and pracą/Pracą. The first surface for a key can be uppercase if SI actually prefers it;
+this stage is not a measured frequency penalty or a rule that geography means rare.
+SI-off, timeout, busy/no-model and protected Shift/sentence paths use the same display
+step. No user setting, graph, tokenizer, model trust, native worker, score formula,
+32-word/350ms default, BS/editor, privacy or dictionary-data changes.
+
+Seven registered pure tests include all24 four-surface permutations, actual v5 source
+evidence, common/name winners, pair/short slates, null and mixed language, parallel
+identity, idempotence and invalid shapes. Two added actual-handler regressions cover
+full model input / single commit / strip weights and protected Shift with named winner;
+existing SI-off/deadline/late-callback/editor tests retained with new display expectations.
+Local structural checks are distinct from pending Android/Kotlin/native CI and phone.
+
+Next source-derived case-use priors are planned in [polish-case-usage-priors.md](polish-case-usage-priors.md).
+Do not classify missing corpus/population evidence as zero or rare; do not infer stems,
+hand-author senses, add per-word exceptions or mix raw MLM/geometric scores.

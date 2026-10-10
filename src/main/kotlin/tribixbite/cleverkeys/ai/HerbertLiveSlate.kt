@@ -8,7 +8,7 @@ import tribixbite.cleverkeys.langpack.LanguageIntelligenceProvider
 internal object HerbertLiveSlate {
     fun group(slate: SwipeSurfaceVariants.Slate, provider: LanguageIntelligenceProvider? = null): HerbertFormGroup? {
         val size = slate.words.size
-        if (slate.formGroupSize < 0) return null
+        if (slate.presentationOnly || slate.formGroupSize < 0) return null
         val count = if (slate.formGroupSize > 0) slate.formGroupSize else slate.exactCase.takeWhile { it }.size
         if (count !in 2..SwipeSurfaceVariants.MAX_GROUP_SURFACES || count > size ||
             slate.exactCase.size != size || slate.exactCase.drop(count).any { it } ||
@@ -23,7 +23,7 @@ internal object HerbertLiveSlate {
     }
 
     fun pair(slate: SwipeSurfaceVariants.Slate): HerbertCasePair? {
-        if (slate.words.size < 2 || slate.exactCase.count { it } != 2 ||
+        if (slate.presentationOnly || slate.words.size < 2 || slate.exactCase.count { it } != 2 ||
             !slate.exactCase.take(2).all { it } || slate.scores.size != slate.words.size ||
             slate.scores[0] != slate.scores[1] ||
             slate.languages?.let { it.size != slate.words.size || it[0] != it[1] } == true) return null

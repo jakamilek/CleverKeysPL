@@ -10,6 +10,98 @@ class HerbertSwipeDecisionTest {
         javaClass.getResource("/polish-surface-family-v5.json")!!.readText(Charsets.UTF_8).reader(),
         "pl", 5, setOf("capitalization", "metadata"))
 
+    @Test fun commonGeographicHomonymDoesNotReserveTopThreeForEveryCapitalization() {
+        val source = SwipeSurfaceVariants.expand(listOf("praca", "pracą", "pralka", "prawda"),
+            listOf(220, 180, 120, 90), List(4) { "pl" }, sourceProvider(), false, false)
+        assertEquals(listOf("praca", "Praca", "pracą", "Pracą"), source.words.take(4))
+        val ranked = HerbertLiveSlate.ordered(source, listOf("praca", "pracą", "Praca", "Pracą"))
+        val shown = SwipeSurfaceVariants.present(ranked, "pl")
+        assertEquals(listOf("praca", "pracą", "pralka", "Praca", "Pracą", "prawda"), shown.words)
+        assertEquals(listOf(220, 180, 120, 220, 180, 90), shown.scores)
+        assertEquals(listOf(true, true, false, true, true, false), shown.exactCase)
+        assertEquals(0, shown.formGroupSize)
+        assertTrue(shown.presentationOnly)
+        assertNull(HerbertLiveSlate.group(shown, sourceProvider()))
+        assertEquals(shown, SwipeSurfaceVariants.present(shown, "pl"))
+    }
+
+    @Test fun presentationKeepsActualModelPreferredSpellingInsteadOfAssumingEveryCapitalIsWrong() {
+        val source = SwipeSurfaceVariants.expand(listOf("praca", "pracą", "pralka"),
+            listOf(220, 180, 120), null, sourceProvider(), false, false)
+        val shown = SwipeSurfaceVariants.present(HerbertLiveSlate.ordered(source,
+            listOf("praca", "Praca", "Pracą", "pracą")), "pl")
+        assertEquals(listOf("praca", "Pracą", "pralka", "Praca", "pracą"), shown.words)
+        assertNull(shown.languages)
+    }
+
+    @Test fun namedWinnerIsStillFirstButUnusedCasesCannotHideOtherDecodedWords() {
+        val source = SwipeSurfaceVariants.expand(listOf("Malina", "maliną", "mamoną", "malinę"),
+            listOf(220, 160, 120, 90), List(4) { "pl" }, sourceProvider(), false, false)
+        val shown = SwipeSurfaceVariants.present(HerbertLiveSlate.ordered(source,
+            listOf("Maliną", "maliną", "Malina", "malina")), "pl")
+        assertEquals(listOf("Maliną", "Malina", "mamoną", "maliną", "malina", "malinę"), shown.words)
+        assertEquals(listOf(160, 220, 120, 160, 220, 90), shown.scores)
+    }
+
+    @Test fun loneCasePairLeavesTwoOtherDecoderChoicesBeforeItsAlternate() {
+        val source = SwipeSurfaceVariants.expand(listOf("łódź", "kosz", "luz", "licz"),
+            listOf(190, 129, 90, 80), List(4) { "pl" }, sourceProvider(), false, false)
+        val shown = SwipeSurfaceVariants.present(HerbertLiveSlate.ordered(source, listOf("Łódź", "łódź")), "pl")
+        assertEquals(listOf("Łódź", "kosz", "luz", "łódź", "licz"), shown.words)
+        assertEquals(listOf(190, 129, 90, 190, 80), shown.scores)
+        assertEquals(listOf(true, false, false, true, false), shown.exactCase)
+    }
+
+    @Test fun caseDisplayOffOrdinaryFormsAndForeignSlatesAreNotRewritten() {
+        val ordinary = SwipeSurfaceVariants.expand(listOf("praca", "pracą", "pralka"),
+            listOf(220, 180, 120), null, sourceProvider(), false, false, showCaseVariants = false)
+        assertEquals(ordinary, SwipeSurfaceVariants.present(ordinary, "pl"))
+        val source = SwipeSurfaceVariants.expand(listOf("praca", "pracą", "pralka"),
+            listOf(220, 180, 120), List(3) { "pl" }, sourceProvider(), false, false)
+        assertEquals(source, SwipeSurfaceVariants.present(source, "en"))
+        assertEquals(source, SwipeSurfaceVariants.present(source, null))
+        val foreign = source.copy(languages = List(source.words.size) { "en" })
+        assertEquals(foreign, SwipeSurfaceVariants.present(foreign, "pl"))
+    }
+
+    @Test fun shortSlatesAndForeignRemainderKeepEverySelectableSurfaceAndParallelIdentity() {
+        val source = SwipeSurfaceVariants.expand(listOf("praca", "pracą", "Praca"),
+            listOf(220, 180, 120), listOf("pl", "pl", "en"), sourceProvider(), false, false)
+        val shown = SwipeSurfaceVariants.present(source, "pl")
+        assertEquals(listOf("praca", "pracą", "Praca", "Praca", "Pracą"), shown.words)
+        assertEquals(listOf("pl", "pl", "en", "pl", "pl"), shown.languages)
+        assertEquals(listOf(220, 180, 120, 220, 180), shown.scores)
+        val pairOnly = source.copy(words = listOf("praca", "Praca"), scores = listOf(220, 220),
+            languages = null, exactCase = listOf(true, true), formGroupSize = 2)
+        assertEquals(pairOnly.words, SwipeSurfaceVariants.present(pairOnly, "pl").words)
+        assertNull(HerbertLiveSlate.pair(SwipeSurfaceVariants.present(pairOnly, "pl")))
+        for (bad in listOf(source.copy(formGroupSize = -1), source.copy(formGroupSize = 9),
+            source.copy(scores = emptyList()), source.copy(exactCase = emptyList()),
+            source.copy(languages = emptyList()))) assertEquals(bad, SwipeSurfaceVariants.present(bad, "pl"))
+    }
+
+    @Test fun allFourSurfaceRankingsKeepWinnerAllCandidatesAndUnrelatedDecoderOrder() {
+        val source = SwipeSurfaceVariants.expand(listOf("praca", "pracą", "pralka", "prawda", "pranie"),
+            listOf(220, 180, 120, 90, 70), List(5) { "pl" }, sourceProvider(), false, false)
+        fun permutations(words: List<String>): List<List<String>> = if (words.isEmpty()) listOf(emptyList())
+            else words.flatMap { word -> permutations(words - word).map { listOf(word) + it } }
+        for (ranking in permutations(source.words.take(4))) {
+            val ranked = HerbertLiveSlate.ordered(source, ranking)
+            val shown = SwipeSurfaceVariants.present(ranked, "pl")
+            assertEquals(ranking.first(), shown.words.first())
+            assertEquals(3, shown.words.take(3).map { it.lowercase(java.util.Locale.ROOT) }.distinct().size)
+            assertEquals(source.words.toSet(), shown.words.toSet())
+            assertEquals(source.words.size, shown.words.size)
+            assertEquals(listOf("pralka", "prawda", "pranie"), shown.words.filter { it in listOf("pralka", "prawda", "pranie") })
+            for (i in shown.words.indices) {
+                val old = source.words.indexOf(shown.words[i])
+                assertEquals(source.scores[old], shown.scores[i])
+                assertEquals(source.languages!![old], shown.languages!![i])
+                assertEquals(source.exactCase[old], shown.exactCase[i])
+            }
+        }
+    }
+
     @Test fun ordinaryInflectionCanWinWithoutAnyExactCapitalizationFlags() {
         val ordinary = SwipeSurfaceVariants.expand(listOf("kapitalizacją", "kapitalizacja", "kapitalizm"),
             listOf(220, 190, 90), listOf("pl", "pl", "pl"), sourceProvider(), false, false)

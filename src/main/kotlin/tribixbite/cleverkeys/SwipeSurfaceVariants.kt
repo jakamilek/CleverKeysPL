@@ -20,7 +20,40 @@ internal object SwipeSurfaceVariants {
         val exactCase: List<Boolean>,
         // Model membership is independent of a surface's capitalization policy.
         val formGroupSize: Int = 0,
+        val presentationOnly: Boolean = false,
     )
+
+    /** Terminal presentation: a case alternative must not reserve a top-three slot.
+     * The model still receives the complete, contiguous group before this step.
+     * Its first surface per key wins that key's spelling; all other surfaces survive.
+     */
+    fun present(slate: Slate, language: String?): Slate {
+        val count = slate.formGroupSize
+        val size = slate.words.size
+        if (slate.presentationOnly || language != "pl" || count !in 2..MAX_GROUP_SURFACES || count > size ||
+            slate.scores.size != size || slate.exactCase.size != size ||
+            slate.languages?.let { it.size != size || it.take(count).any { lang -> lang != "pl" } } == true) return slate
+        val keys = mutableSetOf<String>()
+        val representatives = mutableListOf<Int>()
+        val caseAlternatives = mutableListOf<Int>()
+        for (i in 0 until count) {
+            if (keys.add(slate.words[i].lowercase(Locale.ROOT))) representatives.add(i)
+            else caseAlternatives.add(i)
+        }
+        if (caseAlternatives.isEmpty() || keys.size > 2 ||
+            slate.words.take(count).distinct().size != count) return slate
+        val otherCandidates = (count until size).toList()
+        val earlyCount = minOf((3 - representatives.size).coerceAtLeast(0), otherCandidates.size)
+        val order = representatives + otherCandidates.take(earlyCount) + caseAlternatives + otherCandidates.drop(earlyCount)
+        return slate.copy(
+            words = order.map { slate.words[it] }, scores = order.map { slate.scores[it] },
+            languages = slate.languages?.let { languages -> order.map { languages[it] } },
+            exactCase = order.map { slate.exactCase[it] },
+            // The non-contiguous display is never dispatched to the model again.
+            formGroupSize = 0,
+            presentationOnly = true,
+        )
+    }
 
     fun expand(
         words: List<String>, scores: List<Int>, languages: List<String>?,

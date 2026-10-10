@@ -71,8 +71,16 @@ kandydatury zachowują kolejność. Model nadal zwraca średni logp całego zama
 słowa i nie dodaje go do wagi geometrycznej. Normalizacja nie gwarantuje trafności
 między końcówkami; testy dispatchu nie dowodzą właściwego wyboru HerBERTa.
 
-Bez SI grupa pozostaje obok siebie. Cztery pisownie nie mieszczą się wszystkie w Top3;
-celem jest poprawna forma w Top3. Jeśli łódź / łodzi są już rozpoznane i ich źródłowe
+W v4 grupa czterech pisowni pozostaje wejściem SI, ale nie zajmuje już automatycznie
+czterech pierwszych miejsc paska. Najpierw pokazujemy najlepszą pisownię każdej formy
+i kolejne słowa dekodera, tak aby pierwsze trzy miejsca mieściły różne formy, jeśli
+są dostępne. Dodatkowe warianty wielkości liter pojawiają się dalej i nadal można je
+wybrać. Ta sama prezentacja działa bez SI i po limicie czasu. Przykładowo przy rankingu
+SI praca / pracą / Praca / Pracą oraz innych kandydaturach pralka / prawda pasek pokaże
+praca / pracą / pralka / Praca / Pracą / prawda. Zwycięska nazwa własna nadal jest
+pierwsza; alternatywna kapitalizacja nie ma już zagwarantowanego miejsca w Top3.
+To etap porządkowania paska, nie wykrywanie rzadkich miejscowości. Jeżeli SI naprawdę
+woli Pracą od pracą, najlepsza pisownia tej drugiej formy może nadal być wielką literą. Jeśli łódź / łodzi są już rozpoznane i ich źródłowe
 lematy się pokrywają, mogą należeć do grupy; nie dodajemy brakujących form automatycznie.
 Jawny Shift, Caps Lock, początek zdania i zastosowana preferencja nadal chronią wybór
 przed rankingiem SI. Bez sidecaru nadal działa geometria; pełna gramatyka wszystkich
@@ -114,6 +122,13 @@ zaakceptowanego mechanizmu przesuwania ze spacji; czasy powtarzania słów pozos
 dotychczasowe. Oddzielne ustawienia tych czasów pozostają na liście dalszych zmian.
 
 ## Próba telefonu po udanym CI
+
+- „To jest bardzo ważna” + swipe praca: porównaj SI on/off. Pierwsza trójka nie powinna
+  być zapełniona samymi wariantami wielkości liter, jeśli są inne kandydatury. Sprawdź
+  dostępność Praca / Pracą dalej na pasku i zastąpienie wybranego słowa bez utraty tekstu.
+- „Naszym celem podróży jest” + swipe Łódź oraz „Rozmawiałem z” + swipe Maliną:
+  nazwa wybrana przez SI nadal musi być wstawiona jako pierwsza; wszystkie pozostałe
+  pisownie pozostają dostępne. Przy błędzie SI wariant może wymagać przewinięcia.
 
 - Po „Tak, była w podpowiedziach właściwa” wykonaj swipe kapitalizacja: porównaj
   wstawienie i pierwsze trzy propozycje z SI on/off; oczekiwana forma kapitalizacja.

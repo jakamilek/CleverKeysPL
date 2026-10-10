@@ -1,4 +1,6 @@
-# Current Polish trial: [HerBERT live SI and BS haptics](HERBERT_LIVE_TRIAL_V1.md) — 2026-10-06, CI/phone pending; then global swipe dictionary coverage.
+# Current Polish trial: [HerBERT compact case presentation v4](HERBERT_LIVE_TRIAL_V1.md) — 2026-10-10, current CI/phone pending; v3 passed CI and received positive phone feedback.
+
+Next: [source-derived case-use priors](specs/polish-case-usage-priors.md), planned; global swipe dictionary coverage remains on backlog.
 
 # CleverKeys Documentation - Table of Contents
 

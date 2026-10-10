@@ -1048,7 +1048,8 @@ class SuggestionHandler(
             provider, shiftActive || autocapAtCursor, shiftLocked,
             (config.edit_behavior ?: EditBehaviorOptions()).showCaseVariants,
         )
-        fun publishSwipeSlate(surfaceSlate: SwipeSurfaceVariants.Slate) {
+        fun publishSwipeSlate(rankedSlate: SwipeSurfaceVariants.Slate) {
+            val surfaceSlate = SwipeSurfaceVariants.present(rankedSlate, topLanguage)
             val barWords = surfaceSlate.words.toMutableList()
             val barScores = surfaceSlate.scores.toMutableList()
             val engineWordCount = barWords.size

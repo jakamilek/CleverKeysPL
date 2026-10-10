@@ -230,12 +230,54 @@ class SwipeAutocapCommitTest {
         complete!!(mapOf("pracy" to -7f, "Pracy" to -8f, "praca" to -1f, "Praca" to -6f), 7L)
         verify(exactly = 1) { ic.commitText("praca ", 1) }
         assertWithMessage("ending alternatives stay available").that(barWords)
-            .containsExactly("praca", "Praca", "pracy", "Pracy", "malina").inOrder()
+            .containsExactly("praca", "pracy", "malina", "Praca", "Pracy").inOrder()
     }
 
     private fun familySwipe(h: SuggestionHandler, info: EditorInfo) {
         h.handleSwipePredictionResults(listOf("Malina", "maliną", "mamoną"), listOf(220, 160, 150),
             ic, info, resources, false, false, inputCoordinator, SuggestionOrigin.GEOMETRIC)
+    }
+
+    @Test fun commonWordPublishesThreeDifferentChoicesAfterCompleteFourSurfaceSIAnalysis() {
+        val (h, info) = liveFixture(family = true, contextText = "To jest bardzo ważna ")
+        var complete: ((Map<String, Float>?, Long) -> Unit)? = null
+        every { HerbertLiveRuntime.rank(any(), any(), any(), any()) } answers {
+            assertWithMessage("display compaction never removes model inputs").that(arg<HerbertFormGroup>(1).surfaces)
+                .containsExactly("praca", "Praca", "pracą", "Pracą").inOrder()
+            complete = arg(3); true
+        }
+        h.handleSwipePredictionResults(listOf("praca", "pracą", "pralka", "prawda"),
+            listOf(220, 180, 120, 90), ic, info, resources, false, false, inputCoordinator, SuggestionOrigin.GEOMETRIC)
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+        complete!!(mapOf("praca" to -1f, "pracą" to -2f, "Praca" to -7f, "Pracą" to -8f), 7L)
+        verify(exactly = 1) { ic.commitText("praca ", 1) }
+        assertWithMessage("another decoded word is visible before unused case variants").that(barWords)
+            .containsExactly("praca", "pracą", "pralka", "Praca", "Pracą", "prawda").inOrder()
+        assertWithMessage("parallel geometric weights remain aligned").that(barScores)
+            .containsExactly(220, 180, 120, 220, 180, 90).inOrder()
+        assertWithMessage("exact-case policy travels with each surface").that(barMetas.map { it.preserveExactCase })
+            .containsExactly(true, true, false, true, true, false).inOrder()
+        complete!!(mapOf("praca" to -8f, "pracą" to -7f, "Praca" to -1f, "Pracą" to -2f), 7L)
+        verify(exactly = 1) { ic.commitText(any(), any()) }
+    }
+
+    @Test fun capitalizedWinnerStillCommitsFirstAndProtectedShiftUsesTheSameCompactPresentation() {
+        val (h, info) = liveFixture()
+        var complete: ((Map<String, Float>?, Long) -> Unit)? = null
+        every { HerbertLiveRuntime.rank(any(), any(), any(), any()) } answers { complete = arg(3); true }
+        h.handleSwipePredictionResults(listOf("łódź", "kosz", "luz"), listOf(190, 129, 90),
+            ic, info, resources, false, false, inputCoordinator, SuggestionOrigin.GEOMETRIC)
+        complete!!(mapOf("łódź" to -8f, "Łódź" to -2f), 7L)
+        verify(exactly = 1) { ic.commitText("Łódź ", 1) }
+        assertWithMessage("named winner wins without reserving a second slot").that(barWords)
+            .containsExactly("Łódź", "kosz", "luz", "łódź").inOrder()
+        clearMocks(HerbertLiveRuntime, ic, answers = false)
+        h.handleSwipePredictionResults(listOf("łódź", "kosz", "luz"), listOf(190, 129, 90),
+            ic, info, resources, true, false, inputCoordinator, SuggestionOrigin.GEOMETRIC)
+        verify(exactly = 0) { HerbertLiveRuntime.rank(any(), any(), any(), any()) }
+        verify(exactly = 1) { ic.commitText("Łódź ", 1) }
+        assertWithMessage("explicit Shift keeps capitalized commit and all alternatives").that(barWords)
+            .containsExactly("Łódź", "Kosz", "Luz", "łódź").inOrder()
     }
 
     @Test fun liveFamilyRanksFourActualSourceFormsAndCommitsInstrumentalNameOnce() {
@@ -251,9 +293,9 @@ class SwipeAutocapCommitTest {
         complete!!(mapOf("Malina" to -6f, "malina" to -8f, "maliną" to -3f, "Maliną" to -1f), 7L)
         verify(exactly = 1) { ic.commitText("Maliną ", 1) }
         assertWithMessage("all alternatives survive").that(barWords)
-            .containsExactly("Maliną", "maliną", "Malina", "malina", "mamoną").inOrder()
+            .containsExactly("Maliną", "Malina", "mamoną", "maliną", "malina").inOrder()
         assertWithMessage("each word keeps its decoder score").that(barScores)
-            .containsExactly(160, 160, 220, 220, 150).inOrder()
+            .containsExactly(160, 220, 150, 160, 220).inOrder()
         complete!!(mapOf("Malina" to -1f, "malina" to -8f, "maliną" to -3f, "Maliną" to -6f), 7L)
         verify(exactly = 1) { ic.commitText(any(), any()) }
     }
@@ -265,7 +307,7 @@ class SwipeAutocapCommitTest {
         verify(exactly = 0) { HerbertLiveRuntime.rank(any(), any(), any(), any()) }
         verify(exactly = 1) { ic.commitText("Malina ", 1) }
         assertWithMessage("no SI needed to offer the source forms").that(barWords)
-            .containsExactly("Malina", "malina", "maliną", "Maliną", "mamoną").inOrder()
+            .containsExactly("Malina", "maliną", "mamoną", "malina", "Maliną").inOrder()
     }
 
     @Test fun familyDeadlineFallsBackOnceAndLateCallbackCannotReplaceText() {
@@ -281,8 +323,8 @@ class SwipeAutocapCommitTest {
         complete!!(mapOf("Malina" to -6f, "malina" to -8f, "maliną" to -3f, "Maliną" to -1f), 7L)
         verify(exactly = 1) { ic.commitText("Malina ", 1) }
         verify(exactly = 1) { ic.commitText(any(), any()) }
-        assertWithMessage("fallback retains the four choices").that(barWords.take(4))
-            .containsExactly("Malina", "malina", "maliną", "Maliną").inOrder()
+        assertWithMessage("fallback retains every choice and leaves room for another word").that(barWords)
+            .containsExactly("Malina", "maliną", "mamoną", "malina", "Maliną").inOrder()
     }
 
     private fun liveSwipe(h: SuggestionHandler, info: EditorInfo, shift: Boolean = false) {
@@ -298,7 +340,8 @@ class SwipeAutocapCommitTest {
         verify(exactly = 0) { ic.commitText(any(), any()) }
         complete!!(mapOf("łódź" to -8f, "Łódź" to -2f), 7L)
         verify(exactly = 1) { ic.commitText("Łódź ", 1) }
-        assertWithMessage("both source forms remain first").that(barWords.take(2)).containsExactly("Łódź", "łódź").inOrder()
+        assertWithMessage("winner stays first and alternate remains selectable").that(barWords)
+            .containsExactly("Łódź", "kosz", "łódź").inOrder()
         complete!!(mapOf("łódź" to -1f, "Łódź" to -9f), 7L)
         verify(exactly = 1) { ic.commitText(any(), any()) }
     }
@@ -421,8 +464,8 @@ class SwipeAutocapCommitTest {
         val handler = handler()
         handler.handleSwipePredictionResults(listOf("łódź", "lód"), listOf(100, 80), ic,
             capSentencesField(), resources, false, false, inputCoordinator)
-        assertWithMessage("one decoder key supplies the first two surfaces")
-            .that(barWords.take(3)).containsExactly("Łódź", "łódź", "Lód").inOrder()
+        assertWithMessage("source case alternatives do not displace the other decoded word")
+            .that(barWords.take(3)).containsExactly("Łódź", "Lód", "łódź").inOrder()
         verify { ic.commitText("Łódź ", 1) }
 
         every { contextTracker.getLastCommitSource() } returns PredictionSource.SWIPE
