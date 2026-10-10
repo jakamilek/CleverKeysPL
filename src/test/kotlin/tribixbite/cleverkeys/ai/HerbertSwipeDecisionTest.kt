@@ -44,10 +44,13 @@ class HerbertSwipeDecisionTest {
     }
 
     @Test fun loneCasePairLeavesTwoOtherDecoderChoicesBeforeItsAlternate() {
-        val source = SwipeSurfaceVariants.expand(listOf("łódź", "kosz", "luz", "licz"),
+        // Use an actual entry in this verbatim v5 fixture; it does not contain łódź.
+        val source = SwipeSurfaceVariants.expand(listOf("laska", "kosz", "luz", "licz"),
             listOf(190, 129, 90, 80), List(4) { "pl" }, sourceProvider(), false, false)
-        val shown = SwipeSurfaceVariants.present(HerbertLiveSlate.ordered(source, listOf("Łódź", "łódź")), "pl")
-        assertEquals(listOf("Łódź", "kosz", "luz", "łódź", "licz"), shown.words)
+        assertEquals(2, source.formGroupSize)
+        assertEquals(listOf("laska", "Laska"), HerbertLiveSlate.group(source, sourceProvider())!!.surfaces)
+        val shown = SwipeSurfaceVariants.present(HerbertLiveSlate.ordered(source, listOf("Laska", "laska")), "pl")
+        assertEquals(listOf("Laska", "kosz", "luz", "laska", "licz"), shown.words)
         assertEquals(listOf(190, 129, 90, 190, 80), shown.scores)
         assertEquals(listOf(true, false, false, true, false), shown.exactCase)
     }
