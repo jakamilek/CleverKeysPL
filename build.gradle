@@ -1146,6 +1146,17 @@ tasks.register('runPureTests', JavaExec) {
   }
 }
 
+// A separate process makes the heap ceiling meaningful; the broad pure suite has
+// a much larger heap and must not mask an importer allocation regression.
+tasks.register('runLanguageIntelligenceMemoryCheck', JavaExec) {
+  dependsOn 'compileDebugUnitTestKotlin', 'processDebugUnitTestJavaRes'
+  group = 'verification'
+  description = 'Read previous and v6-sized metadata snapshots with a 192 MiB heap'
+  mainClass = 'tribixbite.cleverkeys.langpack.LanguageIntelligenceMemoryCheck'
+  maxHeapSize = '192m'
+  classpath = tasks.named('runPureTests', JavaExec).get().classpath
+}
+
 // MockK test runner — like runPureTests but with android.jar on classpath.
 // Allows MockK to mock Android framework classes (Log, PointF, Context, etc.)
 // without Robolectric. The android.jar stubs provide class definitions; MockK

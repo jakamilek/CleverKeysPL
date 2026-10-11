@@ -97,7 +97,8 @@ internal fun SettingsActivity.performLanguagePackImport(uri: Uri) {
     lifecycleScope.launch {
         try {
             val manager = LanguagePackManager.getInstance(_self)
-            when (val result = manager.importLanguagePack(uri)) {
+            val imported = withContext(Dispatchers.IO) { manager.importLanguagePack(uri) }
+            when (val result = imported) {
                 is ImportResult.Success -> {
                     val words = result.manifest.wordCount
                     languagePackImportStatus = LanguagePackImportStatus.Imported(

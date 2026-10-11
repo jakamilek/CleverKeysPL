@@ -952,6 +952,23 @@ class LanguagePackImportTest {
 
     private fun trialBytes(): ByteArray = javaClass.getResource("/language-intelligence-trial.json")!!.readBytes()
 
+    @Test fun metadataMemoryFailureKeepsPreviousPackAndSnapshotAndCleansStaging() {
+        val bytes = trialBytes()
+        assertThat(import(validPack("pl", "Previous", extras = listOf("language-intelligence.json" to bytes),
+            manifest = trialManifest(bytes)))).isInstanceOf(ImportResult.Success::class.java)
+        val snapshot = manager.getLanguageIntelligenceProvider("pl")!!
+        val original = manager.getDictionaryPath("pl")!!.readBytes()
+        io.mockk.mockkObject(IntelligenceJson)
+        try {
+            every { IntelligenceJson.parse(any(), any(), any(), any()) } throws OutOfMemoryError("synthetic")
+            assertThat(import(validPack("pl", "Replacement", extras = listOf("language-intelligence.json" to bytes),
+                manifest = trialManifest(bytes)))).isInstanceOf(ImportResult.Error::class.java)
+            assertThat(manager.getDictionaryPath("pl")!!.readBytes().toList()).isEqualTo(original.toList())
+            assertThat(manager.getLanguageIntelligenceProvider("pl")).isSameInstanceAs(snapshot)
+            assertThat(cacheDir.listFiles()?.toList().orEmpty()).isEmpty()
+        } finally { io.mockk.unmockkObject(IntelligenceJson) }
+    }
+
     private fun trialManifest(bytes: ByteArray, api: Int = 1): String =
         """{"code":"pl","name":"Polish","version":3,"apiVersion":$api,
           "capabilities":["lexicon","frequency","capitalization","metadata","future"],

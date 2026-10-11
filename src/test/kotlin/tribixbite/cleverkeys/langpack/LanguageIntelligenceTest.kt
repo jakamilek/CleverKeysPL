@@ -5,6 +5,46 @@ import org.junit.Test
 import tribixbite.cleverkeys.SwipeSurfaceVariants
 
 class LanguageIntelligenceTest {
+    @Test fun streamedBudgetsCoverTheWholeDocumentRatherThanResettingAtEachEntry() {
+        val values = "[" + "null,".repeat(14_999) + "null]"
+        val entries = (0 until 134).joinToString(",") {
+            """{"surfaceKey":"word$it","metadata":$values}"""
+        }
+        // Each chunk is small enough, but their aggregate exceeds the 2M-node ceiling.
+        refused("""{"entries":[$entries],"languageCode":"pl","schemaVersion":1}""")
+        val tooManyEntries = (0 until 120_001).joinToString(",") { """{"surfaceKey":"word$it"}""" }
+        refused("""{"entries":[$tooManyEntries],"languageCode":"pl","schemaVersion":1}""")
+        val extraFields = (0 until 62).joinToString(",") { "\"future$it\":null" }
+        refused("""{"entries":[],"languageCode":"pl","schemaVersion":1,$extraFields}""")
+    }
+
+    @Test fun streamedSidecarValidatesHeadersAfterEntriesAndRejectsAllDuplicateFields() {
+        val valid = """{"entries":[],"provenance":{"source":"test"},"languageCode":"pl","schemaVersion":1}"""
+        val data = provider(valid)
+        assertTrue(data.packageInfo().provenanceJson!!.contains("test"))
+        for (json in listOf(
+            valid.replace("\"schemaVersion\":1", "\"schemaVersion\":2"),
+            valid.replace("\"languageCode\":\"pl\"", "\"languageCode\":\"en\""),
+            valid.replace("\"entries\":[]", "\"entries\":[],\"entries\":[]"),
+            valid.replace("\"source\":\"test\"", "\"source\":\"test\",\"source\":\"other\""),
+            valid.replace("\"entries\":[]", "\"entries\":null"),
+            valid + " {}",
+            valid.replace("\"entries\":[],", ""),
+        )) refused(json)
+    }
+
+    @Test fun streamedUnknownFieldsKeepStrictDepthStringAndChunkBounds() {
+        val base = """{"entries":[],"languageCode":"pl","schemaVersion":1,"future":%s}"""
+        provider(base.format("{\"valid\":[null,1,\"text\"]}"))
+        refused(base.format("{\"duplicate\":1,\"duplicate\":2}"))
+        refused(base.format("[".repeat(34) + "null" + "]".repeat(34)))
+        refused(base.format("\"" + "x".repeat(16_385) + "\""))
+        refused(base.format("[" + "null,".repeat(16_384) + "null]"))
+        // The same bound applies before any one entry builds a giant metadata tree.
+        refused("""{"entries":[{"surfaceKey":"test","metadata":%s}],"languageCode":"pl","schemaVersion":1}"""
+            .format("[" + "null,".repeat(16_384) + "null]"))
+    }
+
     @Test fun expandedSourceMetadataHasABoundedTwoMillionNodeBudget() {
         // Root + array + null values: test the exact boundary without huge objects.
         fun document(nodes: Int) = "{\"values\":[" + "null,".repeat(nodes - 3) + "null]}"
@@ -203,7 +243,7 @@ class LanguageIntelligenceTest {
     }
 
     private fun refused(json: String) {
-        try { provider(json); fail("invalid sidecar accepted") } catch (_: IllegalArgumentException) { }
+        try { provider(json); fail("invalid sidecar accepted") } catch (_: Exception) { }
     }
 
     @Test fun invalidSchemaLanguageDuplicateKeysAndCasePolicyAreRejected() {

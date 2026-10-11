@@ -6,7 +6,9 @@ The separate producer trial appends 75,328 source-attested ordinary forms to the
 verified v5 dictionary (106,363 → 181,691 keys). Every old canonical record/rank,
 case variant, metadata entry and unigram is retained. It is an opt-in imported
 langpack, not a bundled dictionary or model update. Import the inner langpack ZIP
-after installing a compatible APK; older APKs refuse the larger metadata.
+after installing a compatible APK. The first v6-compatible APK passed CI but the
+maintainer reported that selecting the ZIP closes the app; it is superseded by
+the streaming-import fix below. No dictionary rebuild is needed.
 
 `IntelligenceJson` permits at most 2,000,000 nodes (formerly 1,000,000). The v6
 sidecar has 1,844,963 nodes, 91,527 entries and 28,123,935 UTF-8 bytes. The 32 MiB
@@ -16,12 +18,41 @@ capitalization: CKDT provides their spelling. They retain immutable lexical
 lemma/POS/surface evidence for the existing SI relation test; no suffix guessing,
 new model scope or new gesture-time parsing. Existing metadata is untouched.
 
-Validation: focused actual Kotlin JUnit checks pass (18), including the exact
-2M/2M+1 node boundary and compact ordinary relations. The actual Kotlin CKDT and
-intelligence readers accept the complete locally generated pack and preserve
-all old records/readings. Full Android CI and phone import, memory, latency and
-swipe-ranking checks remain required; vocabulary coverage alone is not Top3
-accuracy evidence. Private dictionary exports never enter the producer or git.
+Validation: runtime runs 38121260589/38121262142 and producer runs
+38121444186/38121445914 passed at the original v6 heads. The verified APK was
+delivered, but phone import failed. The original actual Kotlin consumer reproduces
+`OutOfMemoryError` with a 256 MiB JVM heap while retaining the v5 snapshot; its
+earlier 1 GiB check hid this allocation problem. No phone crash trace is available,
+so this is a reproduced cause, not proof of the phone's only failure mode.
+
+The replacement `IntelligenceJson.parse` reads one entry tree at a time and builds
+the immutable typed index directly. It preserves metadata JSON, capitalization
+and case-sensitive source lemma/POS relations. One shared counter still bounds the
+complete document at 2M nodes; per-entry and non-entry root values additionally
+have a 16,384-node chunk limit (the largest actual v6 entry has 470 nodes), with at
+most 64 root members. Duplicate fields, depth, strings, 120K entries, schema,
+language and trailing content remain strictly checked, including unknown fields.
+Header order is arbitrary; no provider is published until the entire stream passes.
+Byte/hash/ZIP extraction limits and staged replacement remain unchanged.
+
+Settings dispatches ZIP import to `Dispatchers.IO`; main handles only its result.
+A metadata allocation failure returns the existing localized generic IO failure
+before the staged swap and retains the installed files/provider. Background warming
+also contains this specific allocation failure. This is not a promise to recover
+every possible process-level memory failure; no largeHeap, forced GC, weakened
+integrity bounds or dropped dictionary data is introduced.
+
+Local checks after the fix: 21 actual Kotlin JUnit tests PASS; full v5/v6 CKDT and
+metadata comparison PASS at 256 MiB (106,363 old records preserved, 181,691 total,
+50,686 shared-source relations). The isolated memory gate passes at 192 MiB with
+both providers and 16 MiB live ballast, using both the exact v5/v6 packs and a
+generated 91,527-entry / 32,001,501-byte sidecar. The same workload fails at 128 MiB;
+192 MiB is an explicit regression ceiling, not an Android PSS/heap measurement.
+The Gradle gate runs separately from the broad suite in CI before the trial APK.
+OOM rollback and import-dispatch regressions join the existing integration/pure
+suites. Current fix Android CI and phone import, memory, latency and swipe ranking
+still require verification; coverage alone is not Top3 accuracy evidence.
+Private dictionary exports never enter the producer or git.
 
 Producer protocol: `jakamilek/CleverKeys-langpack-pl`,
 `docs/common-forms-trial-v1/PROTOCOL.md`, branch `feature/additive-common-forms-v1`.

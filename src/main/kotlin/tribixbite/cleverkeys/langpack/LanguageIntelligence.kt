@@ -81,21 +81,39 @@ internal object IntelligenceJson {
         return Collections.unmodifiableSet(out)
     }
 
-    fun document(reader: Reader): JsonObject = JsonReader(reader).use { input ->
-        input.isLenient = false
-        var nodes = 0
+    private const val MAX_CHUNK_NODES = 16_384
+    private const val MAX_ROOT_MEMBERS = 64
+
+    /** One counter covers the entire stream; a single entry cannot allocate the whole budget. */
+    private class BoundedJson(val input: JsonReader) {
+        private var nodes = 0
+        private var nodeLimit = MAX_NODES
+
+        fun visit(depth: Int) {
+            require(depth <= 32 && ++nodes <= nodeLimit) { "JSON complexity limit" }
+        }
+
+        private fun bounded(value: String): String {
+            require(value.length <= 16_384) { "JSON string limit" }
+            return value
+        }
+
+        fun name(): String = bounded(input.nextName())
+
+        fun chunk(depth: Int): JsonElement {
+            val previous = nodeLimit
+            nodeLimit = minOf(MAX_NODES, nodes + MAX_CHUNK_NODES)
+            return try { read(depth) } finally { nodeLimit = previous }
+        }
+
         fun read(depth: Int): JsonElement {
-            require(depth <= 32 && ++nodes <= MAX_NODES) { "JSON complexity limit" }
-            fun bounded(value: String): String {
-                require(value.length <= 16_384) { "JSON string limit" }
-                return value
-            }
+            visit(depth)
             return when (input.peek()) {
                 JsonToken.BEGIN_OBJECT -> {
                     input.beginObject()
                     val obj = JsonObject()
                     while (input.hasNext()) {
-                        val name = bounded(input.nextName())
+                        val name = name()
                         require(!obj.has(name)) { "Duplicate JSON member: $name" }
                         obj.add(name, read(depth + 1))
                     }
@@ -116,7 +134,12 @@ internal object IntelligenceJson {
                 else -> throw IllegalArgumentException("Unexpected JSON token")
             }
         }
-        val root = read(0)
+    }
+
+    // Small manifest/document callers retain their existing strict tree interface.
+    fun document(reader: Reader): JsonObject = JsonReader(reader).use { input ->
+        input.isLenient = false
+        val root = BoundedJson(input).read(0)
         require(input.peek() == JsonToken.END_DOCUMENT && root.isJsonObject) { "Invalid JSON document" }
         root.asJsonObject
     }
@@ -156,48 +179,79 @@ internal object IntelligenceJson {
         }.toSet()
     }
 
-    fun parse(reader: Reader, language: String, version: Int, capabilities: Set<String>): LanguageIntelligenceProvider {
-        val obj = document(reader)
-        require(integer(obj, "schemaVersion") == 1 && string(obj, "languageCode") == language)
-        val entries = obj.getAsJsonArray("entries")
-        require(entries.size() <= MAX_ENTRIES)
-        val index = LinkedHashMap<String, LanguageIntelligence>()
-        for (element in entries) {
-            val entry = element.asJsonObject
-            val key = string(entry, "surfaceKey")
-            require(key.isNotBlank() && key.length <= 96 && key == key.lowercase(Locale.ROOT))
-            require(key.none { it.isWhitespace() || it.isISOControl() })
-            require(!index.containsKey(key)) { "Duplicate surfaceKey" }
-            val caps = entry.get("capitalization")?.takeUnless { it.isJsonNull }?.asJsonObject?.let { cap ->
-                val variants = cap.getAsJsonArray("variants")
-                require(variants.size() in 1..2)
-                val seen = HashSet<String>()
-                val forms = variants.map { raw ->
-                    val form = raw.asJsonObject
-                    val surface = string(form, "surface")
-                    val policy = string(form, "casePolicy")
-                    require(surface.lowercase(Locale.ROOT) == key && seen.add(surface))
-                    require(when (policy) {
-                        "lowercase" -> surface == key
-                        "capitalized" -> surface == key.replaceFirstChar { it.titlecase(Locale.ROOT) }
-                        else -> false
-                    }) { "Unsupported capitalization policy" }
-                    SurfaceVariant(surface, policy)
-                }
-                val default = cap.get("defaultSurface")?.takeUnless { it.isJsonNull }?.let {
-                    string(cap, "defaultSurface")
-                }
-                require(default == null || default in seen)
-                CapitalizationInfo(default, Collections.unmodifiableList(forms))
+    private fun entry(entry: JsonObject): LanguageIntelligence {
+        val key = string(entry, "surfaceKey")
+        require(key.isNotBlank() && key.length <= 96 && key == key.lowercase(Locale.ROOT))
+        require(key.none { it.isWhitespace() || it.isISOControl() })
+        val caps = entry.get("capitalization")?.takeUnless { it.isJsonNull }?.asJsonObject?.let { cap ->
+            val variants = cap.getAsJsonArray("variants")
+            require(variants.size() in 1..2)
+            val seen = HashSet<String>()
+            val forms = variants.map { raw ->
+                val form = raw.asJsonObject
+                val surface = string(form, "surface")
+                val policy = string(form, "casePolicy")
+                require(surface.lowercase(Locale.ROOT) == key && seen.add(surface))
+                require(when (policy) {
+                    "lowercase" -> surface == key
+                    "capitalized" -> surface == key.replaceFirstChar { it.titlecase(Locale.ROOT) }
+                    else -> false
+                }) { "Unsupported capitalization policy" }
+                SurfaceVariant(surface, policy)
             }
-            val canonical = entry.get("canonicalForm")?.takeUnless { it.isJsonNull }?.let {
-                string(entry, "canonicalForm").also { value -> require(value.length in 1..96) }
+            val default = cap.get("defaultSurface")?.takeUnless { it.isJsonNull }?.let {
+                string(cap, "defaultSurface")
             }
-            val metadata = entry.get("metadata")
-            index[key] = LanguageIntelligence(key, canonical, caps, metadata?.toString(), sourceLemmas(metadata, key))
+            require(default == null || default in seen)
+            CapitalizationInfo(default, Collections.unmodifiableList(forms))
         }
-        return LanguageIntelligenceProvider(
-            IntelligencePackageInfo(language, version, obj.get("provenance")?.toString()), capabilities, index
-        )
+        val canonical = entry.get("canonicalForm")?.takeUnless { it.isJsonNull }?.let {
+            string(entry, "canonicalForm").also { value -> require(value.length in 1..96) }
+        }
+        val metadata = entry.get("metadata")
+        return LanguageIntelligence(key, canonical, caps, metadata?.toString(), sourceLemmas(metadata, key))
     }
+
+    /** Read one bounded entry at a time, never a tree for the entire sidecar. */
+    fun parse(reader: Reader, language: String, version: Int, capabilities: Set<String>): LanguageIntelligenceProvider =
+        JsonReader(reader).use { input ->
+            input.isLenient = false
+            val json = BoundedJson(input)
+            json.visit(0)
+            require(input.peek() == JsonToken.BEGIN_OBJECT) { "Invalid JSON document" }
+            input.beginObject()
+            val members = HashSet<String>()
+            val header = JsonObject()
+            val index = LinkedHashMap<String, LanguageIntelligence>()
+            var hasEntries = false
+            while (input.hasNext()) {
+                val name = json.name()
+                require(members.add(name)) { "Duplicate JSON member: $name" }
+                require(members.size <= MAX_ROOT_MEMBERS) { "JSON root member limit" }
+                if (name == "entries") {
+                    hasEntries = true
+                    json.visit(1)
+                    require(input.peek() == JsonToken.BEGIN_ARRAY)
+                    input.beginArray()
+                    while (input.hasNext()) {
+                        require(index.size < MAX_ENTRIES) { "JSON entry limit" }
+                        val raw = json.chunk(2)
+                        require(raw.isJsonObject)
+                        val value = entry(raw.asJsonObject)
+                        require(index.put(value.surfaceKey, value) == null) { "Duplicate surfaceKey" }
+                    }
+                    input.endArray()
+                } else {
+                    // Validate unknown fields too, then discard them; preserve only public header data.
+                    val value = json.chunk(1)
+                    if (name in setOf("schemaVersion", "languageCode", "provenance")) header.add(name, value)
+                }
+            }
+            input.endObject()
+            require(input.peek() == JsonToken.END_DOCUMENT) { "Invalid JSON document" }
+            require(hasEntries && integer(header, "schemaVersion") == 1 && string(header, "languageCode") == language)
+            LanguageIntelligenceProvider(
+                IntelligencePackageInfo(language, version, header.get("provenance")?.toString()), capabilities, index
+            )
+        }
 }

@@ -45,6 +45,9 @@ jobs:
       # MockK tests (runMockTests) require android.jar stubs + specific classpath
       # ordering that can hang on CI runners. Run via ew-cli instrumented tests instead.
 
+    - name: Read expanded language intelligence under a restricted heap
+      run: bash scripts/gradle-guard.sh runLanguageIntelligenceMemoryCheck --stacktrace
+
     - name: Run language-pack, casing and spacing integration tests
       timeout-minutes: 15
       run: |

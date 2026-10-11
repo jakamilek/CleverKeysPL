@@ -121,6 +121,21 @@ in the session. Reversed endpoint requests can trigger state-driven editor resyn
 See `docs/wiki/specs/settings/input-behavior-spec.md` for keys and field guards. Dictionary
 add and editor/cursor/prediction consistency guards are unconditional fixes, not toggles.
 
+## Language-pack metadata import memory (2026-10-11)
+
+`IntelligenceJson.parse` streams bounded entries into an immutable provider; never
+build a whole sidecar Gson tree. Keep one 2M-node document counter, 16K-node chunks,
+64 root members, 120K entries, depth/string/duplicate/byte/hash guards. Validate the
+entire stream before publication, including headers after entries and unknown fields.
+Metadata JSON/source identities/case policies remain unchanged. Settings imports on
+IO, with result handling on main. A metadata OOM must refuse before the staged swap,
+preserve the old files/provider and clean staging; warming contains the same failure.
+Run `runLanguageIntelligenceMemoryCheck` in its own 192 MiB JVM with previous and
+v6-sized snapshots plus 16 MiB ballast. Broad tests at 1 GiB missed the original
+256 MiB OOM. Host heap success is not phone PSS or proof of every crash cause.
+Same v6 ZIP; no pruning, forced GC, largeHeap, model or gesture changes. See the
+canonical dictionary spec for evidence and the pending phone retest.
+
 ## 6. Polish contextual SI preparation (2026-10-04)
 
 Canonical spec: docs/specs/polish-context-ai.md. The maintainer-authorized opt-in

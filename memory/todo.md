@@ -1,16 +1,21 @@
 # Current work queue
 
-## Additive Polish common forms v6 — 2026-10-11
+## Additive Polish common forms v6 — import repair 2026-10-11
 
-- Producer appends 75,328 attested ordinary forms; 181,691 total, zero removals.
-  Seven of the nine old gaps were AOSP dual-evidence drops, two were size cuts.
-- [x] Bounded 2M intelligence-node budget; byte/depth/entry/identity guards unchanged.
-  18 actual Kotlin tests and complete CKDT+metadata parse PASS locally.
-- [ ] Full current-head Android CI/lint/APK and phone import/ranking/memory/latency.
-- Preserve all live SI/editor/BS/GIF features; model/context/scope unchanged.
-  Producer retains every old record, rank byte, case variant, metadata and unigram.
-  Private duplicate cleanup is separate, local-only; merge-only import cannot delete
-  already stored custom words. Actions monitoring <=60s TOTAL/run.
+- Producer: 75,328 additions, 181,691 total; every old record/rank/case/metadata retained.
+- [x] Original runtime38121260589/38121262142 and producer38121444186/38121445914 SUCCESS.
+  Verified APK/ZIP delivered; phone ZIP import closes the app. No phone trace yet.
+- [x] Original Kotlin reader reproduces OOM at256MiB; its prior1GiB test hid the problem.
+- [x] Stream one metadata entry, shared2M budget +16K chunk/64 root bounds; no whole tree.
+  Settings import onIO; parse-OOM refuses pre-swap and preserves old provider/files.
+- [x] 21 Kotlin tests, full exact v5/v6 consumer at256MiB PASS; 192MiB old+new+16MiB
+  ballast PASS on real packs and 91527-entry synthetic sidecar. 128MiB workload fails.
+- [x] Isolated192MiB CI gate added before APK; OOM rollback/main-dispatch regressions added.
+- [ ] Fix Android compile/mock/pure/heap/lint/audited APK, then phone import/ranking/latency.
+- Same v6ZIP; SI/editor/BS/GIF unchanged. Host heap is not Android PSS or crash proof.
+  Private cleanup stays separate/local-only; custom-word import merges, cannot remove old
+  duplicates. Actions monitoring <=60s TOTAL/run. No merge/tag/release/version bump.
+
 ## Animated local GIF grid — 2026-10-10
 - [x] API28+ pinned coil-gif2.6.0, local full WebP, attached tiles only; static fallback.
 - [x] Request generations/cancel/stop/recycle, bounded decode, no animated cache; receiver closes loader.
@@ -26,16 +31,11 @@
 - [x] Predictor shared custom/user/disabled reload repairs compile; retired keys restore base/remove personal.
 - [ ] Native View execution/other-locale action/help review; custom platform overrides retain prior policy.
 - Coverage/source priors/native SI RAM-quality/BS times remain; monitor Actions<=60s TOTAL/run.
-## Ordinary-field typed-autocorrect undo — 2026-10-10
-- [x] Verified correction bookmark reseeds BS pair after prediction-state resets.
-- [x] Live38057510660 / standard38057513808 SUCCESS at57c15c38; phone: works.
-- [x] 2881 pure, tokenizer2471/232/532/five-input conformance; 225/305 overlapping integration.
-- [x] Debug0error/fatal235warnings, vital lint/APK gates; View tests compiled, not run.
-## Clipboard paste suggestion and search autocorrect undo — 2026-10-10
-- [x] Exact direct paste and session/editor/clip privacy guards; newer icon/hold supersedes preview.
-- [x] Typed correction bookmark verifies actual separator/caret; short BS restores original.
-- [x] APK11670958917 / run38057510660 SHA d886cf5f98b8b5cb956c67c82de34972e3776def7f4fed7695229575bf548bef.
-- [ ] Instrumented View execution and other-locale translation remain; Actions monitoring<=60s/run.
+## Accepted typed-autocorrect and clipboard checkpoints
+- Phone accepts ordinary-field undo. Exact CI/APK evidence retained in
+  memory/archive/todo/2026-10-11-accepted-editor-checkpoints.md.
+- [ ] Instrumented View execution/other-locale translation remain deferred.
+
 ## Compact case presentation v4 — 2026-10-10
 
 - V3 live38032850945/standard38032853742 SUCCESS at0acb6476:2874 pure,193/298 integration.
@@ -478,19 +478,9 @@ was pushed with maintainer authorization on September 27. Preserve shared-tree w
 Do not commit, tag, push, publish, or open external issues without explicit user authorization.
 
 
-## Polish fork editing settings v9 — 2026-10-04
-
-- Implemented: 18 typed controls, larger dp pause/resume band, configurable normal/fast
-  rates and screen-travel threshold, unified tap action, release policy, Shift/formatting/
-  suggestion options; 22 resource sets, backup classification and scoped reset.
-- V9 runtime 897edfa3: debug assembly + 2804 pure + 227 focused tests PASS (3031),
-  run 37183355586; APK 11295888906. Maintainer accepts introduced changes on phone
-  (2026-10-04, qualitative feedback, not an itemized backup/editor checklist).
-  No local Android SDK, Gradle or Kotlin compiler here.
-- Preserve the 60-second TOTAL Actions monitoring cap. No merge/tag/release/version bump.
-- Pack/producer/AI/CTC unchanged. Existing lint/security issues, instrumented/minified/
-  performance checks remain open. Ale/Lub producer correction passed CI; pack v4
-  import on the phone remains pending (see v15).
+## Accepted Polish editing settings v9
+- Phone/3031-check evidence archived in memory/archive/todo/2026-10-11-accepted-editor-checkpoints.md.
+- [ ] Instrumented/minified/performance checks and old pack v4 phone import remain open.
 
 ## CI stabilization after accepted v9 — 2026-10-04
 
@@ -506,6 +496,3 @@ Do not commit, tag, push, publish, or open external issues without explicit user
   findings and one low esbuild finding. These are recorded separately; the unchanged
   CI gate excludes unfixed findings. A newer npm http-cache-semantics release exists,
   but its repair of this advisory is not verified here.
-
-
-

@@ -39,6 +39,16 @@ jobs:
           assert marker in Path('build/herbert-live-pure-tests.txt').read_text(), 'Missing mandatory original-tokenizer conformance'
           print(marker)
           PY
+      - name: Read expanded language intelligence under a restricted heap
+        run: |
+          set -euo pipefail
+          bash scripts/gradle-guard.sh runLanguageIntelligenceMemoryCheck --stacktrace | tee build/language-intelligence-memory.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          marker = 'Language intelligence streaming memory: previous + expanded + 16MiB ballast, 192MiB heap PASS'
+          assert marker in Path('build/language-intelligence-memory.txt').read_text(), 'Missing restricted-heap import gate'
+          print(marker)
+          PY
       - name: Preserve editor and source-variant integration
         timeout-minutes: 20
         run: |
@@ -121,6 +131,9 @@ jobs:
           identity['gifAnimatedLocalPreviews'] = True
           identity['languageIntelligenceMaxNodes'] = 2000000
           identity['additivePolishV6Compatible'] = True
+          identity['streamingLanguageIntelligence'] = True
+          identity['languagePackImportOffMain'] = True
+          identity['languageIntelligenceMemoryGateMiB'] = 192
           identity['spaceFreeTypedAutocorrectUndo'] = True
           Path('build/outputs/apk/debug/herbert-live-apk.json').write_text(json.dumps(identity,indent=2)+'\n')
           print(json.dumps(identity,indent=2))
@@ -145,5 +158,6 @@ jobs:
             build/test-results/
             build/reports/lint-results*.xml
             build/herbert-live-pure-tests.txt
+            build/language-intelligence-memory.txt
           retention-days: 14
 

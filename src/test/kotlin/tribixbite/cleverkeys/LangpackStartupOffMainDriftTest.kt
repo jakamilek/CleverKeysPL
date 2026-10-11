@@ -45,6 +45,13 @@ import java.io.File
  */
 class LangpackStartupOffMainDriftTest {
 
+    @Test fun settingsImportDoesNotParseThePackOnTheMainLooper() {
+        val handler = source("tribixbite/cleverkeys/ui/settings/io/SettingsLanguagePackHandlers.kt")
+        assertWithMessage("Language-pack extraction and metadata parsing must run on IO, not lifecycleScope's main dispatcher")
+            .that(Regex("""withContext\(Dispatchers\.IO\)\s*\{\s*manager\.importLanguagePack\(uri\)\s*}""")
+                .containsMatchIn(handler)).isTrue()
+    }
+
     private val mainKotlin = File("src/main/kotlin")
 
     private fun source(relative: String): String {
