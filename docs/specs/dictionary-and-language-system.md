@@ -144,7 +144,15 @@ and V1 tests pass; three V2 row parity tests stop at android.os.Trace.beginSecti
 with RuntimeException("Stub!") under android.jar. No APK or lint result was produced.
 The follow-up mocks only Trace begin/end in the test fixture, matching existing mock
 suites. Production tracing, binary readers and all assertions remain unchanged.
-Full mock/lint/APK gates must run again; this fixture repair is not phone validation.
+Fix runs38133738323/38133740554 at2f4735dd both SUCCESS: actual Android compilation,
+2918 pure tests including original HerBERT conformance,192 MiB metadata gate, all five
+Manager row/source tests, editor integration, debug/vital lint, dependency-lock and
+APK audit. Delivered ARM64 APK SHA-256
+e69041ae5441d88776f519d608b33a191d362ebd2564335faa9de47433548663 (35,860,188 bytes).
+Artifact11700272825 SHA-256 b1655155e97f4eb363f475857ff04115126366e82cf0d0a418f58aec78f82bbf
+matches downloaded bytes; code/APK identity and prior v2 signing certificate match.
+This fixture repair and CI success are not phone validation. Early tab-switching,
+opening time, search/sort/disabled coherence and recreation still need a phone retest.
 
 ## Overview
 
