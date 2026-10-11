@@ -37,6 +37,16 @@ import org.junit.Test
  */
 class DictionarySearchStatePersistenceTest {
 
+    @Test fun largeListPreparationUsesAWorkerAndPublishesOnlyToTheCurrentView() {
+        val body = methodBody(fragmentSource, "fun filter(")
+        assertThat(body).contains("viewLifecycleOwner.lifecycleScope.launch")
+        val worker = methodBody(body, "withContext(Dispatchers.Default)")
+        assertThat(worker).contains("sortWordsForDisplay")
+        assertThat(worker).contains("rawWords.filter")
+        assertThat(worker).doesNotContain("adapter.setWords")
+        assertThat(body.indexOf("adapter.setWords")).isGreaterThan(body.indexOf(worker) + worker.length)
+    }
+
     private fun read(path: String): String {
         val file = File(path)
         check(file.isFile) { "${file.path} not found — run with the project root as CWD." }

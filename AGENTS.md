@@ -121,6 +121,16 @@ in the session. Reversed endpoint requests can trigger state-driven editor resyn
 See `docs/wiki/specs/settings/input-behavior-spec.md` for keys and field guards. Dictionary
 add and editor/cursor/prediction consistency guards are unconditional fixes, not toggles.
 
+## Dictionary Manager large-list loading (2026-10-11)
+
+Build display rows with `NormalizedPrefixIndex.lookup` for each exact normalized
+key, never a prefix-completion search per row. Preserve canonical/rank/disabled
+semantics and the existing folded-key row policy; do not cap or prune the pack.
+WordListFragment prepares filtering/sorting on Default and publishes views on main
+under the view lifecycle. Preserve cancellation, current query, counts and restored
+scroll state. Actual v6 old/new rows match; desktop extractor timings are not phone
+opening latency. Canonical spec: docs/specs/dictionary-and-language-system.md.
+
 ## Language-pack metadata import memory (2026-10-11)
 
 `IntelligenceJson.parse` streams bounded entries into an immutable provider; never

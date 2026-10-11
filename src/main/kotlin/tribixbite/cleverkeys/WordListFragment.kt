@@ -17,6 +17,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Fragment displaying a list of words
@@ -189,7 +191,7 @@ class WordListFragment : Fragment() {
     private var pendingLayoutManagerState: android.os.Parcelable? = null
 
     fun filter(query: String, sortType: DictionaryManagerActivity.SortType = DictionaryManagerActivity.SortType.FREQ) {
-        if (!::adapter.isInitialized) return
+        if (!::adapter.isInitialized || view == null) return
         currentSearchQuery = query  // #96: Persist query so refresh() can reapply
         currentSortType = sortType
 
@@ -198,28 +200,29 @@ class WordListFragment : Fragment() {
 
         // Use DictionaryDataSource.searchWords() which has prefix indexing
         // instead of in-memory filtering of 50k words on main thread
-        searchJob = lifecycleScope.launch {
+        searchJob = viewLifecycleOwner.lifecycleScope.launch {
             try {
                 // Normalize query: trim whitespace and treat pure whitespace as blank
                 val normalizedQuery = query.trim()
 
-                val rawWords = if (normalizedQuery.isBlank()) {
-                    // No search - show all words from this tab's data source
-                    dataSource.getAllWords()
-                } else {
-                    // Has search query - use prefix indexing
-                    dataSource.searchWords(normalizedQuery)
-                }
+                val sortedWords = withContext(Dispatchers.Default) {
+                    val rawWords = if (normalizedQuery.isBlank()) {
+                        // No search - show all words from this tab's data source
+                        dataSource.getAllWords()
+                    } else {
+                        // Has search query - use prefix indexing
+                        dataSource.searchWords(normalizedQuery)
+                    }
 
-                // ACTIVE tab should only show enabled words (disabled ones appear in DISABLED tab)
-                val words = if (tabType == TabType.ACTIVE) {
-                    rawWords.filter { it.enabled }
-                } else {
-                    rawWords
-                }
+                    // ACTIVE excludes disabled words; prepare the large list off the main looper.
+                    val words = if (tabType == TabType.ACTIVE) {
+                        rawWords.filter { it.enabled }
+                    } else {
+                        rawWords
+                    }
 
-                // v1.2.7: Apply sorting based on sort type
-                val sortedWords = sortWordsForDisplay(words, sortType, normalizedQuery)
+                    sortWordsForDisplay(words, sortType, normalizedQuery)
+                }
 
                 adapter.setWords(sortedWords)
                 updateEmptyState()

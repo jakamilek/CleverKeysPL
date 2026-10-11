@@ -1282,6 +1282,7 @@ tasks.register('runMockTests', JavaExec) {
     'tribixbite.cleverkeys.DirectBootManagerTest',
     'tribixbite.cleverkeys.DirectBootAwarePreferencesTest',
     'tribixbite.cleverkeys.DictionaryManagerTest',
+    'tribixbite.cleverkeys.MainDictionarySourceRowsTest',
     'tribixbite.cleverkeys.VibratorCompatTest',
     'tribixbite.cleverkeys.TerminalUtilsTest',
     'tribixbite.cleverkeys.KeyRepeatLogicTest',

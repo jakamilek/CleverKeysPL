@@ -56,6 +56,7 @@ jobs:
           bash scripts/gradle-guard.sh runMockTests -PtestClass=ClipboardPasteSuggestionsTest --stacktrace
           bash scripts/gradle-guard.sh runMockTests -PtestClass=EditorSpacingIntegrationTest --stacktrace
           bash scripts/gradle-guard.sh runMockTests -PtestClass=langpack.LanguagePackImportTest --stacktrace
+          bash scripts/gradle-guard.sh runMockTests -PtestClass=MainDictionarySourceRowsTest --stacktrace
           bash scripts/gradle-guard.sh runMockTests -PtestClass=SwipeAutocapCommitTest --stacktrace
           bash scripts/gradle-guard.sh runMockTests -PtestClass=EditorPredictionRegressionTest --stacktrace
           bash scripts/gradle-guard.sh runMockTests -PtestClass=SuggestionTapPartialReplaceTest --stacktrace
@@ -134,6 +135,8 @@ jobs:
           identity['streamingLanguageIntelligence'] = True
           identity['languagePackImportOffMain'] = True
           identity['languageIntelligenceMemoryGateMiB'] = 192
+          identity['dictionaryManagerExactRowLookup'] = True
+          identity['dictionaryManagerWorkerListPreparation'] = True
           identity['spaceFreeTypedAutocorrectUndo'] = True
           Path('build/outputs/apk/debug/herbert-live-apk.json').write_text(json.dumps(identity,indent=2)+'\n')
           print(json.dumps(identity,indent=2))

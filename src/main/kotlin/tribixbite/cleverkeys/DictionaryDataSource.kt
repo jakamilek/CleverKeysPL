@@ -324,8 +324,9 @@ class MainDictionarySource(
         val normalizedWords = index.getAllNormalizedWords()
         for (word in normalizedWords) {
             // Get canonical form (with accents) and frequency rank
-            val results = index.getWordsWithPrefix(word)
-            val match = results.find { it.normalized == word }
+            // The key is already exact and normalized. A prefix search rescans a
+            // potentially large bucket and sorts completions for EVERY dictionary row.
+            val match = index.lookup(word)
             val canonical = match?.bestCanonical ?: word
             // Convert rank (0-255, 0=most common) to display frequency (1-10000)
             // rank 0 → 10000, rank 255 → 1

@@ -50,12 +50,44 @@ generated 91,527-entry / 32,001,501-byte sidecar. The same workload fails at 128
 192 MiB is an explicit regression ceiling, not an Android PSS/heap measurement.
 The Gradle gate runs separately from the broad suite in CI before the trial APK.
 OOM rollback and import-dispatch regressions join the existing integration/pure
-suites. Current fix Android CI and phone import, memory, latency and swipe ranking
-still require verification; coverage alone is not Top3 accuracy evidence.
+suites. Fix runs 38124097991/38124100497 passed at `6ecb5238`: 2912 pure tests,
+192 MiB gate, import/editor integration and both lint tiers. Delivered APK SHA-256
+`5e5caedf2ed19069c3a845ead1b36f73be1ceb730cc3cbd405a07206ace801a4`.
+The maintainer confirms import works and the formerly missing swipe words are
+available. Native memory/latency and broader swipe ranking still require measurement;
+coverage alone is not Top3 accuracy evidence.
 Private dictionary exports never enter the producer or git.
 
 Producer protocol: `jakamilek/CleverKeys-langpack-pl`,
 `docs/common-forms-trial-v1/PROTOCOL.md`, branch `feature/additive-common-forms-v1`.
+
+## Dictionary Manager loading after v6 — 2026-10-11
+
+After successful import the maintainer reports slow opening of Dictionary Manager.
+Its `MainDictionarySource.extractWordsFromIndex` called `getWordsWithPrefix` for
+every already-normalized exact key, then searched those completions for that key.
+Each call scans the shared short-prefix bucket, allocates results and sorts them;
+doing this per row needlessly multiplies work with a larger vocabulary.
+
+Use `NormalizedPrefixIndex.lookup(key)` instead. Preserve the identical canonical
+winner, rank-to-frequency formula, normalized/canonical disabled checks, source,
+all rows and existing cache/search rules. The UI's pre-existing one-row-per-folded
+key policy still displays 170,588 rows for 181,691 canonical v6 records; this fix
+does not prune or modify the dictionary or add a display limit.
+
+`WordListFragment.filter` prepares the enabled subset and existing four sort modes
+on `Dispatchers.Default`, then publishes the adapter/count/scroll state on main.
+Use the current view lifecycle and ignore dispatches without a view. A superseding
+query or destroyed view cancels publication, preserving the existing recreation
+and search-state guards. Dictionary file IO remains on IO.
+
+Local actual Kotlin check at 256 MiB uses the real binary loader/index and extracted
+old/new row bodies on the exact v6 ZIP: all 170,588 rows, ranks and disabled flags
+equal. One desktop extraction sample was 1306.3 ms before and 82.8 ms after; this
+isolates row extraction and is not phone opening latency or an Android UI benchmark.
+CI adds actual source-extractor parity/rank/shared-prefix tests and a worker/view
+wiring guard, retaining the existing sort/recreation suites. Fix Android CI and
+phone reopening/search/sort/disable/recreation checks remain pending. Same ZIP and SI.
 
 ## Overview
 

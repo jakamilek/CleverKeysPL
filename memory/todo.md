@@ -1,20 +1,18 @@
 # Current work queue
 
-## Additive Polish common forms v6 — import repair 2026-10-11
-
-- Producer: 75,328 additions, 181,691 total; every old record/rank/case/metadata retained.
-- [x] Original runtime38121260589/38121262142 and producer38121444186/38121445914 SUCCESS.
-  Verified APK/ZIP delivered; phone ZIP import closes the app. No phone trace yet.
-- [x] Original Kotlin reader reproduces OOM at256MiB; its prior1GiB test hid the problem.
-- [x] Stream one metadata entry, shared2M budget +16K chunk/64 root bounds; no whole tree.
-  Settings import onIO; parse-OOM refuses pre-swap and preserves old provider/files.
-- [x] 21 Kotlin tests, full exact v5/v6 consumer at256MiB PASS; 192MiB old+new+16MiB
-  ballast PASS on real packs and 91527-entry synthetic sidecar. 128MiB workload fails.
-- [x] Isolated192MiB CI gate added before APK; OOM rollback/main-dispatch regressions added.
-- [ ] Fix Android compile/mock/pure/heap/lint/audited APK, then phone import/ranking/latency.
-- Same v6ZIP; SI/editor/BS/GIF unchanged. Host heap is not Android PSS or crash proof.
-  Private cleanup stays separate/local-only; custom-word import merges, cannot remove old
-  duplicates. Actions monitoring <=60s TOTAL/run. No merge/tag/release/version bump.
+## Polish v6 — accepted import, slow Dictionary Manager 2026-10-11
+- [x] Producer adds75,328 forms;181,691 total, every old record/rank/case/metadata retained.
+- [x] Streaming import repair6ecb5238: live38124097991/CI38124100497 SUCCESS;2912pure,
+  192MiB gate, import/editor mock and both lint tiers; verified APK5e5caedf delivered.
+- [x] Maintainer confirms import and formerly missing swipe words work.
+- [x] Manager repeatedly scans/sorts prefix completions per exact row; use exact lookup.
+  Preserve all170,588 normalized rows/frequencies/flags, same181,691-record ZIP.
+- [x] Actual Kotlin v6 old/new row parity at256MiB PASS; desktop extractor1306.3→82.8ms.
+  Enabled filtering/sorting on Default; view-lifecycle cancellation/main publication.
+- [ ] Fix Android compile/mock/pure/heap/lint/audited APK; phone open/search/sort/recreation.
+- Existing source bounds/stream/OOM rollback/SI/editor/BS/GIF unchanged. Phone PSS/latency
+  and broader ranking measurement remain. Private cleanup separate/local-only; import
+  merges and cannot remove stored duplicates. Actions <=60s TOTAL/run; no merge/release.
 
 ## Animated local GIF grid — 2026-10-10
 - [x] API28+ pinned coil-gif2.6.0, local full WebP, attached tiles only; static fallback.

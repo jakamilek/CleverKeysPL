@@ -2,9 +2,9 @@
 
 Next: [source-derived case-use priors](specs/polish-case-usage-priors.md), planned.
 The [additive Polish dictionary v6](specs/dictionary-and-language-system.md#polish-additive-common-form-trial-v6--2026-10-11)
-passed its original CI, but phone import closed the app. The
-[streaming import repair](specs/dictionary-and-language-system.md#polish-additive-common-form-trial-v6--2026-10-11)
-passes local 192/256 MiB heap checks; fix Android CI and phone retest remain pending.
+and streaming import passed current CI and phone import/swipe feedback. The
+[Dictionary Manager loading repair](specs/dictionary-and-language-system.md#dictionary-manager-loading-after-v6--2026-10-11)
+preserves every old/new display row; fix Android CI and phone retest remain pending.
 
 # CleverKeys Documentation - Table of Contents
 
