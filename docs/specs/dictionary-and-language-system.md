@@ -138,6 +138,14 @@ check, not phone PSS, UI execution or model memory. New CI adds a real source/bi
 blocked-read cancellation + restored-search test; Android compilation, mock/pure/lint
 and the phone loading/tab-switch/search/recreation retest remain pending. Same ZIP/SI.
 
+At f166ad4, runs38129489460/38129492820 pass Android compilation,2918 pure tests,
+original HerBERT conformance and the192 MiB metadata gate. The blocked-read source
+and V1 tests pass; three V2 row parity tests stop at android.os.Trace.beginSection
+with RuntimeException("Stub!") under android.jar. No APK or lint result was produced.
+The follow-up mocks only Trace begin/end in the test fixture, matching existing mock
+suites. Production tracing, binary readers and all assertions remain unchanged.
+Full mock/lint/APK gates must run again; this fixture repair is not phone validation.
+
 ## Overview
 
 The dictionary system manages word lookup, frequency ranking, and multi-language support through a tiered architecture. It combines static dictionaries, user-defined words, and the swipe decoders' lexicons into a "Language Pack" system with automatic language detection for bilingual typing.

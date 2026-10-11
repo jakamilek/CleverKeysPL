@@ -3,6 +3,7 @@ package tribixbite.cleverkeys
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.AssetManager
+import android.os.Trace
 import android.util.Log
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -19,6 +20,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import tribixbite.cleverkeys.langpack.LanguagePackManager
+import io.mockk.just
+import io.mockk.runs
 import io.mockk.every
 import io.mockk.mockkStatic
 import java.io.File
@@ -33,6 +36,9 @@ import org.junit.Test
 class MainDictionarySourceRowsTest {
     @Before fun setup() {
         MainDictionarySource.invalidateCache()
+        mockkStatic(Trace::class)
+        every { Trace.beginSection(any()) } just runs
+        every { Trace.endSection() } just runs
         mockkStatic(Log::class)
         every { Log.i(any(), any()) } returns 0
         every { Log.d(any(), any()) } returns 0

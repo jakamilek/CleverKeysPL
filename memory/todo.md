@@ -11,8 +11,8 @@
   Retry/late completion, adapter detach, callback cleanup; same words/ranks/flags.
 - [x] Local5cache/4binary/18state-sort tests PASS; full v6/seven bundled row parity.
   Actual source+v5/v6 metadata+16MiB+20 callers PASS at192MiB (host stubs, not phone PSS).
-- [ ] New Android compile/source blocked-read mock/pure/heap/lint/audited APK; phone
-  early tab-switch/load/search/sort/disable/recreation. No trace proves sole crash cause.
+- [x] f166ad4 runs38129489460/38129492820 compile/2918pure/192MiB PASS; source+V1 pass,
+  three V2 tests fail at Trace Stub. Mock Trace fixture repair; full mock/lint/APK+phone pending.
 - Existing source bounds/stream/OOM rollback/SI/editor/BS/GIF unchanged. Phone PSS/latency
   and broader ranking measurement remain. Private cleanup separate/local-only; import
   merges and cannot remove stored duplicates. Actions <=60s TOTAL/run; no merge/release.
