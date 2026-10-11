@@ -119,6 +119,8 @@ jobs:
           identity['structuredDictionaryPrefixCompletion'] = True
           identity['suggestionHoldDictionaryRemoval'] = True
           identity['gifAnimatedLocalPreviews'] = True
+          identity['languageIntelligenceMaxNodes'] = 2000000
+          identity['additivePolishV6Compatible'] = True
           identity['spaceFreeTypedAutocorrectUndo'] = True
           Path('build/outputs/apk/debug/herbert-live-apk.json').write_text(json.dumps(identity,indent=2)+'\n')
           print(json.dumps(identity,indent=2))

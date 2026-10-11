@@ -5,6 +5,33 @@ import org.junit.Test
 import tribixbite.cleverkeys.SwipeSurfaceVariants
 
 class LanguageIntelligenceTest {
+    @Test fun expandedSourceMetadataHasABoundedTwoMillionNodeBudget() {
+        // Root + array + null values: test the exact boundary without huge objects.
+        fun document(nodes: Int) = "{\"values\":[" + "null,".repeat(nodes - 3) + "null]}"
+        assertEquals(1_999_998, IntelligenceJson.document(document(2_000_000).reader())
+            .getAsJsonArray("values").size())
+        try {
+            IntelligenceJson.document(document(2_000_001).reader())
+            fail("node budget must stay bounded")
+        } catch (_: IllegalArgumentException) { }
+        assertEquals(32L * 1024 * 1024, IntelligenceJson.MAX_BYTES)
+    }
+
+    @Test fun compactOrdinaryReadingsKeepSourceRelationsWithoutInventingCaseVariants() {
+        val json = """{"schemaVersion":1,"languageCode":"pl","entries":[
+          {"surfaceKey":"kasa","metadata":{"sourceEvidence":{"lexicalReadings":[
+            {"lemma":"kasa","partOfSpeech":"subst","surfaces":["kasa"]}]}}},
+          {"surfaceKey":"kasami","metadata":{"sourceEvidence":{"lexicalReadings":[
+            {"lemma":"kasa","partOfSpeech":"subst","surfaces":["kasami"]}]}}}
+        ]}"""
+        val data = IntelligenceJson.parse(json.reader(), "pl", 6, setOf("metadata", "capitalization"))
+        assertTrue(data.sharesSourceLemma("kasa", "kasami"))
+        assertNull(data.lookup("kasami")!!.capitalization)
+        assertNull(data.lookup("kasami")!!.canonicalForm)
+        assertEquals(listOf("kasami"), SwipeSurfaceVariants.expand(listOf("kasami"),
+            listOf(100), null, data, false, false).words)
+    }
+
     private fun familyProvider(): LanguageIntelligenceProvider = IntelligenceJson.parse(
         javaClass.getResource("/polish-surface-family-v5.json")!!.readText(Charsets.UTF_8).reader(),
         "pl", 5, setOf("capitalization", "metadata"))

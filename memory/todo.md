@@ -1,4 +1,16 @@
 # Current work queue
+
+## Additive Polish common forms v6 — 2026-10-11
+
+- Producer appends 75,328 attested ordinary forms; 181,691 total, zero removals.
+  Seven of the nine old gaps were AOSP dual-evidence drops, two were size cuts.
+- [x] Bounded 2M intelligence-node budget; byte/depth/entry/identity guards unchanged.
+  18 actual Kotlin tests and complete CKDT+metadata parse PASS locally.
+- [ ] Full current-head Android CI/lint/APK and phone import/ranking/memory/latency.
+- Preserve all live SI/editor/BS/GIF features; model/context/scope unchanged.
+  Producer retains every old record, rank byte, case variant, metadata and unigram.
+  Private duplicate cleanup is separate, local-only; merge-only import cannot delete
+  already stored custom words. Actions monitoring <=60s TOTAL/run.
 ## Animated local GIF grid — 2026-10-10
 - [x] API28+ pinned coil-gif2.6.0, local full WebP, attached tiles only; static fallback.
 - [x] Request generations/cancel/stop/recycle, bounded decode, no animated cache; receiver closes loader.

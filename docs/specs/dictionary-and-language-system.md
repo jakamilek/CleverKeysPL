@@ -1,5 +1,31 @@
 # Dictionary and Multi-Language System
 
+## Polish additive common-form trial v6 — 2026-10-11
+
+The separate producer trial appends 75,328 source-attested ordinary forms to the
+verified v5 dictionary (106,363 → 181,691 keys). Every old canonical record/rank,
+case variant, metadata entry and unigram is retained. It is an opt-in imported
+langpack, not a bundled dictionary or model update. Import the inner langpack ZIP
+after installing a compatible APK; older APKs refuse the larger metadata.
+
+`IntelligenceJson` permits at most 2,000,000 nodes (formerly 1,000,000). The v6
+sidecar has 1,844,963 nodes, 91,527 entries and 28,123,935 UTF-8 bytes. The 32 MiB
+byte, 120,000 entry, depth-32, string, duplicate-member and 32-source-identity
+bounds remain unchanged. Compact ordinary entries may omit canonicalForm and
+capitalization: CKDT provides their spelling. They retain immutable lexical
+lemma/POS/surface evidence for the existing SI relation test; no suffix guessing,
+new model scope or new gesture-time parsing. Existing metadata is untouched.
+
+Validation: focused actual Kotlin JUnit checks pass (18), including the exact
+2M/2M+1 node boundary and compact ordinary relations. The actual Kotlin CKDT and
+intelligence readers accept the complete locally generated pack and preserve
+all old records/readings. Full Android CI and phone import, memory, latency and
+swipe-ranking checks remain required; vocabulary coverage alone is not Top3
+accuracy evidence. Private dictionary exports never enter the producer or git.
+
+Producer protocol: `jakamilek/CleverKeys-langpack-pl`,
+`docs/common-forms-trial-v1/PROTOCOL.md`, branch `feature/additive-common-forms-v1`.
+
 ## Overview
 
 The dictionary system manages word lookup, frequency ranking, and multi-language support through a tiered architecture. It combines static dictionaries, user-defined words, and the swipe decoders' lexicons into a "Language Pack" system with automatic language detection for bilingual typing.

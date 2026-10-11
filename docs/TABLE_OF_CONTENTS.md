@@ -1,6 +1,8 @@
 # Current Polish trial: [HerBERT compact case presentation v4](HERBERT_LIVE_TRIAL_V1.md) — 2026-10-10, current CI/phone pending; v3 passed CI and received positive phone feedback.
 
-Next: [source-derived case-use priors](specs/polish-case-usage-priors.md), planned; global swipe dictionary coverage remains on backlog.
+Next: [source-derived case-use priors](specs/polish-case-usage-priors.md), planned.
+The [additive Polish dictionary v6](specs/dictionary-and-language-system.md#polish-additive-common-form-trial-v6--2026-10-11)
+has passed local source/consumer checks; current-head Android CI and phone checks remain pending.
 
 # CleverKeys Documentation - Table of Contents
 

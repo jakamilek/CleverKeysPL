@@ -49,7 +49,8 @@ class LanguageIntelligenceProvider internal constructor(
 internal object IntelligenceJson {
     const val FILE = "language-intelligence.json"
     const val MAX_BYTES = 32L * 1024 * 1024
-    private const val MAX_NODES = 1_000_000
+    // Additive Polish v6 has ~1.85M nodes. Byte/depth/entry bounds still apply.
+    private const val MAX_NODES = 2_000_000
     private const val MAX_ENTRIES = 120_000
 
     /** Optional typed view of existing Morfeusz evidence; opaque metadata stays unchanged. */
