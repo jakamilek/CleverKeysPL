@@ -1,5 +1,30 @@
 # Dictionary and Multi-Language System
 
+## Polish thematic v7 import — 2026-10-11
+
+The maintainer sees “Nieznany błąd” importing the verified v7 ZIP (188,302 keys;
+98,138 metadata entries). The old importer explicitly mapped metadata OOM to
+UNKNOWN. Retaining two independent full v6/v7 providers fails the host 192 MiB gate;
+without phone logs this is a reproduced mechanism, not proof of the sole phone cause.
+
+Replacement parsing now accepts the cached previous provider of the same language.
+It validates each complete bounded entry before comparing every immutable data field
+and shares only exact-equal entries. Changed/new entries are allocated separately;
+removed entries are absent from the new index, and version/capabilities/provenance
+come from the new pack. Final headers, unknown fields, duplicates, byte/hash/node
+bounds and staged rollback remain strict. No existing dictionary/SI/editor state is
+modified on refusal. Metadata OOM now renders a dedicated Polish/base RAM explanation;
+other locales fall back to English and are tracked for later translation.
+
+Local actual-source checks: 23 Kotlin parser tests PASS; full CKDT/metadata consumer
+comparison preserves all181,691 old records with188,302 total and3964 source relations.
+The exact v6/v7 replacement plus16 MiB ballast passes in an isolated192 MiB JVM.
+CI's generated workload now also replaces91,527 with98,138 entries (29,112,009 bytes)
+at the same192 MiB ceiling; exact old entries are shared and additions verified.
+Host heap checks are not phone PSS. Native Android compile, importer MockK rollback,
+Polish resource/other-locale fallback, lint and phone re-import remain required.
+The producer ZIP is unchanged; install the new APK before retrying it.
+
 ## Polish additive common-form trial v6 — 2026-10-11
 
 The separate producer trial appends 75,328 source-attested ordinary forms to the
@@ -36,7 +61,7 @@ Header order is arbitrary; no provider is published until the entire stream pass
 Byte/hash/ZIP extraction limits and staged replacement remain unchanged.
 
 Settings dispatches ZIP import to `Dispatchers.IO`; main handles only its result.
-A metadata allocation failure returns the existing localized generic IO failure
+The initial repair returned the existing localized generic IO failure on a metadata allocation failure
 before the staged swap and retains the installed files/provider. Background warming
 also contains this specific allocation failure. This is not a promise to recover
 every possible process-level memory failure; no largeHeap, forced GC, weakened

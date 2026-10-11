@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="pack_error_intelligence_memory" tools:ignore="MissingTranslation">Not enough RAM to import the dictionary. The previous language pack was kept. Restart the device and try again.</string>
     <string name="app_name" translatable="false">CleverKeys</string>
     <string name="pref_layout_e_system">System settings</string>
     <string name="pref_layout_e_custom">Custom layout</string>

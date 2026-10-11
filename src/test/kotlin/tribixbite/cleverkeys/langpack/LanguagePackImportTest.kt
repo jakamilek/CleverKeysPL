@@ -952,6 +952,21 @@ class LanguagePackImportTest {
 
     private fun trialBytes(): ByteArray = javaClass.getResource("/language-intelligence-trial.json")!!.readBytes()
 
+    @Test fun replacementPublishesNewProviderAndSharesValidatedUnchangedEntries() {
+        val bytes = trialBytes()
+        assertThat(import(validPack("pl", "Previous", extras = listOf("language-intelligence.json" to bytes),
+            manifest = trialManifest(bytes)))).isInstanceOf(ImportResult.Success::class.java)
+        val previous = manager.getLanguageIntelligenceProvider("pl")!!
+        assertThat(import(validPack("pl", "Replacement", extras = listOf("language-intelligence.json" to bytes),
+            manifest = trialManifest(bytes).replace("\"version\":3", "\"version\":7"))))
+            .isInstanceOf(ImportResult.Success::class.java)
+        val next = manager.getLanguageIntelligenceProvider("pl")!!
+        assertThat(next).isNotSameInstanceAs(previous)
+        assertThat(next.packageInfo().version).isEqualTo(7)
+        assertThat(next.lookup("łódź")).isSameInstanceAs(previous.lookup("łódź"))
+        assertThat(File(installedDir("pl"), "language-intelligence.json").readBytes().toList()).isEqualTo(bytes.toList())
+    }
+
     @Test fun metadataMemoryFailureKeepsPreviousPackAndSnapshotAndCleansStaging() {
         val bytes = trialBytes()
         assertThat(import(validPack("pl", "Previous", extras = listOf("language-intelligence.json" to bytes),
@@ -960,9 +975,9 @@ class LanguagePackImportTest {
         val original = manager.getDictionaryPath("pl")!!.readBytes()
         io.mockk.mockkObject(IntelligenceJson)
         try {
-            every { IntelligenceJson.parse(any(), any(), any(), any()) } throws OutOfMemoryError("synthetic")
+            every { IntelligenceJson.parse(any(), any(), any(), any(), any()) } throws OutOfMemoryError("synthetic")
             assertThat(import(validPack("pl", "Replacement", extras = listOf("language-intelligence.json" to bytes),
-                manifest = trialManifest(bytes)))).isInstanceOf(ImportResult.Error::class.java)
+                manifest = trialManifest(bytes)))).isEqualTo(ImportResult.Error(PackImportFailure.IntelligenceMemory))
             assertThat(manager.getDictionaryPath("pl")!!.readBytes().toList()).isEqualTo(original.toList())
             assertThat(manager.getLanguageIntelligenceProvider("pl")).isSameInstanceAs(snapshot)
             assertThat(cacheDir.listFiles()?.toList().orEmpty()).isEmpty()

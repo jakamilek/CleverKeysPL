@@ -214,6 +214,14 @@ internal object IntelligenceJson {
 
     /** Read one bounded entry at a time, never a tree for the entire sidecar. */
     fun parse(reader: Reader, language: String, version: Int, capabilities: Set<String>): LanguageIntelligenceProvider =
+        parse(reader, language, version, capabilities, null)
+
+    /** Validate every new byte, then reuse identical immutable entries from the same language.
+     * An additive update must not retain two complete copies of unchanged metadata. The old
+     * provider remains valid until installation succeeds; only the new index/header is rebuilt.
+     */
+    fun parse(reader: Reader, language: String, version: Int, capabilities: Set<String>,
+              previous: LanguageIntelligenceProvider?): LanguageIntelligenceProvider =
         JsonReader(reader).use { input ->
             input.isLenient = false
             val json = BoundedJson(input)
@@ -223,6 +231,7 @@ internal object IntelligenceJson {
             val members = HashSet<String>()
             val header = JsonObject()
             val index = LinkedHashMap<String, LanguageIntelligence>()
+            val reusable = previous?.takeIf { it.packageInfo().languageCode == language }
             var hasEntries = false
             while (input.hasNext()) {
                 val name = json.name()
@@ -237,7 +246,8 @@ internal object IntelligenceJson {
                         require(index.size < MAX_ENTRIES) { "JSON entry limit" }
                         val raw = json.chunk(2)
                         require(raw.isJsonObject)
-                        val value = entry(raw.asJsonObject)
+                        val parsed = entry(raw.asJsonObject)
+                        val value = reusable?.lookup(parsed.surfaceKey)?.takeIf { it == parsed } ?: parsed
                         require(index.put(value.surfaceKey, value) == null) { "Duplicate surfaceKey" }
                     }
                     input.endArray()

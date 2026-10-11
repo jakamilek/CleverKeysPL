@@ -1152,7 +1152,7 @@ tasks.register('runPureTests', JavaExec) {
 tasks.register('runLanguageIntelligenceMemoryCheck', JavaExec) {
   dependsOn 'compileDebugUnitTestKotlin', 'processDebugUnitTestJavaRes'
   group = 'verification'
-  description = 'Read previous and v6-sized metadata snapshots with a 192 MiB heap'
+  description = 'Replace full v6-sized metadata with v7-sized metadata using a 192 MiB heap'
   mainClass = 'tribixbite.cleverkeys.langpack.LanguageIntelligenceMemoryCheck'
   maxHeapSize = '192m'
   classpath = tasks.named('runPureTests', JavaExec).get().classpath

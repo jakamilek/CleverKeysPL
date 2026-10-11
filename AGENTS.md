@@ -150,7 +150,10 @@ Metadata JSON/source identities/case policies remain unchanged. Settings imports
 IO, with result handling on main. A metadata OOM must refuse before the staged swap,
 preserve the old files/provider and clean staging; warming contains the same failure.
 Run `runLanguageIntelligenceMemoryCheck` in its own 192 MiB JVM with previous and
-v6-sized snapshots plus 16 MiB ballast. Broad tests at 1 GiB missed the original
+full v6/v7-sized snapshots plus 16 MiB ballast. Validate every new entry first;
+share exact-equal immutable entries only within the same language, rebuild the new
+index/header, and preserve the old provider on failure. Metadata OOM has a typed
+Polish/base reason, not UNKNOWN; deferred other-locale translations are in the queue. Broad tests at 1 GiB missed the original
 256 MiB OOM. Host heap success is not phone PSS or proof of every crash cause.
 Same v6 ZIP; no pruning, forced GC, largeHeap, model or gesture changes. See the
 canonical dictionary spec for evidence and the pending phone retest.

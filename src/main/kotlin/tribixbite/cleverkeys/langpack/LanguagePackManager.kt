@@ -271,14 +271,13 @@ class LanguagePackManager(private val context: Context) {
                 }
                 try {
                     intelligenceFile.reader(Charsets.UTF_8).use {
-                        IntelligenceJson.parse(it, manifest.code, manifest.version, manifest.capabilities)
+                        IntelligenceJson.parse(it, manifest.code, manifest.version, manifest.capabilities,
+                            intelligence[manifest.code])
                     }
                 } catch (_: OutOfMemoryError) {
                     // Parsing happens before the staged swap. Keep the installed pack/snapshot.
                     Log.w(TAG, "Not enough heap to import language intelligence")
-                    return ImportResult.Error(PackImportFailure.Io(
-                        IoFailureReason.UNKNOWN, "Not enough heap to import language intelligence"
-                    ))
+                    return ImportResult.Error(PackImportFailure.IntelligenceMemory)
                 } catch (e: Exception) {
                     Log.w(TAG, "Invalid language intelligence: ${e.message}")
                     return ImportResult.Error(PackImportFailure.InvalidMember(member.file))

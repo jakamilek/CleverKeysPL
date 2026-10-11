@@ -1,25 +1,22 @@
 # Current work queue
 
+## v7 import “unknown error” — 2026-10-11
+- [x] OOM→UNKNOWN reproduced (no phone trace); share validated equal immutable entries;
+  rebuild index/header, typed Polish/base RAM reason, strict rollback/bounds/data.
+- [x] Local23parser/full actual consumer PASS; real v6/v7 and representative91K→98K
+  replacement +16MiB ballast PASS at192MiB. No GC/largeHeap/pruning.
+- [ ] Current-head Android compile/import MockK/pure/localization/lint and verified APK delivery.
+- [ ] Phone same-v7 ZIP re-import; host result is not phone PSS or sole-cause evidence.
+- [ ] Other values-* (except pl): pack_error_intelligence_memory absent/English fallback (scoped lint/test exemption); deferred.
+
 ## Polish v6 — accepted import, slow Dictionary Manager 2026-10-11
-- [x] Producer adds75,328 forms;181,691 total, every old record/rank/case/metadata retained.
-- [x] Streaming import repair6ecb5238: live38124097991/CI38124100497 SUCCESS;2912pure,
-  192MiB gate, import/editor mock and both lint tiers; verified APK5e5caedf delivered.
-- [x] Maintainer confirms import and formerly missing swipe words work.
-- [x] Exact row lookup replaces repeated scans; all170,588 rows/flags retained, same181,691-key ZIP.
-- [x] First fix75123b05 runs38126517112/38126518539 PASS (2913pure/row/192MiB/lint); phone still slow/closes on early tab switch.
-- [x] Direct V2 rows +one cold Deferred/language +atomic UI snapshot +view/request guards.
-  Retry/late completion, adapter detach, callback cleanup; same words/ranks/flags.
-- [x] Local5cache/4binary/18state-sort tests PASS; full v6/seven bundled row parity.
-  Actual source+v5/v6 metadata+16MiB+20 callers PASS at192MiB (host stubs, not phone PSS).
-- [x] 2f4735dd runs38133738323/38133740554 SUCCESS: compile/2918pure/192MiB/5rows/editor/lint;
-  Trace fixture repaired; verified APKe69041ae delivered.
-- [x] 2026-10-11: maintainer confirms Manager loads much faster, essentially as before adding words.
+- [x] v6 import/Manager speed accepted;2f4735dd live38133738323/CI38133740554 PASS;
+  2918pure/192MiB/rows/editor/lint;APKe69041ae delivered. Evidence in dictionary spec.
 - [ ] Phone early-switch crash/search/sort/recreation retest still pending; load-speed acceptance alone does not confirm those paths.
-- [ ] Continue accepted thematic groups in producer: ordinary potoczny/computer/dom/zakupy/technika first,
-  then brands/abbreviations/proper names and final exact private-export duplicate check.
-- Existing source bounds/stream/OOM rollback/SI/editor/BS/GIF unchanged. Phone PSS/latency
-  and broader ranking measurement remain. Private cleanup separate/local-only; import
-  merges and cannot remove stored duplicates. Actions <=60s TOTAL/run; no merge/release.
+- [ ] v7 ordinary thematic pack built/verified; import pending above. Later brands/abbreviations/
+  proper names and final exact private-export duplicate check.
+- Phone PSS/ranking remain; private cleanup local-only (import cannot remove duplicates).
+  Actions <=60s TOTAL/run; no merge/release; all dictionary/SI/editor/gesture bounds retained.
 
 ## Animated local GIF grid — 2026-10-10
 - [x] API28+ pinned coil-gif2.6.0, local full WebP, attached tiles only; static fallback.

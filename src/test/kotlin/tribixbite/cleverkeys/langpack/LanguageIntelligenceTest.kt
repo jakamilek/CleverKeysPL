@@ -5,6 +5,46 @@ import org.junit.Test
 import tribixbite.cleverkeys.SwipeSurfaceVariants
 
 class LanguageIntelligenceTest {
+    @Test fun replacementSharesOnlyIdenticalImmutableEntriesAndUsesNewHeader() {
+        val json = javaClass.getResource("/polish-surface-family-v5.json")!!.readText(Charsets.UTF_8)
+        val old = IntelligenceJson.parse(json.reader(), "pl", 5, setOf("metadata", "capitalization"))
+        val next = IntelligenceJson.parse(json.reader(), "pl", 7, setOf("metadata"), old)
+        assertNotSame(old, next)
+        assertSame(old.lookup("praca"), next.lookup("praca"))
+        assertSame(old.lookup("pracy"), next.lookup("pracy"))
+        assertEquals(7, next.packageInfo().version)
+        assertFalse(next.sharesSourceLemma("praca", "malina"))
+        val changed = IntelligenceJson.document(json.reader())
+        val entries = changed.getAsJsonArray("entries")
+        val removed = entries.remove(entries.size() - 1).asJsonObject.get("surfaceKey").asString
+        entries.first { it.asJsonObject.get("surfaceKey").asString == "praca" }
+            .asJsonObject.addProperty("canonicalForm", "Praca")
+        val replacement = IntelligenceJson.parse(changed.toString().reader(), "pl", 8, setOf("metadata"), old)
+        assertNotSame(old.lookup("praca"), replacement.lookup("praca"))
+        assertEquals("Praca", replacement.lookup("praca")!!.canonicalForm)
+        assertNull(replacement.lookup(removed))
+        assertNotNull(old.lookup(removed))
+        assertSame(old.lookup("pracy"), replacement.lookup("pracy"))
+    }
+
+    @Test fun reuseCannotBypassLateHeadersDuplicatesOrLanguageIsolation() {
+        val entry = """{"surfaceKey":"test","metadata":{"note":"unchanged"}}"""
+        val json = """{"entries":[$entry],"languageCode":"pl","schemaVersion":1}"""
+        val old = IntelligenceJson.parse(json.reader(), "pl", 6, setOf("metadata"))
+        for (bad in listOf(json.replace("\"schemaVersion\":1", "\"schemaVersion\":2"),
+            json.replace("[$entry]", "[$entry,$entry]"), json + " {}")) {
+            try {
+                IntelligenceJson.parse(bad.reader(), "pl", 7, setOf("metadata"), old)
+                fail("reusing entries must still validate the entire document")
+            } catch (_: Exception) { }
+        }
+        assertEquals("{\"note\":\"unchanged\"}", old.lookup("test")!!.metadataJson)
+        val en = IntelligenceJson.parse(json.replace("\"pl\"", "\"en\"").reader(),
+            "en", 7, setOf("metadata"), old)
+        assertEquals(old.lookup("test"), en.lookup("test"))
+        assertNotSame(old.lookup("test"), en.lookup("test"))
+    }
+
     @Test fun streamedBudgetsCoverTheWholeDocumentRatherThanResettingAtEachEntry() {
         val values = "[" + "null,".repeat(14_999) + "null]"
         val entries = (0 until 134).joinToString(",") {

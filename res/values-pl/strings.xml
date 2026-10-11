@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="pack_error_intelligence_memory">Za mało pamięci RAM na import słownika. Poprzedni pakiet językowy został zachowany. Uruchom ponownie telefon i spróbuj jeszcze raz.</string>
     <!-- <string name="pref_portrait_unfolded">In portrait mode unfolded</string> -->
     <!-- <string name="pref_landscape_unfolded">In landscape mode unfolded</string> -->
     <string name="pref_layout_e_system">Ustawienia systemowe</string>
