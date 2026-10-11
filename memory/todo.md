@@ -12,7 +12,11 @@
 - [x] Local5cache/4binary/18state-sort tests PASS; full v6/seven bundled row parity.
   Actual source+v5/v6 metadata+16MiB+20 callers PASS at192MiB (host stubs, not phone PSS).
 - [x] 2f4735dd runs38133738323/38133740554 SUCCESS: compile/2918pure/192MiB/5rows/editor/lint;
-  Trace fixture repaired; verified APKe69041ae delivered. Phone early-switch/load/search/sort/recreation pending.
+  Trace fixture repaired; verified APKe69041ae delivered.
+- [x] 2026-10-11: maintainer confirms Manager loads much faster, essentially as before adding words.
+- [ ] Phone early-switch crash/search/sort/recreation retest still pending; load-speed acceptance alone does not confirm those paths.
+- [ ] Continue accepted thematic groups in producer: ordinary potoczny/computer/dom/zakupy/technika first,
+  then brands/abbreviations/proper names and final exact private-export duplicate check.
 - Existing source bounds/stream/OOM rollback/SI/editor/BS/GIF unchanged. Phone PSS/latency
   and broader ranking measurement remain. Private cleanup separate/local-only; import
   merges and cannot remove stored duplicates. Actions <=60s TOTAL/run; no merge/release.

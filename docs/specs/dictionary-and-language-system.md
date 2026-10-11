@@ -154,6 +154,13 @@ matches downloaded bytes; code/APK identity and prior v2 signing certificate mat
 This fixture repair and CI success are not phone validation. Early tab-switching,
 opening time, search/sort/disabled coherence and recreation still need a phone retest.
 
+2026-10-11 follow-up: maintainer confirms much faster loading, effectively the
+pre-expansion opening speed. This accepts perceived load speed only; the earlier
+pre-load tab-switch crash and search/sort/recreation remain separately unconfirmed.
+Maintainer authorizes continuing the previously ordered additive vocabulary groups.
+The next producer stage is thematic ordinary forms, preserving v6 words/ranks/source
+metadata; brands/abbreviations/names and final private-export exact duplicates follow.
+
 ## Overview
 
 The dictionary system manages word lookup, frequency ranking, and multi-language support through a tiered architecture. It combines static dictionaries, user-defined words, and the swipe decoders' lexicons into a "Language Pack" system with automatic language detection for bilingual typing.
