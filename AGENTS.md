@@ -123,13 +123,22 @@ add and editor/cursor/prediction consistency guards are unconditional fixes, not
 
 ## Dictionary Manager large-list loading (2026-10-11)
 
-Build display rows with `NormalizedPrefixIndex.lookup` for each exact normalized
-key, never a prefix-completion search per row. Preserve canonical/rank/disabled
-semantics and the existing folded-key row policy; do not cap or prune the pack.
-WordListFragment prepares filtering/sorting on Default and publishes views on main
-under the view lifecycle. Preserve cancellation, current query, counts and restored
-scroll state. Actual v6 old/new rows match; desktop extractor timings are not phone
-opening latency. Canonical spec: docs/specs/dictionary-and-language-system.md.
+The first exact-lookup fix passed CI but the maintainer still reports slow loading
+and closing when switching tabs before completion. Manager V2 rows now come directly
+from the shared binary traversal into DictionaryDisplayRows, retaining first mapped
+canonical/rank/disabled semantics and the existing folded-key policy. Do not build a
+prediction index only to discard it. Do not cap/prune the pack.
+DictionaryDisplayLoadCache owns one cold Deferred per language, independent of view
+waiters; words and UI prefix index publish atomically. Invalidation retires identity
+before cancellation; cancelled/failed/late tasks cannot publish over replacements.
+Contain loading/list allocation errors at the UI boundary, preserving retry.
+WordListFragment captures source/view/request identity, filters/sorts on Default and
+publishes views on main under view lifecycle. Destroyed views detach adapters; remove
+activity callbacks on destruction. Preserve query/count/restored-scroll behavior.
+Local full v6 and bundled row parity, cache concurrency, and v5/v6 metadata + full
+Manager snapshot at192 MiB pass with host stubs. Native UI/crash/performance still
+need phone verification; no trace proves the sole crash cause. Canonical spec:
+docs/specs/dictionary-and-language-system.md.
 
 ## Language-pack metadata import memory (2026-10-11)
 

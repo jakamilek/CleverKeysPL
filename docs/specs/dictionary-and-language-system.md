@@ -86,8 +86,57 @@ old/new row bodies on the exact v6 ZIP: all 170,588 rows, ranks and disabled fla
 equal. One desktop extraction sample was 1306.3 ms before and 82.8 ms after; this
 isolates row extraction and is not phone opening latency or an Android UI benchmark.
 CI adds actual source-extractor parity/rank/shared-prefix tests and a worker/view
-wiring guard, retaining the existing sort/recreation suites. Fix Android CI and
-phone reopening/search/sort/disable/recreation checks remain pending. Same ZIP and SI.
+wiring guard, retaining the existing sort/recreation suites. Runs38126517112 and
+38126518539 passed at75123b05 (2913 pure tests, row integration, 192 MiB metadata
+gate, both lint tiers). APK SHA-256 fec89536d07f1a200cff1d47a3fb603cf25f012e2edebba879c03457d6b144cd
+was delivered. The maintainer reports continued slow loading and a close when
+switching through Disabled/User/Custom and back to Active before loading completes;
+waiting for completion avoids it. This first repair is insufficient.
+
+### Shared cold load and direct display projection follow-up
+
+The previous cache shared completed results only: a superseding filter could cancel
+its await while non-interruptible file work continued, then start another cold load.
+It also built a full NormalizedPrefixIndex solely to discard it after row extraction,
+and exposed instance words before the UI search index completed. There is no phone
+crash trace, so duplicate allocations/lifecycle hazards are not a proven sole native
+crash cause.
+
+DictionaryDisplayLoadCache owns one Deferred per language, independent of callers'
+view jobs. Publish words and the UI prefix index together as one completed snapshot.
+A cancelled view stops awaiting, without cancelling or duplicating the shared task.
+Real cache invalidation retires its identity before cancelling; runInterruptible and
+loop interruption checks stop work without falling back to another dictionary.
+Failed tasks are retired for retry. The source retains applicationContext only.
+Cold nonblank searches await the same complete snapshot as blank loads.
+
+The V2 binary traversal now feeds DictionaryDisplayRows directly, preserving the
+first mapped canonical for each normalized key, ranks and disabled policy. It skips
+retaining normalized strings that the old reader decoded but never used; the shared
+traversal still checks their lengths. V1 retains its existing rank conversion.
+The ordinary typing decoder and swipe dictionary are unchanged. No display cap,
+pruning, forced GC, largeHeap or new import is introduced.
+
+WordListFragment captures its source, tab, view identity and request generations;
+only the still-current view/request may publish a list or error. Destroying the view
+cancels its waiter and detaches its RecyclerView adapter. An uninitialized refresh
+is ignored; activity destruction removes delayed search/count callbacks. Filtering
+and sorting remain on Default, with adapter/count/restored-scroll publication on main.
+Allocation failure in loading or list preparation surfaces the existing localized
+error instead of caching an incomplete snapshot. Process-wide OOM recovery is not promised.
+
+Local evidence: five actual shared-cache JUnit tests PASS (20 replacement waiters,
+cancellation, invalidation/late completion, failure/OOM retry, language scope).
+Four binary row tests and18 state/sort tests PASS with host stubs for Android types. Separate processes compare the
+pre-change binary reader/index with the direct reader: full v6 plus seven bundled
+binaries have identical ordered row/rank/source/disabled SHA-256 digests. v6 retains
+170,588 display rows; digest fa3314e1f61b509cd8831e2e4eb56f2a66268dc9e5e027611b0e1827c5692973
+for the recorded test disabled set. Actual MainDictionarySource body, real v5/v6
+metadata, full v6 CKDT, UI prefix index and 20 shared callers pass together at192 MiB
+with16 MiB ballast, using host context/pack-path stubs. This is a JVM heap regression
+check, not phone PSS, UI execution or model memory. New CI adds a real source/binary
+blocked-read cancellation + restored-search test; Android compilation, mock/pure/lint
+and the phone loading/tab-switch/search/recreation retest remain pending. Same ZIP/SI.
 
 ## Overview
 

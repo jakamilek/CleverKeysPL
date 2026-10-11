@@ -5,11 +5,14 @@
 - [x] Streaming import repair6ecb5238: live38124097991/CI38124100497 SUCCESS;2912pure,
   192MiB gate, import/editor mock and both lint tiers; verified APK5e5caedf delivered.
 - [x] Maintainer confirms import and formerly missing swipe words work.
-- [x] Manager repeatedly scans/sorts prefix completions per exact row; use exact lookup.
-  Preserve all170,588 normalized rows/frequencies/flags, same181,691-record ZIP.
-- [x] Actual Kotlin v6 old/new row parity at256MiB PASS; desktop extractor1306.3→82.8ms.
-  Enabled filtering/sorting on Default; view-lifecycle cancellation/main publication.
-- [ ] Fix Android compile/mock/pure/heap/lint/audited APK; phone open/search/sort/recreation.
+- [x] Exact row lookup replaces repeated scans; all170,588 rows/flags retained, same181,691-key ZIP.
+- [x] First fix75123b05 runs38126517112/38126518539 PASS (2913pure/row/192MiB/lint); phone still slow/closes on early tab switch.
+- [x] Direct V2 rows +one cold Deferred/language +atomic UI snapshot +view/request guards.
+  Retry/late completion, adapter detach, callback cleanup; same words/ranks/flags.
+- [x] Local5cache/4binary/18state-sort tests PASS; full v6/seven bundled row parity.
+  Actual source+v5/v6 metadata+16MiB+20 callers PASS at192MiB (host stubs, not phone PSS).
+- [ ] New Android compile/source blocked-read mock/pure/heap/lint/audited APK; phone
+  early tab-switch/load/search/sort/disable/recreation. No trace proves sole crash cause.
 - Existing source bounds/stream/OOM rollback/SI/editor/BS/GIF unchanged. Phone PSS/latency
   and broader ranking measurement remain. Private cleanup separate/local-only; import
   merges and cannot remove stored duplicates. Actions <=60s TOTAL/run; no merge/release.

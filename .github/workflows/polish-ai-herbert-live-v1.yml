@@ -135,7 +135,9 @@ jobs:
           identity['streamingLanguageIntelligence'] = True
           identity['languagePackImportOffMain'] = True
           identity['languageIntelligenceMemoryGateMiB'] = 192
-          identity['dictionaryManagerExactRowLookup'] = True
+          identity['dictionaryManagerDirectDisplayRows'] = True
+          identity['dictionaryManagerSharedColdLoad'] = True
+          identity['dictionaryManagerViewGenerationGuards'] = True
           identity['dictionaryManagerWorkerListPreparation'] = True
           identity['spaceFreeTypedAutocorrectUndo'] = True
           Path('build/outputs/apk/debug/herbert-live-apk.json').write_text(json.dumps(identity,indent=2)+'\n')

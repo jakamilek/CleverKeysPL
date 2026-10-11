@@ -40,6 +40,13 @@ class DictionarySearchStatePersistenceTest {
     @Test fun largeListPreparationUsesAWorkerAndPublishesOnlyToTheCurrentView() {
         val body = methodBody(fragmentSource, "fun filter(")
         assertThat(body).contains("viewLifecycleOwner.lifecycleScope.launch")
+        assertThat(body).contains("val requestSource = dataSource")
+        assertThat(body).contains("view !== requestView")
+        assertThat(body).contains("filterGeneration != requestFilterGeneration")
+        val destroy = methodBody(fragmentSource, "override fun onDestroyView()")
+        assertThat(destroy).contains("searchJob?.cancel()")
+        assertThat(destroy).contains("viewGeneration++")
+        assertThat(destroy).contains("recyclerView.adapter = null")
         val worker = methodBody(body, "withContext(Dispatchers.Default)")
         assertThat(worker).contains("sortWordsForDisplay")
         assertThat(worker).contains("rawWords.filter")
