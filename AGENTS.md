@@ -158,6 +158,14 @@ Polish/base reason, not UNKNOWN; deferred other-locale translations are in the q
 Same v6 ZIP; no pruning, forced GC, largeHeap, model or gesture changes. See the
 canonical dictionary spec for evidence and the pending phone retest.
 
+Shared schema-v2 tables precede entries (attributes before lexemes); v1 keeps late
+headers. API/schema must match. Keep exact source field presence/case/POS/suffixes;
+validate table references and expanded per-word 16K cost before copying. Immutable
+source pools + encoded per-word metadata retain the old typed SI contract. Expand
+metadataJson only for a requested word, never retain a fully expanded base. Reuse
+only validated identical pools/entries. Real v8/v9 cold/replacement/repeat 192MiB
+gates belong to the pinned producer CI. Android PSS remains a phone measurement.
+
 ## 6. Polish contextual SI preparation (2026-10-04)
 
 Canonical spec: docs/specs/polish-context-ai.md. The maintainer-authorized opt-in

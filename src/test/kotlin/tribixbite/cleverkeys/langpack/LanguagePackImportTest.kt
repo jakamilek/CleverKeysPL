@@ -975,7 +975,7 @@ class LanguagePackImportTest {
         val original = manager.getDictionaryPath("pl")!!.readBytes()
         io.mockk.mockkObject(IntelligenceJson)
         try {
-            every { IntelligenceJson.parse(any(), any(), any(), any(), any()) } throws OutOfMemoryError("synthetic")
+            every { IntelligenceJson.parse(any(), any(), any(), any(), any(), any()) } throws OutOfMemoryError("synthetic")
             assertThat(import(validPack("pl", "Replacement", extras = listOf("language-intelligence.json" to bytes),
                 manifest = trialManifest(bytes)))).isEqualTo(ImportResult.Error(PackImportFailure.IntelligenceMemory))
             assertThat(manager.getDictionaryPath("pl")!!.readBytes().toList()).isEqualTo(original.toList())
@@ -988,6 +988,53 @@ class LanguagePackImportTest {
         """{"code":"pl","name":"Polish","version":3,"apiVersion":$api,
           "capabilities":["lexicon","frequency","capitalization","metadata","future"],
           "languageIntelligence":{"file":"language-intelligence.json","schemaVersion":1,"sha256":"${sha256(bytes)}"}}"""
+
+    private fun sharedManifest(bytes: ByteArray): String = trialManifest(bytes, 2)
+        .replace("\"schemaVersion\":1", "\"schemaVersion\":2")
+
+    @Test fun sharedPackInstallsWarmsAndRejectsInvalidReplacementWithoutLosingEvidence() {
+        val legacy = trialBytes()
+        assertThat(import(validPack("pl", "Legacy", extras = listOf("language-intelligence.json" to legacy),
+            manifest = trialManifest(legacy)))).isInstanceOf(ImportResult.Success::class.java)
+        val shared = SharedLanguageIntelligenceTest().fixture().toByteArray(Charsets.UTF_8)
+        assertThat(import(validPack("pl", "Shared", extras = listOf("language-intelligence.json" to shared),
+            manifest = sharedManifest(shared)))).isInstanceOf(ImportResult.Success::class.java)
+        val snapshot = manager.getLanguageIntelligenceProvider("pl")!!
+        assertThat(manager.getInstalledPacks().single().apiVersion).isEqualTo(2)
+        assertThat(snapshot.sharesSourceLemma("malina", "maliną")).isTrue()
+        assertThat(snapshot.lookup("malina")!!.metadataJson).contains("Malina:Sf")
+        val restarted = LanguagePackManager(context)
+        restarted.warmLanguageIntelligence("pl")
+        val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5)
+        while (restarted.getLanguageIntelligenceProvider("pl") == null && System.nanoTime() < deadline) Thread.sleep(10)
+        assertThat(restarted.getLanguageIntelligenceProvider("pl")!!.lookup("malina")!!.metadataJson)
+            .isEqualTo(snapshot.lookup("malina")!!.metadataJson)
+        val malformed = String(shared, Charsets.UTF_8).replace("\"sourceRef\":0", "\"sourceRef\":99").toByteArray()
+        for ((bytes, manifest) in listOf(malformed to sharedManifest(malformed), shared to trialManifest(shared))) {
+            assertThat(import(validPack("pl", "Invalid", extras = listOf("language-intelligence.json" to bytes),
+                manifest = manifest))).isInstanceOf(ImportResult.Error::class.java)
+            assertThat(manager.getLanguageIntelligenceProvider("pl")).isSameInstanceAs(snapshot)
+            assertThat(File(installedDir("pl"), "language-intelligence.json").readBytes().toList()).isEqualTo(shared.toList())
+            assertThat(cacheDir.listFiles()?.toList().orEmpty()).isEmpty()
+        }
+    }
+
+    @Test fun sharedPackMemoryFailurePreservesInstalledLegacySnapshot() {
+        val legacy = trialBytes()
+        assertThat(import(validPack("pl", "Legacy", extras = listOf("language-intelligence.json" to legacy),
+            manifest = trialManifest(legacy)))).isInstanceOf(ImportResult.Success::class.java)
+        val snapshot = manager.getLanguageIntelligenceProvider("pl")!!
+        val shared = SharedLanguageIntelligenceTest().fixture().toByteArray(Charsets.UTF_8)
+        io.mockk.mockkObject(IntelligenceJson)
+        try {
+            every { IntelligenceJson.parse(any(), any(), any(), any(), any(), 2) } throws OutOfMemoryError("synthetic shared")
+            assertThat(import(validPack("pl", "Shared", extras = listOf("language-intelligence.json" to shared),
+                manifest = sharedManifest(shared)))).isEqualTo(ImportResult.Error(PackImportFailure.IntelligenceMemory))
+            assertThat(manager.getLanguageIntelligenceProvider("pl")).isSameInstanceAs(snapshot)
+            assertThat(File(installedDir("pl"), "language-intelligence.json").readBytes().toList()).isEqualTo(legacy.toList())
+            assertThat(cacheDir.listFiles()?.toList().orEmpty()).isEmpty()
+        } finally { io.mockk.unmockkObject(IntelligenceJson) }
+    }
 
     @Test fun declaredTrialInstallsAndPublishesExactSurfacesAndLegacyReplacementClearsThem() {
         val bytes = trialBytes()

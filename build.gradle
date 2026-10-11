@@ -608,6 +608,7 @@ tasks.register('runPureTests', JavaExec) {
     'tribixbite.cleverkeys.PunctuationSpacingTest',
     'tribixbite.cleverkeys.CursorWordCapitalizationTest',
     'tribixbite.cleverkeys.langpack.LanguageIntelligenceTest',
+    'tribixbite.cleverkeys.langpack.SharedLanguageIntelligenceTest',
     'tribixbite.cleverkeys.DictionaryLoadRequestsTest',
     'tribixbite.cleverkeys.DictionaryDisplayLoadCacheTest',
     'tribixbite.cleverkeys.AccentNormalizerTest',

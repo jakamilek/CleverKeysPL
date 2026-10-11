@@ -14,14 +14,26 @@ import java.util.Locale
 data class SurfaceVariant(val surface: String, val casePolicy: String)
 data class CapitalizationInfo(val defaultSurface: String?, val variants: List<SurfaceVariant>)
 data class SourceLemma(val lemma: String, val partOfSpeech: String)
-data class LanguageIntelligence(
+class LanguageIntelligence internal constructor(
     val surfaceKey: String,
     val canonicalForm: String?,
     val capitalization: CapitalizationInfo?,
     // Opaque, immutable source data. Stage 1 does not infer meanings or run a model.
-    val metadataJson: String?,
+    private val inlineMetadataJson: String?,
     val sourceLemmas: Set<SourceLemma> = emptySet(),
-)
+    private val sharedMetadata: SharedSourceMetadata? = null,
+) {
+    /** Full legacy view for one requested word; do not expand/cache the entire dictionary. */
+    val metadataJson: String? get() = sharedMetadata?.expandedJson() ?: inlineMetadataJson
+    internal fun reusableAs(other: LanguageIntelligence): Boolean =
+        surfaceKey == other.surfaceKey && canonicalForm == other.canonicalForm &&
+            capitalization == other.capitalization && sourceLemmas == other.sourceLemmas &&
+            inlineMetadataJson == other.inlineMetadataJson && sharedMetadata == other.sharedMetadata
+    override fun equals(other: Any?): Boolean = other is LanguageIntelligence &&
+        surfaceKey == other.surfaceKey && canonicalForm == other.canonicalForm &&
+        capitalization == other.capitalization && sourceLemmas == other.sourceLemmas && metadataJson == other.metadataJson
+    override fun hashCode(): Int = listOf(surfaceKey, canonicalForm, capitalization, sourceLemmas, metadataJson).hashCode()
+}
 data class IntelligenceMember(val file: String, val schemaVersion: Int, val sha256: String)
 data class IntelligencePackageInfo(val languageCode: String, val version: Int, val provenanceJson: String?)
 
@@ -30,6 +42,7 @@ class LanguageIntelligenceProvider internal constructor(
     private val info: IntelligencePackageInfo,
     capabilities: Set<String>,
     entries: Map<String, LanguageIntelligence>,
+    internal val sharedSources: SharedSources? = null,
 ) {
     private val supported = Collections.unmodifiableSet(HashSet(capabilities))
     private val index = Collections.unmodifiableMap(HashMap(entries))
@@ -54,7 +67,8 @@ internal object IntelligenceJson {
     private const val MAX_ENTRIES = 120_000
 
     /** Optional typed view of existing Morfeusz evidence; opaque metadata stays unchanged. */
-    private fun sourceLemmas(metadata: JsonElement?, key: String): Set<SourceLemma> {
+    private fun sourceLemmas(metadata: JsonElement?, key: String,
+                             intern: MutableMap<SourceLemma, SourceLemma>? = null): Set<SourceLemma> {
         val evidence = metadata?.takeIf { it.isJsonObject }?.asJsonObject
             ?.get("sourceEvidence")?.takeIf { it.isJsonObject }?.asJsonObject ?: return emptySet()
         val out = LinkedHashSet<SourceLemma>()
@@ -72,7 +86,8 @@ internal object IntelligenceJson {
                 val lemma = text(row, "lemma") ?: continue
                 val pos = text(row, "partOfSpeech") ?: text(row, "tag")?.substringBefore(':') ?: continue
                 if (lemma.isNotBlank() && lemma.length <= 96 && pos.isNotBlank() && pos.length <= 32) {
-                    out.add(SourceLemma(lemma, pos))
+                    val pair = SourceLemma(lemma, pos)
+                    out.add(intern?.getOrPut(pair) { pair } ?: pair)
                     // Optional relation evidence must remain cheap at gesture time.
                     if (out.size > 32) return emptySet()
                 }
@@ -158,14 +173,16 @@ internal object IntelligenceJson {
 
     fun declaration(obj: JsonObject): IntelligenceMember? {
         val hasApi = obj.has("apiVersion")
-        if (hasApi) require(integer(obj, "apiVersion") == 1) { "Unsupported apiVersion" }
+        val api = if (hasApi) integer(obj, "apiVersion") else null
+        if (hasApi) require(api in 1..2) { "Unsupported apiVersion" }
+        if (api == 2) require(obj.has("languageIntelligence")) { "API-v2 requires metadata" }
         if (!obj.has("languageIntelligence")) return null
         require(hasApi) { "Missing apiVersion" }
         val member = obj.getAsJsonObject("languageIntelligence")
         val file = string(member, "file")
         val schema = integer(member, "schemaVersion")
         val hash = string(member, "sha256")
-        require(file == FILE && schema == 1 && hash.matches(Regex("[a-fA-F0-9]{64}")))
+        require(file == FILE && schema == api && hash.matches(Regex("[a-fA-F0-9]{64}")))
         return IntelligenceMember(file, schema, hash)
     }
 
@@ -179,7 +196,8 @@ internal object IntelligenceJson {
         }.toSet()
     }
 
-    private fun entry(entry: JsonObject): LanguageIntelligence {
+    private fun entry(entry: JsonObject, sources: SharedSources?, intern: MutableMap<SourceLemma, SourceLemma>,
+                      previous: LanguageIntelligence?): LanguageIntelligence {
         val key = string(entry, "surfaceKey")
         require(key.isNotBlank() && key.length <= 96 && key == key.lowercase(Locale.ROOT))
         require(key.none { it.isWhitespace() || it.isISOControl() })
@@ -209,7 +227,15 @@ internal object IntelligenceJson {
             string(entry, "canonicalForm").also { value -> require(value.length in 1..96) }
         }
         val metadata = entry.get("metadata")
-        return LanguageIntelligence(key, canonical, caps, metadata?.toString(), sourceLemmas(metadata, key))
+        val expanded = sources?.expand(metadata, entry) ?: metadata
+        val lemmas = sourceLemmas(expanded, key, intern).let { parsed ->
+            previous?.sourceLemmas?.takeIf { it == parsed } ?: parsed
+        }
+        val packed = sources?.takeIf { it.hasReferences(metadata) }?.let {
+            SharedSourceMetadata(metadata!!.toString(), it)
+        }
+        return LanguageIntelligence(key, canonical, caps, if (packed == null) metadata?.toString() else null,
+            lemmas, packed)
     }
 
     /** Read one bounded entry at a time, never a tree for the entire sidecar. */
@@ -221,8 +247,9 @@ internal object IntelligenceJson {
      * provider remains valid until installation succeeds; only the new index/header is rebuilt.
      */
     fun parse(reader: Reader, language: String, version: Int, capabilities: Set<String>,
-              previous: LanguageIntelligenceProvider?): LanguageIntelligenceProvider =
+              previous: LanguageIntelligenceProvider?, expectedSchema: Int = 1): LanguageIntelligenceProvider =
         JsonReader(reader).use { input ->
+            require(expectedSchema in 1..2)
             input.isLenient = false
             val json = BoundedJson(input)
             json.visit(0)
@@ -232,12 +259,22 @@ internal object IntelligenceJson {
             val header = JsonObject()
             val index = LinkedHashMap<String, LanguageIntelligence>()
             val reusable = previous?.takeIf { it.packageInfo().languageCode == language }
+            val attributes = ArrayList<SharedSourceAttributes>()
+            val records = ArrayList<SharedSourceRecord>()
+            val intern = HashMap<SourceLemma, SourceLemma>()
+            var sources: SharedSources? = null
             var hasEntries = false
             while (input.hasNext()) {
                 val name = json.name()
                 require(members.add(name)) { "Duplicate JSON member: $name" }
                 require(members.size <= MAX_ROOT_MEMBERS) { "JSON root member limit" }
                 if (name == "entries") {
+                    if (expectedSchema == 2) {
+                        require(members.containsAll(listOf("schemaVersion", "languageCode", "sourceAttributes", "sourceLexemes")))
+                        require(integer(header, "schemaVersion") == 2 && string(header, "languageCode") == language)
+                        val fresh = SharedSources(attributes, records)
+                        sources = reusable?.sharedSources?.takeIf { it.sameTables(fresh) } ?: fresh
+                    }
                     hasEntries = true
                     json.visit(1)
                     require(input.peek() == JsonToken.BEGIN_ARRAY)
@@ -246,9 +283,34 @@ internal object IntelligenceJson {
                         require(index.size < MAX_ENTRIES) { "JSON entry limit" }
                         val raw = json.chunk(2)
                         require(raw.isJsonObject)
-                        val parsed = entry(raw.asJsonObject)
-                        val value = reusable?.lookup(parsed.surfaceKey)?.takeIf { it == parsed } ?: parsed
+                        val prior = raw.asJsonObject.get("surfaceKey")?.takeIf {
+                            it.isJsonPrimitive && it.asJsonPrimitive.isString
+                        }?.asString?.let { reusable?.lookup(it) }
+                        val parsed = entry(raw.asJsonObject, sources, intern, prior)
+                        val value = prior?.takeIf { it.reusableAs(parsed) } ?: parsed
                         require(index.put(value.surfaceKey, value) == null) { "Duplicate surfaceKey" }
+                    }
+                    input.endArray()
+                } else if (name == "sourceAttributes" || name == "sourceLexemes") {
+                    require(expectedSchema == 2 && !hasEntries) { "Shared tables must precede entries" }
+                    if (name == "sourceLexemes") require("sourceAttributes" in members) { "Attributes must precede lexemes" }
+                    json.visit(1)
+                    require(input.peek() == JsonToken.BEGIN_ARRAY)
+                    input.beginArray()
+                    val seen = HashSet<String>()
+                    while (input.hasNext()) {
+                        require(attributes.size + records.size < MAX_ENTRIES) { "Shared table limit" }
+                        val raw = json.chunk(2)
+                        require(raw.isJsonObject) { "Invalid shared record" }
+                        if (name == "sourceAttributes") {
+                            val value = SharedSourceAttributes.read(raw.asJsonObject)
+                            require(seen.add(value.json)) { "Duplicate shared attributes" }
+                            attributes.add(value)
+                        } else {
+                            val value = SharedSourceRecord.read(raw.asJsonObject, attributes, intern)
+                            require(seen.add(value.objectValue(attributes).toString())) { "Duplicate shared source" }
+                            records.add(value)
+                        }
                     }
                     input.endArray()
                 } else {
@@ -259,9 +321,9 @@ internal object IntelligenceJson {
             }
             input.endObject()
             require(input.peek() == JsonToken.END_DOCUMENT) { "Invalid JSON document" }
-            require(hasEntries && integer(header, "schemaVersion") == 1 && string(header, "languageCode") == language)
+            require(hasEntries && integer(header, "schemaVersion") == expectedSchema && string(header, "languageCode") == language)
             LanguageIntelligenceProvider(
-                IntelligencePackageInfo(language, version, header.get("provenance")?.toString()), capabilities, index
+                IntelligencePackageInfo(language, version, header.get("provenance")?.toString()), capabilities, index, sources
             )
         }
 }

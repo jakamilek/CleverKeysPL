@@ -144,7 +144,8 @@ class LanguagePackManager(private val context: Context) {
                     if (!file.isFile || file.length() > IntelligenceJson.MAX_BYTES ||
                         !sha256OfFile(file).equals(member.sha256, ignoreCase = true)) return@synchronized
                     intelligence[code] = file.reader(Charsets.UTF_8).use {
-                        IntelligenceJson.parse(it, code, manifest.version, manifest.capabilities)
+                        IntelligenceJson.parse(it, code, manifest.version, manifest.capabilities,
+                            null, member.schemaVersion)
                     }
                 } catch (_: OutOfMemoryError) {
                     requestedIntelligence.remove(code)
@@ -272,7 +273,7 @@ class LanguagePackManager(private val context: Context) {
                 try {
                     intelligenceFile.reader(Charsets.UTF_8).use {
                         IntelligenceJson.parse(it, manifest.code, manifest.version, manifest.capabilities,
-                            intelligence[manifest.code])
+                            intelligence[manifest.code], member.schemaVersion)
                     }
                 } catch (_: OutOfMemoryError) {
                     // Parsing happens before the staged swap. Keep the installed pack/snapshot.
@@ -437,7 +438,7 @@ class LanguagePackManager(private val context: Context) {
                 license = attributionField(obj, "license"),
                 attribution = attributionField(obj, "attribution"),
                 source = attributionField(obj, "source"),
-                apiVersion = if (strict.has("apiVersion")) 1 else null,
+                apiVersion = if (strict.has("apiVersion")) IntelligenceJson.integer(strict, "apiVersion") else null,
                 capabilities = capabilities,
                 languageIntelligence = declaration,
             )

@@ -1,5 +1,52 @@
 # Dictionary and Multi-Language System
 
+## Shared Polish source metadata v9 — 2026-10-11
+
+The maintainer accepted the v7 and v8 imports and swipe recognition on the phone.
+V8 has 190,813 keys, 100,649 metadata entries and 1,999,993 JSON nodes. V9 changes
+only representation: exact reconstruction of all v8 metadata, unchanged CKDT bytes,
+ranks, unigrams, capitalization and source evidence. No words are added or removed.
+
+The manifest declares apiVersion=2 and languageIntelligence.schemaVersion=2;
+API/schema versions must agree. Legacy schema-v1 still loads. Old APKs refuse v9;
+install the compatible APK first. V2 root order is schemaVersion, languageCode,
+sourceAttributes, sourceLexemes, provenance, entries. Attributes precede source
+records and both tables precede entries; schema-v1 keeps its arbitrary header order.
+Tables are streamed as individually bounded records, not retained Gson arrays.
+References are exact integer table indexes; missing/empty fields, lemma suffixes,
+case, POS, source NAME classes and LABELS remain distinct. Only repetitions that
+save nodes are shared; unique/inefficient records stay inline.
+
+`SharedSources` is immutable. Each word retains its encoded JSON and typed immutable
+lemma/POS relation set. `metadataJson` expands only one requested word on demand,
+without caching the full expanded dictionary. Existing SI and surface presentation
+use the same typed relations/case information. Equal validated tables and encoded
+entries may be shared with a previous v2 snapshot; v1 remains usable during upgrade.
+Do not iterate metadataJson into a retained dictionary of expanded strings.
+
+All encoded byte/hash/depth/string/duplicate/global-node guards remain. The combined
+source tables have at most 120K records; word entries retain their separate 120K
+limit. Expanded per-word complexity is checked before allocating copies (16,384
+nodes). Invalid references, conflicting fields, duplicate definitions, late tables,
+wrong API/schema/language and trailing data refuse before staged publication.
+Import and background warming pass the declared schema. Rollback retains files and
+provider, including typed OOM refusal; no forced GC, largeHeap or raised bounds.
+
+V9 metadata: 26,141,080 bytes / 1,740,933 nodes, freeing 259,060 nodes versus v8;
+259,067 remain below the existing 2M guard. There are 29,320 source records, 108,279
+reading references, 61,869 inline readings, 242 attribute objects and 52,105 attribute
+references. Uncompressed metadata saves 4,315,476 bytes; ZIP compression can be
+slightly larger. These savings do not predict a fixed number of additional words
+and do not reduce HerBERT weights or prove Android PSS savings.
+
+Local actual-source checks: 28 parser tests; complete 190,813-key CKDT comparison and
+100,649 byte-exact expanded metadata/typed-source views; actual surface-choice checks;
+isolated cold v9, v8-to-v9 and repeated-v9 loads with 16 MiB ballast at 192 MiB PASS.
+Producer: 71 tests PASS. New MockK cases cover v1 upgrade, v2 warm, bad references,
+schema mismatch and OOM rollback. Current-head Android compile, integration, lint,
+verified CI APK/ZIP delivery and phone import/PSS remain pending. Actions monitoring
+is at most 60 seconds total per run; no merge, tag, release or application version bump.
+
 ## Polish thematic v7 import — 2026-10-11
 
 The maintainer sees “Nieznany błąd” importing the verified v7 ZIP (188,302 keys;
