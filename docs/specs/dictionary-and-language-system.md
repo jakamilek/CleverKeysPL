@@ -2,6 +2,15 @@
 
 ## Compact source views v11 — 2026-10-13
 
+Current v11 closure (2026-10-13): runtime0b94e323 live38437360577 and CI38437368829
+SUCCESS (2931 pure tests, 51 import cases, editor suites, original HerBERT
+conformance, 192MiB gate, debug/vital lint and APK audit). Producer de587268
+runs38437507820/38437516020 SUCCESS, all older regressions also SUCCESS.
+Delivered APK SHA256 af22cd26bbd2dc943d01286672c7caa19df5d42ec10f5364e691d1cb022696eb;
+inner ZIP8169a8ac as pinned below. Maintainer reports “działa dobrze” after delivery.
+This is general phone acceptance, not separate PSS/timing or every Manager path.
+Next additive compact-schema names v12 uses the same APK and source policy.
+
 Phone: v9 and additive v10 are accepted. V10 contains204,463 words and114,299
 metadata entries; the maintainer reports it works very well. V11 changes only
 representation and snapshot reuse. CKDT bytes/ranks, unigrams, capitalization and
@@ -41,10 +50,11 @@ v10. Remaining198,663 nodes and5701 entry slots below unchanged32MiB/2M/120K gua
 Local84 producer and34 actual parser tests PASS. Actual204,463 CKDT records and
 114,299 cold views/typed source identities, semantic upgrade entry identity and
 surface presentation PASS. Cold/upgrade/repeat +16MiB ballast at192MiB PASS.
-Existing schema1 replacement192MiB gate also passed locally. Current Android/
-import51/mock/editor/original HerBERT conformance/lint/APK CI remains pending. New import
-cases cover schema2→3, warm, malformed masks and typed OOM rollback. Phone import,
-restart, case/form behavior and Manager/PSS remain pending for v11. No model,
+Existing schema1 replacement192MiB gate also passed. Current Android/import51/
+mock/editor/original HerBERT conformance/lint/APK CI passed, as identified above.
+New import cases cover schema2→3, warm, malformed masks and typed OOM rollback.
+The phone trial is accepted generally; independent timing/PSS and individual
+Manager lifecycle regressions remain unmeasured. No model,
 gestures, defaults, bounds, app-version, merge/tag/release changes. Actions<=60s/run.
 
 ## Shared Polish source metadata v9 — 2026-10-11
