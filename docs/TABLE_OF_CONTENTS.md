@@ -1,4 +1,6 @@
-Current dictionary: phone-accepted v10 (204,463 words); [compact source v11](specs/dictionary-and-language-system.md#compact-source-views-v11--2026-10-13)
+Current work: candidate-only practical vocabulary modules on v11; additional rare-names v12 is held. No new langpack/APK in this stage.
+
+Current dictionary: phone-accepted v11 (204,463 words); [compact source v11](specs/dictionary-and-language-system.md#compact-source-views-v11--2026-10-13)
 adds API/schema3 storage and semantic snapshot reuse. Current-head Android/ZIP CI
 passed and v11 was accepted on the phone; install compatible APK before ZIP. Older status notes
 below describe their preparation dates.

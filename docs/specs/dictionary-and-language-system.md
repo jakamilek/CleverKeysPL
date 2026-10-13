@@ -9,7 +9,9 @@ runs38437507820/38437516020 SUCCESS, all older regressions also SUCCESS.
 Delivered APK SHA256 af22cd26bbd2dc943d01286672c7caa19df5d42ec10f5364e691d1cb022696eb;
 inner ZIP8169a8ac as pinned below. Maintainer reports “działa dobrze” after delivery.
 This is general phone acceptance, not separate PSS/timing or every Manager path.
-Next additive compact-schema names v12 uses the same APK and source policy.
+Maintainer then held additional rare-names v12 and retained v11. Next work
+prepares candidate-only ordinary/digital/apps source modules, not a new langpack
+or APK. Existing words/metadata, all import bounds and private-source exclusion remain.
 
 Phone: v9 and additive v10 are accepted. V10 contains204,463 words and114,299
 metadata entries; the maintainer reports it works very well. V11 changes only

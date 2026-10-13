@@ -7,7 +7,8 @@
 - [x] Saves198662 nodes/1791330 bytes;198663 nodes and5701 entry slots remain; no limits raised.
 - [x]0b94e323 live38437360577/CI38437368829 and de587268 producer38437507820/38437516020 SUCCESS; APK/ZIP verified.
 - [x] v11 phone generally accepted: “działa dobrze”; individual lifecycle/timing/PSS checks remain separate.
-- [ ] Compact additive names v12 on current APK; real source/content/192MiB/CI gates before delivery.
+- [x] Additional rare-names v12 held per maintainer; stay on accepted v11.
+- [ ] Candidate-only practical modules: native daily forms, digital terms and apps/services; no new langpack/APK.
 - [ ] Final private duplicate cleanup local-only after expansion; no base pruning.
 - [ ] Other values-* except pl: pack_error_intelligence_memory absent/English fallback; deferred.
 - [ ] Native Manager early-switch/search/sort/recreation retest; general phone acceptance is not every path.
