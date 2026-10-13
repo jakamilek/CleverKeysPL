@@ -140,9 +140,12 @@ jobs:
           identity['dictionaryManagerViewGenerationGuards'] = True
           identity['dictionaryManagerWorkerListPreparation'] = True
           identity['spaceFreeTypedAutocorrectUndo'] = True
-          identity['sharedLanguageIntelligenceSchema'] = 2
+          identity['sharedLanguageIntelligenceSchema'] = 3
           identity['sharedMetadataLazyViews'] = True
           identity['polishV8V9Compatible'] = True
+          identity['polishV10V11Compatible'] = True
+          identity['compactSourceSurfaceMasks'] = True
+          identity['semanticMetadataSnapshotReuse'] = True
           Path('build/outputs/apk/debug/herbert-live-apk.json').write_text(json.dumps(identity,indent=2)+'\n')
           print(json.dumps(identity,indent=2))
           PY

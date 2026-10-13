@@ -1,3 +1,8 @@
+Current dictionary: phone-accepted v10 (204,463 words); [compact source v11](specs/dictionary-and-language-system.md#compact-source-views-v11--2026-10-13)
+adds API/schema3 storage and semantic snapshot reuse. Current-head Android/ZIP CI
+and v11 phone test pending; install compatible APK before ZIP. Older status notes
+below describe their preparation dates.
+
 # Current Polish trial: [HerBERT compact case presentation v4](HERBERT_LIVE_TRIAL_V1.md) — 2026-10-10, current CI/phone pending; v3 passed CI and received positive phone feedback.
 
 Next: [source-derived case-use priors](specs/polish-case-usage-priors.md), planned.

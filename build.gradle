@@ -609,6 +609,7 @@ tasks.register('runPureTests', JavaExec) {
     'tribixbite.cleverkeys.CursorWordCapitalizationTest',
     'tribixbite.cleverkeys.langpack.LanguageIntelligenceTest',
     'tribixbite.cleverkeys.langpack.SharedLanguageIntelligenceTest',
+    'tribixbite.cleverkeys.langpack.CompactSourceMetadataTest',
     'tribixbite.cleverkeys.DictionaryLoadRequestsTest',
     'tribixbite.cleverkeys.DictionaryDisplayLoadCacheTest',
     'tribixbite.cleverkeys.AccentNormalizerTest',

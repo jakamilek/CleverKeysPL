@@ -166,6 +166,20 @@ metadataJson only for a requested word, never retain a fully expanded base. Reus
 only validated identical pools/entries. Real v8/v9 cold/replacement/repeat 192MiB
 gates belong to the pinned producer CI. Android PSS remains a phone measurement.
 
+## Compact source metadata schema3 (2026-10-13)
+
+Exact word-relative surfaceMask bits1/2/4 replace only provably identical source
+spelling lists. Mask decoding needs the entry key; keep literal fallback and ROOT
+case/BMP/string bounds. Schemas1/2 remain supported; do not interpret mask-named
+opaque schema2 inline fields. API/schema must agree; never invent case alternatives.
+Validate expanded 16K entry cost before copying and keep global import bounds.
+Append-only source tables reuse equal immutable prefix objects. After validating a
+new bounded entry, semantic equality can retain its old immutable backing even when
+encoding changes. Reuse no changed source label, optional field, case or POS.
+On upgrade old encoding may live until cold restart; no whole expanded index or
+retained compatibility chain. Local cold/upgrade/repeat192MiB gates are not PSS.
+Canonical spec: docs/specs/dictionary-and-language-system.md.
+
 ## 6. Polish contextual SI preparation (2026-10-04)
 
 Canonical spec: docs/specs/polish-context-ai.md. The maintainer-authorized opt-in

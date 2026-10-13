@@ -1,5 +1,52 @@
 # Dictionary and Multi-Language System
 
+## Compact source views v11 — 2026-10-13
+
+Phone: v9 and additive v10 are accepted. V10 contains204,463 words and114,299
+metadata entries; the maintainer reports it works very well. V11 changes only
+representation and snapshot reuse. CKDT bytes/ranks, unigrams, capitalization and
+complete expanded per-word source JSON remain identical. No words are added or
+removed. Native PSS remains unmeasured; perceived v9 speed is a user observation.
+
+API/schema3 uses the same streamed source tables and strict existing limits.
+A lexical reading may replace literal `surfaces` with integer `surfaceMask`: bit1
+is the exact lowercase surfaceKey, bit2 is ROOT-uppercase first BMP code point plus
+the remaining key, bit4 is ROOT-uppercase entire key. Selected forms are distinct
+and sorted. Masks1..7 are valid; conflicting literal surfaces, nonintegral/bool/
+string/out-of-range masks, surrogate keys and selected surfaces longer than96
+UTF-16 units refuse. Literal arrays remain supported. The producer emits a mask
+only if decoding reproduces the original ordered list exactly; it otherwise keeps
+literal spelling. This storage field never invents a case variant or changes SI.
+Mask-named opaque fields in schema2 inline metadata remain opaque. API must equal
+schema; schema1/2 remain supported. Old APKs refuse API3; update APK before ZIP.
+
+All195,288 actual v10 source-reading lists can be represented exactly. Existing
+29,320 source definitions and242 attribute objects retain their exact prefix and
+indexes. Append1354 profitable exact headers;4512 readings use their references.
+`SharedSources.reusePrefix` shares only validated equal prefix objects, never a
+mutated/reordered/shortened prefix. Every bounded entry is fully validated and
+expanded before semantic comparison. Equal old immutable entries may be reused
+across encoding/schema changes; their own backing source pool stays immutable.
+Changed source labels/POS/case/field presence cannot reuse old values. No complete
+expanded dictionary, compatibility ancestry chain or GC/largeHeap is retained.
+
+On upgrade, reused entries can retain the older encoded backing for that process.
+Cold restart reads the new compact backing. Both have identical public metadata
+views and typed lemma/POS sets. Do not promise immediate heap reduction after a
+hot import. `metadataJson` remains an on-demand one-word view; live SI reads the
+unchanged typed relation and capitalization data.
+
+V11:28,596,173 bytes /1,801,337 nodes; saves1,791,330 bytes /198,662 nodes versus
+v10. Remaining198,663 nodes and5701 entry slots below unchanged32MiB/2M/120K guards.
+Local84 producer and34 actual parser tests PASS. Actual204,463 CKDT records and
+114,299 cold views/typed source identities, semantic upgrade entry identity and
+surface presentation PASS. Cold/upgrade/repeat +16MiB ballast at192MiB PASS.
+Existing schema1 replacement192MiB gate also passed locally. Current Android/
+import51/mock/editor/original HerBERT conformance/lint/APK CI remains pending. New import
+cases cover schema2→3, warm, malformed masks and typed OOM rollback. Phone import,
+restart, case/form behavior and Manager/PSS remain pending for v11. No model,
+gestures, defaults, bounds, app-version, merge/tag/release changes. Actions<=60s/run.
+
 ## Shared Polish source metadata v9 — 2026-10-11
 
 The maintainer accepted the v7 and v8 imports and swipe recognition on the phone.

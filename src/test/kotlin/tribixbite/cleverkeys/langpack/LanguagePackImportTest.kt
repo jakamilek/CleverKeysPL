@@ -992,6 +992,54 @@ class LanguagePackImportTest {
     private fun sharedManifest(bytes: ByteArray): String = trialManifest(bytes, 2)
         .replace("\"schemaVersion\":1", "\"schemaVersion\":2")
 
+    private fun compactBytes(): ByteArray = SharedLanguageIntelligenceTest().fixture()
+        .replace("\"schemaVersion\":2", "\"schemaVersion\":3")
+        .replace("\"surfaces\":[\"Malina\"]", "\"surfaceMask\":2").toByteArray(Charsets.UTF_8)
+    private fun compactManifest(bytes: ByteArray): String = trialManifest(bytes, 3)
+        .replace("\"schemaVersion\":1", "\"schemaVersion\":3")
+
+    @Test fun compactPackUpgradeWarmsAndInvalidMasksPreserveInstalledData() {
+        val shared = SharedLanguageIntelligenceTest().fixture().toByteArray(Charsets.UTF_8)
+        assertThat(import(validPack("pl", "Shared", extras = listOf("language-intelligence.json" to shared),
+            manifest = sharedManifest(shared)))).isInstanceOf(ImportResult.Success::class.java)
+        val before = manager.getLanguageIntelligenceProvider("pl")!!
+        val bytes = compactBytes()
+        assertThat(import(validPack("pl", "Compact", extras = listOf("language-intelligence.json" to bytes),
+            manifest = compactManifest(bytes)))).isInstanceOf(ImportResult.Success::class.java)
+        val snapshot = manager.getLanguageIntelligenceProvider("pl")!!
+        assertThat(snapshot.lookup("malina")).isSameInstanceAs(before.lookup("malina"))
+        assertThat(manager.getInstalledPacks().single().apiVersion).isEqualTo(3)
+        val restarted = LanguagePackManager(context)
+        restarted.warmLanguageIntelligence("pl")
+        val deadline = System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(5)
+        while (restarted.getLanguageIntelligenceProvider("pl")==null && System.nanoTime()<deadline) Thread.sleep(10)
+        assertThat(restarted.getLanguageIntelligenceProvider("pl")!!.lookup("malina")!!.metadataJson)
+            .isEqualTo(before.lookup("malina")!!.metadataJson)
+        val bad = String(bytes, Charsets.UTF_8).replace("\"surfaceMask\":2", "\"surfaceMask\":8").toByteArray()
+        assertThat(import(validPack("pl", "Bad", extras = listOf("language-intelligence.json" to bad),
+            manifest = compactManifest(bad)))).isInstanceOf(ImportResult.Error::class.java)
+        assertThat(manager.getLanguageIntelligenceProvider("pl")).isSameInstanceAs(snapshot)
+        assertThat(File(installedDir("pl"), "language-intelligence.json").readBytes().toList()).isEqualTo(bytes.toList())
+        assertThat(cacheDir.listFiles()?.toList().orEmpty()).isEmpty()
+    }
+
+    @Test fun compactPackMemoryFailurePreservesSharedSnapshot() {
+        val shared = SharedLanguageIntelligenceTest().fixture().toByteArray(Charsets.UTF_8)
+        assertThat(import(validPack("pl", "Shared", extras = listOf("language-intelligence.json" to shared),
+            manifest = sharedManifest(shared)))).isInstanceOf(ImportResult.Success::class.java)
+        val snapshot = manager.getLanguageIntelligenceProvider("pl")!!
+        val bytes = compactBytes()
+        io.mockk.mockkObject(IntelligenceJson)
+        try {
+            every { IntelligenceJson.parse(any(), any(), any(), any(), any(), 3) } throws OutOfMemoryError("synthetic compact")
+            assertThat(import(validPack("pl", "Compact", extras = listOf("language-intelligence.json" to bytes),
+                manifest = compactManifest(bytes)))).isEqualTo(ImportResult.Error(PackImportFailure.IntelligenceMemory))
+            assertThat(manager.getLanguageIntelligenceProvider("pl")).isSameInstanceAs(snapshot)
+            assertThat(File(installedDir("pl"), "language-intelligence.json").readBytes().toList()).isEqualTo(shared.toList())
+            assertThat(cacheDir.listFiles()?.toList().orEmpty()).isEmpty()
+        } finally { io.mockk.unmockkObject(IntelligenceJson) }
+    }
+
     @Test fun sharedPackInstallsWarmsAndRejectsInvalidReplacementWithoutLosingEvidence() {
         val legacy = trialBytes()
         assertThat(import(validPack("pl", "Legacy", extras = listOf("language-intelligence.json" to legacy),

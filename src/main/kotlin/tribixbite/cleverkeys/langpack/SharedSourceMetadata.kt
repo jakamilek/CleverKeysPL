@@ -4,6 +4,7 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import java.util.Collections
+import java.util.Locale
 
 /** Version-2 tables contain exact source fields, never guessed stems or meanings. */
 internal fun jsonNodes(value: JsonElement): Int = 1 + when {
@@ -73,6 +74,19 @@ internal class SharedSources(attributes: List<SharedSourceAttributes>, records: 
     private val records = Collections.unmodifiableList(ArrayList(records))
     fun sameTables(other: SharedSources): Boolean = attributes == other.attributes && records == other.records
 
+    /** Compare validated immutable prefixes once per old pool, never infer source identity. */
+    fun extendsTables(other: SharedSources): Boolean = this === other ||
+        (attributes.size >= other.attributes.size && records.size >= other.records.size &&
+            other.attributes.indices.all { attributes[it] == other.attributes[it] } &&
+            other.records.indices.all { records[it] == other.records[it] })
+
+    fun reusePrefix(other: SharedSources?): SharedSources {
+        if (other == null || !extendsTables(other)) return this
+        if (sameTables(other)) return other
+        return SharedSources(attributes.mapIndexed { i, value -> other.attributes.getOrNull(i) ?: value },
+            records.mapIndexed { i, value -> other.records.getOrNull(i) ?: value })
+    }
+
     private fun rows(metadata: JsonElement?): List<JsonObject> {
         val evidence = metadata?.takeIf { it.isJsonObject }?.asJsonObject
             ?.get("sourceEvidence")?.takeIf { it.isJsonObject }?.asJsonObject ?: return emptyList()
@@ -81,22 +95,42 @@ internal class SharedSources(attributes: List<SharedSourceAttributes>, records: 
         return value.asJsonArray.map { require(it.isJsonObject); it.asJsonObject }
     }
 
-    fun hasReferences(metadata: JsonElement?): Boolean = rows(metadata).any {
-        it.has("sourceRef") || it.has("sourceAttributesRef")
+    fun hasReferences(metadata: JsonElement?, allowSurfaceMasks: Boolean = false): Boolean = rows(metadata).any {
+        it.has("sourceRef") || it.has("sourceAttributesRef") || (allowSurfaceMasks && it.has("surfaceMask"))
     }
 
-    fun expand(metadata: JsonElement?, entry: JsonObject? = null): JsonElement? {
+    fun hasSurfaceMasks(metadata: JsonElement?): Boolean = rows(metadata).any { it.has("surfaceMask") }
+
+    private fun maskedSurfaces(row: JsonObject, key: String?, allowed: Boolean): com.google.gson.JsonArray {
+        require(allowed && key != null && !row.has("surfaces")) { "Undeclared or conflicting surface mask" }
+        require(key.none { it.isSurrogate() }) { "Surface mask key must contain BMP code points" }
+        val mask = IntelligenceJson.integer(row, "surfaceMask")
+        require(mask in 1..7) { "Invalid source surface mask" }
+        val forms = listOf(key, key.take(1).uppercase(Locale.ROOT) + key.drop(1), key.uppercase(Locale.ROOT))
+        val selected = forms.filterIndexed { i, _ -> mask and (1 shl i) != 0 }.distinct().sorted()
+        require(selected.all { it.length in 1..96 })
+        return com.google.gson.JsonArray().also { out -> selected.forEach(out::add) }
+    }
+
+    fun expand(metadata: JsonElement?, entry: JsonObject? = null, surfaceKey: String? = null,
+               allowSurfaceMasks: Boolean = false): JsonElement? {
         if (metadata == null) return null
         val rows = rows(metadata)
         var size = jsonNodes(entry ?: metadata)
         // Compute the exact expanded cost BEFORE allocating copies of source rows.
         for (row in rows) {
+            if (allowSurfaceMasks && row.has("surfaceMask")) {
+                size += jsonNodes(maskedSurfaces(row, surfaceKey, allowSurfaceMasks)) - 1
+            }
             if (row.has("sourceRef")) {
-                require(row.keySet() == setOf("sourceRef", "surfaces")) { "Conflicting source fields" }
-                val surfaces = row.get("surfaces")
-                require(surfaces.isJsonArray && surfaces.asJsonArray.size() in 1..32)
-                require(surfaces.asJsonArray.all { it.isJsonPrimitive && it.asJsonPrimitive.isString &&
-                    it.asString.isNotBlank() && it.asString.length <= 96 }) { "Invalid source surfaces" }
+                val field = if (allowSurfaceMasks && row.has("surfaceMask")) "surfaceMask" else "surfaces"
+                require(row.keySet() == setOf("sourceRef", field)) { "Conflicting source fields" }
+                if (field == "surfaces") {
+                    val surfaces = row.get("surfaces")
+                    require(surfaces.isJsonArray && surfaces.asJsonArray.size() in 1..32)
+                    require(surfaces.asJsonArray.all { it.isJsonPrimitive && it.asJsonPrimitive.isString &&
+                        it.asString.isNotBlank() && it.asString.length <= 96 }) { "Invalid source surfaces" }
+                }
                 size += records[reference(row, "sourceRef", records.size)].expandedNodes - 2
             } else if (row.has("sourceAttributesRef")) {
                 require(!row.has("nameClasses") && !row.has("labels"))
@@ -104,22 +138,29 @@ internal class SharedSources(attributes: List<SharedSourceAttributes>, records: 
             }
             require(size <= 16_384) { "Expanded entry complexity limit" }
         }
-        if (!hasReferences(metadata)) return metadata
+        if (!hasReferences(metadata, allowSurfaceMasks)) return metadata
         val result = metadata.deepCopy()
         val outRows = result.asJsonObject.getAsJsonObject("sourceEvidence").getAsJsonArray("lexicalReadings")
         for (i in rows.indices) {
             val row = rows[i]
             val expanded = if (row.has("sourceRef")) {
                 records[reference(row, "sourceRef", records.size)].objectValue(attributes).also {
-                    it.add("surfaces", row.get("surfaces").deepCopy())
+                    it.add("surfaces", if (allowSurfaceMasks && row.has("surfaceMask")) maskedSurfaces(row, surfaceKey, allowSurfaceMasks)
+                        else row.get("surfaces").deepCopy())
                 }
             } else expandAttributes(row, attributes)
+            if (allowSurfaceMasks && row.has("surfaceMask") && !row.has("sourceRef")) {
+                expanded.remove("surfaceMask")
+                expanded.add("surfaces", maskedSurfaces(row, surfaceKey, allowSurfaceMasks))
+            }
             outRows.set(i, ordered(expanded))
         }
         return result
     }
 }
 
-internal data class SharedSourceMetadata(val encodedJson: String, val sources: SharedSources) {
-    fun expandedJson(): String = sources.expand(JsonParser.parseString(encodedJson))!!.toString()
+internal data class SharedSourceMetadata(val encodedJson: String, val sources: SharedSources,
+                                         val surfaceKey: String, val surfaceMasks: Boolean) {
+    fun expandedJson(): String = sources.expand(JsonParser.parseString(encodedJson), surfaceKey = surfaceKey,
+        allowSurfaceMasks = surfaceMasks)!!.toString()
 }
