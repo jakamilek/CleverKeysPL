@@ -50,6 +50,7 @@ import tribixbite.cleverkeys.PercentOfKey
  * placeholder into the hot path.
  */
 data class ConfigSnapshot(
+    val edit_behavior: tribixbite.cleverkeys.EditBehaviorOptions,
     // ---- Rotation gestures — Gesture.kt ----
     /** Angular travel (in 1/16 turns) required before a rotation gesture starts. */
     val circle_sensitivity: Int,
@@ -152,3 +153,4 @@ data class ConfigSnapshot(
             name.startsWith("decorative_") || name.startsWith("custom_")
     }
 }
+

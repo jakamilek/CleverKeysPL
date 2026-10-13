@@ -8,6 +8,75 @@ related_spec: ../specs/gestures/selection-delete-spec.md
 
 # Selection Delete
 
+## Polish trial v14 compatibility follow-up (2026-10-04)
+
+V13 movement is accepted on the phone, with a reported exception in SimpleX where
+selection stops at a space before a word. V14 sends ordered selection ranges to
+editors while retaining the same finger control, word deletion and field guards.
+CI and a SimpleX retest are required; this is not yet a confirmed device fix.
+
+## Polish trial v13 (2026-10-04)
+
+| Action | Result |
+|---|---|
+| Tap Backspace | Use the selected tap action; default: delete one character or space |
+| Drag left from Backspace without waiting | Select characters with the same movement response as the space cursor slider |
+| Move slowly / quickly | Select precisely / accelerate selection |
+| Stop your finger | Stop selection immediately |
+| Move right | Shrink the selection; it cannot pass the original caret |
+| Hold without dragging | Preview and delete successive previous words |
+| Release after a word was deleted | Stop; the next word stays untouched |
+| Drag left during the word cycle | Switch to character selection until release |
+| Release during a preview or drag | Delete the selection, or keep it when Delete selection on release is off |
+
+Space and Backspace share sensitivity, finger-speed response and maximum acceleration.
+**Input Behavior → Space and Backspace Slider Sensitivity** controls distance per
+character. Lower values require less travel. **Gesture Tuning → Cursor and Selection
+Sliding** controls speed response and maximum acceleration. There is no automatic
+edge scrolling, reversal brake or resume distance. A stopped drag never resumes word
+deletion. Other keys do not activate when the finger crosses the keyboard.
+
+A stationary hold still uses the long-press timeout, followed by a 350 ms word preview
+and a 200 ms gap after deletion. The preceding separator remains. Lifting stops the
+cycle; cancellation leaves the pending preview undeleted and cannot restore earlier
+deletions. **Delete selection on release** does not disable timed deletion while held.
+**Drag selection and word deletion** gates both gestures. Passwords, terminals and
+unsupported editors retain their fallback. V12 passed CI and was accepted on the phone;
+v13 passed 3049 CI tests and both lint checks and was accepted on the phone outside
+the SimpleX exception above. No released change.
+
+## Historical Polish trial v8 (2026-10-03)
+
+This behavior applies to ordinary text editors that support selection APIs. The maintainer has tested and accepted the v7 hold and release behavior. V8 adds a pause after a small movement in the opposite direction; its debug build and 3006 CI checks passed (run 37154899155), while phone checks remain pending. It is not a released change.
+
+| Action | Result |
+|--------|--------|
+| Tap Backspace | Delete one character or space, including after swipe/autocorrection |
+| Hold, then release | Preview and delete the preceding word; keep the space before it |
+| Hold, then move left | Extend the preview selection towards preceding text |
+| Make a small move opposite to the current direction | Pause with the current selection unchanged |
+| After pausing, move farther left without lifting | Resume extending the selection |
+| After pausing, move farther right without lifting | Start shrinking the selection, even in the left half |
+| Release while paused | Delete exactly the current selection |
+| Release with an empty selection | Delete nothing |
+
+The finger can move across all keyboard keys without activating them. Moving closer
+to the left edge speeds up extension; moving closer to the right edge speeds up
+shrinking. Selection cannot cross the original caret to the right. The word preview
+includes trailing spaces, so deleting “mleko ” from “olej mleko ” leaves “olej ”.
+Deletion happens on release; holding alone does not repeatedly delete more words.
+A cancelled touch restores the original caret when the editor session is still valid.
+
+Passwords, terminal editors, inline search/edit panes and editors without usable
+selection APIs retain their existing fallback. Legacy backspace-undo preferences
+do not intercept ordinary taps in this trial. After deletion the suggestion strip
+returns to its beginning.
+
+## Legacy fallback
+
+The description below documents the older joystick fallback; its vertical controls
+and key-relative speeds do not apply to the ordinary-text trial path above.
+
 Selection Delete mode lets you select text by holding backspace and moving your finger like a joystick. When you release, the selected text is deleted.
 
 ## Quick Summary

@@ -98,3 +98,174 @@ The project is optimized for building directly on an Android device via Termux.
 -   `memory/`: Context files for AI agents.
 
 This file should be updated when significant infrastructure changes occur.
+
+
+## Editing preferences in the Polish fork (trial v9)
+
+New editing options share safe bounded reads in `readEditBehaviorPreferences`, product
+constants in `Defaults`, and typed backup defaults/validation. `EditBehaviorOptions` is
+immutable and captured by `ConfigSnapshot` at pointer-down. Never reread mutable edit
+options during a Backspace gesture, or resurrect the deprecated undo checkbox readers.
+Invalid tap-mode values fall back to character deletion. Keep group resets scoped and
+resource-based controls mapped to their actual parent in the search generator.
+
+Backspace v13 shares SliderMotion and captured space-slider settings with Space.
+DRAG updates only on movement, using a signed Unicode character count per editor request.
+There is no modern drag timer. Stationary WORD_PREVIEW/WORD_GAP retains v12 word deletion.
+Once a drag starts, stopping the finger never restarts word deletion. Cancel and invalidate old
+timer IDs at transitions. Word-repeat continuation must retain editor identity,
+validated caret/text and synchronous callback capture across each commit. Pass ordered
+(start <= end) Backspace selection ranges to editors; keep the fixed drag anchor only
+in the session. Reversed endpoint requests can trigger state-driven editor resyncs.
+
+See `docs/wiki/specs/settings/input-behavior-spec.md` for keys and field guards. Dictionary
+add and editor/cursor/prediction consistency guards are unconditional fixes, not toggles.
+
+## Dictionary Manager large-list loading (2026-10-11)
+
+The first exact-lookup fix passed CI but the maintainer still reports slow loading
+and closing when switching tabs before completion. Manager V2 rows now come directly
+from the shared binary traversal into DictionaryDisplayRows, retaining first mapped
+canonical/rank/disabled semantics and the existing folded-key policy. Do not build a
+prediction index only to discard it. Do not cap/prune the pack.
+DictionaryDisplayLoadCache owns one cold Deferred per language, independent of view
+waiters; words and UI prefix index publish atomically. Invalidation retires identity
+before cancellation; cancelled/failed/late tasks cannot publish over replacements.
+Contain loading/list allocation errors at the UI boundary, preserving retry.
+WordListFragment captures source/view/request identity, filters/sorts on Default and
+publishes views on main under view lifecycle. Destroyed views detach adapters; remove
+activity callbacks on destruction. Preserve query/count/restored-scroll behavior.
+Local full v6 and bundled row parity, cache concurrency, and v5/v6 metadata + full
+Manager snapshot at192 MiB pass with host stubs. Native UI/crash/performance still
+need phone verification; no trace proves the sole crash cause. Canonical spec:
+docs/specs/dictionary-and-language-system.md.
+
+## Language-pack metadata import memory (2026-10-11)
+
+`IntelligenceJson.parse` streams bounded entries into an immutable provider; never
+build a whole sidecar Gson tree. Keep one 2M-node document counter, 16K-node chunks,
+64 root members, 120K entries, depth/string/duplicate/byte/hash guards. Validate the
+entire stream before publication, including headers after entries and unknown fields.
+Metadata JSON/source identities/case policies remain unchanged. Settings imports on
+IO, with result handling on main. A metadata OOM must refuse before the staged swap,
+preserve the old files/provider and clean staging; warming contains the same failure.
+Run `runLanguageIntelligenceMemoryCheck` in its own 192 MiB JVM with previous and
+full v6/v7-sized snapshots plus 16 MiB ballast. Validate every new entry first;
+share exact-equal immutable entries only within the same language, rebuild the new
+index/header, and preserve the old provider on failure. Metadata OOM has a typed
+Polish/base reason, not UNKNOWN; deferred other-locale translations are in the queue. Broad tests at 1 GiB missed the original
+256 MiB OOM. Host heap success is not phone PSS or proof of every crash cause.
+Same v6 ZIP; no pruning, forced GC, largeHeap, model or gesture changes. See the
+canonical dictionary spec for evidence and the pending phone retest.
+
+Shared schema-v2 tables precede entries (attributes before lexemes); v1 keeps late
+headers. API/schema must match. Keep exact source field presence/case/POS/suffixes;
+validate table references and expanded per-word 16K cost before copying. Immutable
+source pools + encoded per-word metadata retain the old typed SI contract. Expand
+metadataJson only for a requested word, never retain a fully expanded base. Reuse
+only validated identical pools/entries. Real v8/v9 cold/replacement/repeat 192MiB
+gates belong to the pinned producer CI. Android PSS remains a phone measurement.
+
+## Compact source metadata schema3 (2026-10-13)
+
+Exact word-relative surfaceMask bits1/2/4 replace only provably identical source
+spelling lists. Mask decoding needs the entry key; keep literal fallback and ROOT
+case/BMP/string bounds. Schemas1/2 remain supported; do not interpret mask-named
+opaque schema2 inline fields. API/schema must agree; never invent case alternatives.
+Validate expanded 16K entry cost before copying and keep global import bounds.
+Append-only source tables reuse equal immutable prefix objects. After validating a
+new bounded entry, semantic equality can retain its old immutable backing even when
+encoding changes. Reuse no changed source label, optional field, case or POS.
+On upgrade old encoding may live until cold restart; no whole expanded index or
+retained compatibility chain. Local cold/upgrade/repeat192MiB gates are not PSS.
+Canonical spec: docs/specs/dictionary-and-language-system.md.
+
+## 6. Polish contextual SI preparation (2026-10-04)
+
+Canonical spec: docs/specs/polish-context-ai.md. The maintainer-authorized opt-in
+live trial uses HerbertLiveRuntime and the original verified HerbertOnnxScorer.
+Geometric stays the decoder. The approved word-forms-v3 scope is at most two
+already decoded Polish keys among the first five, and at most four surfaces.
+Relate keys by identical Polish diacritic folding (not lemma evidence), or a shared
+case-sensitive source lemma/POS from existing metadata. Source identities are parsed
+once at import, immutable and bounded; never derive stems or parse JSON at gesture time.
+Ordinary decoded forms do not need capitalization metadata. Add case variants only
+when declared by source and enabled in the display setting. formGroupSize is separate
+from exact-case policy; moving a word moves its score/language/case flag. Outside order
+is preserved. No invented inflections or scanning the whole dictionary.
+The model group is separate from terminal presentation. SwipeSurfaceVariants.present
+keeps one best spelling per grouped key plus other decoder candidates before extra case
+alternatives, targeting three different forms when available. Every surface remains
+selectable; model inputs and winner are unchanged. The display slate resets formGroupSize
+to zero and marks presentationOnly; both live group/pair gates reject reuse. Apply at the single publish
+point for SI, off, timeout, busy and protected-case paths; no raw-score confidence gate.
+No guaranteed top-three slot for a losing capitalization variant in v4. Disabling case
+variants leaves ordinary form ranking available. Model/trust/default32/deadline350ms and editor/privacy guards
+remain; no raw model-score mixing or retroactive edits.
+Use a separate bounded live editor context preserving case/punctuation, never the
+lowercase two-word PredictionContextTracker history. Preserve all source variants,
+keys/scores/languages and the single SuggestionHandler presentation/commit pipeline.
+
+Model export/scoring identity lives in producer experiments/herbert_mobile_v1.
+ONNX Runtime Android and JVM are actually 1.21.1 in build.gradle (README is stale).
+Require FP32/batched score parity, INT8 regression gate, exact fast-tokenizer
+conformance and phone shadow measurements before opt-in live integration. Never
+infer phone timing or add raw MLM scores to geometric scores without calibration.
+No editor text logging/persistence or network fallback. Context, field eligibility,
+request/revision/selection/pack/settings identity and deadlines gate future updates.
+
+
+## FP32 benchmark follow-up
+
+The failed INT8 preservation gate in herbert_mobile_v1 remains failed. The explicit
+herbert_fp32_benchmark_v1 producer stage may package only the byte-identical verified FP32
+for diagnostics. Portable Char-BPE tables are derived from original fast-tokenizer data,
+including probed Unicode classifications, not Android Character categories. Real token vectors
+and five-input feed equality are required in addition to native score/rank parity.
+
+HerbertBenchmarkActivity uses prepared fixtures only and never enables live SI. Import requires
+all seven file hashes from verified CI provenance; HerbertBenchmarkTrial now pins seven verified identities from producer run 37230171787.
+Never construct trusted identities from an imported manifest. Keep all operations on its worker,
+private noBackup staging, mapped model lifetime, cancellation between calls and deletion serialized.
+No model/editor-text backup, logging/network or activation changes. PSS samples are whole process,
+not exact peak/model memory; timing fixtures and host conversions are not independent quality tests.
+
+Context window default is 32 words with a 64-word safety maximum and 4096 UTF-16 units.
+The explicit benchmark compares both limits using alternating order and prepared examples,
+not live editor history. Real JVM conformance is mandatory via compressed original test
+fixtures; verify fixture hashes against compiled trust and never include them in APK.
+APK workflow requires the exact real-conformance PASS marker plus existing lint/editor gates.
+Other-locale missing trial-screen translations are deferred per maintainer, documented in
+LOCALIZATION_BACKLOG_POLISH_AI.md, with a local-only MissingTranslation ignore on the new
+resource file. Do not weaken global lint or claim JNI/mobile accuracy from host/pure tests.
+
+CI runner tool inventory is not guaranteed: rg was absent in run 37231774451 after
+real tokenizer tests passed. The mandatory original-conformance log marker is checked
+with Python stdlib (already required for APK audit), not an uninstalled search utility.
+Keep the assertion and all following gates; test/compile success alone is not APK success.
+
+
+GitHub upload-artifact at compression-level 0 emits STORED stream entries with trailing
+data descriptors: ZipInputStream rejects that envelope. FP32 importer now stages a bounded
+private ZIP and uses ZipFile after bounding EOCD/index, preserving every compiled file hash.
+Budget container plus extraction space; remove container before metadata parsing. Import UI
+reports fixed reason codes and copyable Polish explanations, never raw throwable paths/URIs.
+
+
+Phase-v2 diagnostics start with a fresh scorer and intended two-form requests BEFORE
+mandatory conformance. Success still requires every token/feed/score/rank gate. Record
+phase PSS outside timers, with forced boundaries and 250ms repeat throttle; first/last/max
+are whole process, not isolated model memory or exact peak. Finally close then observe,
+release mapped reference only after successful native close, never force GC/allocator tweaks.
+Keep per-case timings, retained words/B/S/T and compiled code/base APK/model identity.
+
+
+Nubia phase-v2 native report is archived in docs/eval/2026-10-05-herbert-fp32-nubia-phase-v2.md.
+Code/APK/model hashes match CI; load dominates observed whole-process PSS
+(346.2 baseline → 2121.0 loaded → 2132.1 workload max → 1336.8 immediate close).
+Do not attribute the residual to a leak or the difference from v1 to optimization.
+Next diagnostic should isolate mapped versus private-path session loading in separate
+processes, bounded streaming SHA and phase/component readings; same immutable model,
+threads/optimization/conformance gates. This experiment is planned, not implemented.
+Default 32 helps latency but does not eliminate observed fixed load cost. Native
+conformance is not independent semantic quality or a live production acceptance gate.

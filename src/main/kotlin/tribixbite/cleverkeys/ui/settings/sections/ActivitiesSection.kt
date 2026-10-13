@@ -45,6 +45,15 @@ internal fun SettingsActivity.ActivitiesSection() {
                 expanded = activitiesSectionExpanded,
                 onExpandChange = { activitiesSectionExpanded = it }
             ) {
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable {
+                    activityContext.startActivity(Intent(activityContext, tribixbite.cleverkeys.HerbertLiveActivity::class.java))
+                }) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(stringResource(R.string.herbert_live_title), fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.herbert_live_enable), fontSize = 12.sp)
+                    }
+                }
+
                 // v1.2.7: Dictionary Manager Card (moved to top per user request)
                 Card(
                     modifier = Modifier

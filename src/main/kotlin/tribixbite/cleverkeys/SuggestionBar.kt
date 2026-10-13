@@ -40,6 +40,49 @@ class SuggestionBar : LinearLayout {
     private val suggestionViews: MutableList<TextView> = mutableListOf()
     private val dividerViews: MutableList<View> = mutableListOf()
     private var listener: OnSuggestionSelectedListener? = null
+    private var clipboardChip: TextView? = null
+    private var clipboardDivider: View? = null
+    private var clipboardPaste: (() -> Unit)? = null
+
+    /** A separate action: clipboard text is never a word candidate or learning input. */
+    fun setClipboardSuggestion(text: String?, paste: (() -> Unit)?, openClipboard: (() -> Unit)? = null) {
+        clipboardPaste = if (!isPasswordMode && text != null) paste else null
+        if (clipboardPaste == null) {
+            clipboardChip = null
+            clipboardDivider = null
+        } else {
+            clipboardChip = TextView(context).apply {
+                layoutParams = defaultSuggestionLayoutParams()
+                gravity = Gravity.CENTER
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                setTextColor(theme?.suggestionHighConfidenceColor?.takeIf { it != 0 } ?: Color.CYAN)
+                setPadding(dpToPx(context, 12), 0, dpToPx(context, 12), 0)
+                maxLines = 1
+                maxWidth = dpToPx(context, 320)
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                this.text = context.getString(R.string.clipboard_suggestion_paste)
+                contentDescription = context.getString(R.string.clipboard_suggestion_actions)
+                val icon = ContextCompat.getDrawable(context, R.drawable.ic_clipboard_suggestion)?.mutate()
+                icon?.setTint(currentTextColor)
+                setCompoundDrawablesRelativeWithIntrinsicBounds(icon, null, null, null)
+                compoundDrawablePadding = dpToPx(context, 6)
+                isClickable = true
+                isFocusable = true
+                val action = clipboardPaste
+                setOnClickListener { if (clipboardChip === this) action?.invoke() }
+                setOnLongClickListener {
+                    if (clipboardChip !== this || openClipboard == null) false
+                    else { openClipboard(); true }
+                }
+            }
+            clipboardDivider = createDivider(context)
+        }
+        contentGeneration++
+        // Messages, autofill and password rendering retain their own priority.
+        if (!isPasswordMode && !isShowingTemporaryMessage && !isInlineAutofillMode && !isInEmojiSearchMode) {
+            rebindSuggestionViews()
+        }
+    }
     private var inspectListener: OnSuggestionInspectedListener? = null
     private val currentSuggestions: MutableList<String> = mutableListOf()
     private val currentScores: MutableList<Int> = mutableListOf()
@@ -116,8 +159,9 @@ class SuggestionBar : LinearLayout {
     }
 
     /**
-     * Task B: long-press provenance inspection. Fired when the user long-presses
-     * a suggestion; the handler composes and displays the provenance sheet.
+     * Long-press action for a word candidate. The handler offers dictionary removal.
+     * The legacy listener name is retained for callers; provenance stays available
+     * internally, but is no longer the strip's long-press action.
      */
     fun interface OnSuggestionInspectedListener {
         fun onSuggestionInspected(index: Int, word: String, meta: SuggestionMeta?)
@@ -192,7 +236,7 @@ class SuggestionBar : LinearLayout {
                 }
             }
 
-            // Task B: long-press opens the provenance sheet for this suggestion.
+            // A long press opens the dictionary action; it never commits the word.
             setOnLongClickListener {
                 val inspector = inspectListener
                 if (inspector != null && index < currentSuggestions.size) {
@@ -268,6 +312,10 @@ class SuggestionBar : LinearLayout {
 
         // Build the desired ordered child sequence from the pools.
         val desired = ArrayList<View>(count + dividerCount)
+        clipboardChip?.let { chip ->
+            desired.add(chip)
+            if (count > 0) clipboardDivider?.let { desired.add(it) }
+        }
         for (i in 0 until count) {
             val suggestion = Suggestion.parse(currentSuggestions[i])
             val isCenteredPrompt = suggestion is Suggestion.AddToDictionary && count == 1
@@ -466,6 +514,15 @@ class SuggestionBar : LinearLayout {
      * outside it dismisses it.
      */
     fun showProvenancePopup(text: String) {
+        showSuggestionPopup(text, null)
+    }
+
+    /** One explicit action, using the same themed IME surface without editor focus. */
+    fun showSuggestionRemovalPopup(word: String, remove: () -> Unit) {
+        showSuggestionPopup(context.getString(R.string.suggestion_remove_from_dictionary, word), remove)
+    }
+
+    private fun showSuggestionPopup(text: String, action: (() -> Unit)?) {
         dismissProvenancePopup()
 
         val content = TextView(context).apply {
@@ -494,7 +551,15 @@ class SuggestionBar : LinearLayout {
             isFocusable = false // never steal focus from the edited field
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         }
-        content.setOnClickListener { popup.dismiss() }
+        val generation = contentGeneration
+        content.isFocusable = true
+        content.isClickable = true
+        content.minHeight = dpToPx(context, 48)
+        content.setOnClickListener {
+            val current = provenancePopup === popup && contentGeneration == generation
+            popup.dismiss()
+            if (current) action?.invoke()
+        }
         popup.setOnDismissListener { if (provenancePopup === popup) provenancePopup = null }
 
         // Measure so the sheet opens fully ABOVE the bar.
@@ -524,6 +589,15 @@ class SuggestionBar : LinearLayout {
      * post is stale.
      */
     fun contentGeneration(): Int = contentGeneration
+
+    /** Reveal the first candidate when input moves to a new word, not on every prefix update. */
+    fun resetScrollPosition() {
+        val scroller = parent as? HorizontalScrollView ?: return
+        scroller.post {
+            // A theme/view replacement must not scroll a detached strip's old owner.
+            if (parent === scroller) scroller.scrollTo(0, 0)
+        }
+    }
 
     override fun onDetachedFromWindow() {
         dismissProvenancePopup()
@@ -1070,6 +1144,7 @@ class SuggestionBar : LinearLayout {
         if (isPasswordMode == enabled) return
 
         isPasswordMode = enabled
+        if (enabled) setClipboardSuggestion(null, null)
         isPasswordVisible = false
         currentPasswordText.clear()
 

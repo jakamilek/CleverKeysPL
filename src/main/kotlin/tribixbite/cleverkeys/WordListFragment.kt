@@ -17,6 +17,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Fragment displaying a list of words
@@ -31,6 +33,8 @@ class WordListFragment : Fragment() {
 
     private var tabType: TabType = TabType.ACTIVE
     private var languageCode: String? = null  // Language code for language-specific tabs (v1.1.86)
+    private var viewGeneration = 0L
+    private var filterGeneration = 0L
     private var searchJob: kotlinx.coroutines.Job? = null  // Track search coroutine for cancellation
 
     enum class TabType {
@@ -83,6 +87,7 @@ class WordListFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        viewGeneration++
 
         recyclerView = view.findViewById(R.id.recycler_view)
         emptyText = view.findViewById(R.id.empty_text)
@@ -108,6 +113,15 @@ class WordListFragment : Fragment() {
         initializeDataSource()
         setupAdapter()
         loadWords()
+    }
+
+    override fun onDestroyView() {
+        viewGeneration++
+        filterGeneration++
+        searchJob?.cancel()
+        searchJob = null
+        recyclerView.adapter = null
+        super.onDestroyView()
     }
 
     // #96: the fragment owns its search context across recreation. The scroll position is
@@ -168,7 +182,7 @@ class WordListFragment : Fragment() {
 
     private fun loadWords() {
         // Guard against calling before view is created
-        if (!::loadingProgress.isInitialized) return
+        if (!::loadingProgress.isInitialized || view == null) return
 
         loadingProgress.visibility = View.VISIBLE
         emptyText.visibility = View.GONE
@@ -189,7 +203,12 @@ class WordListFragment : Fragment() {
     private var pendingLayoutManagerState: android.os.Parcelable? = null
 
     fun filter(query: String, sortType: DictionaryManagerActivity.SortType = DictionaryManagerActivity.SortType.FREQ) {
-        if (!::adapter.isInitialized) return
+        if (!::adapter.isInitialized || view == null) return
+        val requestView = view ?: return
+        val requestViewGeneration = viewGeneration
+        val requestFilterGeneration = ++filterGeneration
+        val requestSource = dataSource
+        val requestTabType = tabType
         currentSearchQuery = query  // #96: Persist query so refresh() can reapply
         currentSortType = sortType
 
@@ -198,29 +217,32 @@ class WordListFragment : Fragment() {
 
         // Use DictionaryDataSource.searchWords() which has prefix indexing
         // instead of in-memory filtering of 50k words on main thread
-        searchJob = lifecycleScope.launch {
+        searchJob = viewLifecycleOwner.lifecycleScope.launch {
             try {
                 // Normalize query: trim whitespace and treat pure whitespace as blank
                 val normalizedQuery = query.trim()
 
-                val rawWords = if (normalizedQuery.isBlank()) {
-                    // No search - show all words from this tab's data source
-                    dataSource.getAllWords()
-                } else {
-                    // Has search query - use prefix indexing
-                    dataSource.searchWords(normalizedQuery)
+                val sortedWords = withContext(Dispatchers.Default) {
+                    val rawWords = if (normalizedQuery.isBlank()) {
+                        // No search - show all words from this tab's data source
+                        requestSource.getAllWords()
+                    } else {
+                        // Has search query - use prefix indexing
+                        requestSource.searchWords(normalizedQuery)
+                    }
+
+                    // ACTIVE excludes disabled words; prepare the large list off the main looper.
+                    val words = if (requestTabType == TabType.ACTIVE) {
+                        rawWords.filter { it.enabled }
+                    } else {
+                        rawWords
+                    }
+
+                    sortWordsForDisplay(words, sortType, normalizedQuery)
                 }
 
-                // ACTIVE tab should only show enabled words (disabled ones appear in DISABLED tab)
-                val words = if (tabType == TabType.ACTIVE) {
-                    rawWords.filter { it.enabled }
-                } else {
-                    rawWords
-                }
-
-                // v1.2.7: Apply sorting based on sort type
-                val sortedWords = sortWordsForDisplay(words, sortType, normalizedQuery)
-
+                if (view !== requestView || viewGeneration != requestViewGeneration ||
+                    filterGeneration != requestFilterGeneration) return@launch
                 adapter.setWords(sortedWords)
                 updateEmptyState()
 
@@ -242,14 +264,25 @@ class WordListFragment : Fragment() {
                 if (BuildConfig.ENABLE_VERBOSE_LOGGING) {
                     android.util.Log.d("WordListFragment", "Search cancelled")
                 }
+            } catch (_: OutOfMemoryError) {
+                // Contain allocation failure in list filtering/sorting, as well as file loading.
+                if (view === requestView && viewGeneration == requestViewGeneration &&
+                    filterGeneration == requestFilterGeneration) showLoadFailure(null)
             } catch (e: Exception) {
+                if (view !== requestView || viewGeneration != requestViewGeneration ||
+                    filterGeneration != requestFilterGeneration) return@launch
                 android.util.Log.e("WordListFragment", "Error filtering words", e)
                 // Preserve loadWords()' historical error surface now that it delegates here.
-                emptyText.text = getString(R.string.dict_error_loading, e.message ?: "")
-                emptyText.visibility = View.VISIBLE
-                loadingProgress.visibility = View.GONE
+                showLoadFailure(e.message)
             }
         }
+    }
+
+    private fun showLoadFailure(detail: String?) {
+        emptyText.text = getString(R.string.dict_error_loading,
+            detail ?: getString(R.string.common_unknown_error))
+        emptyText.visibility = View.VISIBLE
+        loadingProgress.visibility = View.GONE
     }
 
     fun getFilteredCount(): Int {
@@ -450,6 +483,7 @@ class WordListFragment : Fragment() {
     }
 
     fun refresh() {
+        if (!::dataSource.isInitialized || view == null) return
         // Re-sync cached enabled states from persistent storage before re-filtering.
         // Fixes cross-source coherence: DisabledDictionarySource.toggleWord() updates
         // SharedPreferences but MainDictionarySource's cached DictionaryWord.enabled

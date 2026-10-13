@@ -95,6 +95,7 @@ class KeyboardReceiver(
     private var emojiSearchManager: EmojiSearchManager? = null
 
     // GIF search: reference to search EditText for key routing
+    private var gifGridManager: GifGridManager? = null
     private var gifSearchInput: EditText? = null
     // GIF search active flag — like EmojiSearchManager.searchActive / ClipboardManager.searchMode
     private var gifSearchActive: Boolean = false
@@ -203,6 +204,8 @@ class KeyboardReceiver(
         clipboardManager.resetSearchOnHide()
         // #41 v4: notify emoji search manager its pane is going away (clears searchActive)
         emojiSearchManager?.onPaneClosed()
+        gifGridManager?.destroy()
+        gifGridManager = null
         // Clear GIF search state so isGifPaneOpen() returns false
         gifSearchActive = false
         gifSearchInput = null
@@ -461,6 +464,7 @@ class KeyboardReceiver(
                 val recyclerView = gifPaneView.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.gif_grid)
                 val gifColumns = Config.globalConfig().gif_thumbnail_columns
                 val gifGrid = recyclerView?.let { GifGridManager(context, it, gifColumns) }
+                gifGridManager = gifGrid
                 gifGrid?.onGifSelected = { gif ->
                     // #149: primary delivery is the locally-shipped media via commitContent;
                     // a (case-preserved) Giphy URL is only the text fallback. See insertGif.
@@ -905,6 +909,18 @@ class KeyboardReceiver(
 
     override fun handle_backspace() {
         keyboard2.handleBackspace()
+        if ((Config.globalConfig().edit_behavior ?: EditBehaviorOptions()).resetSuggestionsOnDelete)
+            scrollView?.post { scrollView?.scrollTo(0, 0) }
+    }
+
+    override fun onWordCapitalizationChanged(cursor: Int) {
+        clearSwipeUndoState()
+        clearAutocorrectUndoState()
+        contextTracker.invalidateAutoSpacePending()
+        contextTracker.clearTrailingSpaceWatch()
+        inputCoordinator.onCursorMoved(
+            cursor, getCurrentInputConnection(), Config.globalConfig().primary_language, getCurrentEditorInfo()
+        )
     }
 
     override fun handle_delete_last_word() {
@@ -1043,3 +1059,5 @@ class KeyboardReceiver(
             )
     }
 }
+
+

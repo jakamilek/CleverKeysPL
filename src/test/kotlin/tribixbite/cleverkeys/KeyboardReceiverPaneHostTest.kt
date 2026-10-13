@@ -362,4 +362,25 @@ class KeyboardReceiverPaneHostTest {
         receiver.handle_event_key(KeyValue.Event.SWITCH_CLIPBOARD)
         verify(exactly = 2) { container.addView(clipboardPane) }
     }
+
+    @Test
+    fun switchingFromGifToClipboardDestroysPreviewManager() {
+        wireContainer()
+        val grid = mockk<tribixbite.cleverkeys.gif.GifGridManager>(relaxed = true)
+        receiver.setField("gifGridManager", grid)
+        receiver.handle_event_key(KeyValue.Event.SWITCH_CLIPBOARD)
+        receiver.resetContentPaneState()
+        verify(exactly = 1) { grid.destroy() }
+    }
+
+    @Test
+    fun finishingInputDestroysPreviewManagerOnlyOnce() {
+        val grid = mockk<tribixbite.cleverkeys.gif.GifGridManager>(relaxed = true)
+        receiver.setField("gifGridManager", grid)
+        receiver.resetContentPaneState()
+        receiver.resetContentPaneState()
+        verify(exactly = 1) { grid.destroy() }
+    }
+
 }
+

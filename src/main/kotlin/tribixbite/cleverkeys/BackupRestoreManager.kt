@@ -826,6 +826,7 @@ open class BackupRestoreManager(
 
         // Then override with stored preferences (these take precedence)
         for ((key, value) in storedPrefs) {
+            if (key in SettingsValidation.DEPRECATED_KEYS) continue
             // Preserve JSON-string preferences (layouts, extra_keys, custom_extra_keys)
             // These are already stored as JSON strings and should be preserved as-is
             when {

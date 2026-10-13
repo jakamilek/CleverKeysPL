@@ -105,7 +105,7 @@
             android:paddingEnd="12dp"
             android:paddingTop="12dp"
             android:paddingBottom="12dp"
-            android:inputType="text"
+            android:inputType="text|textCapSentences"
             android:importantForAutofill="no"
             android:textSize="16sp"
             android:maxLines="1"
@@ -202,6 +202,12 @@
             android:textSize="13sp" />
     </LinearLayout>
 
+    <Button
+        android:id="@+id/herbert_benchmark_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/herbert_benchmark_title" />
+
     <!-- Privacy disclosure: playground-local recording, contains typed content. -->
     <TextView
         android:id="@+id/privacy_note"
@@ -243,3 +249,4 @@
             android:textIsSelectable="true" />
     </ScrollView>
 </LinearLayout>
+

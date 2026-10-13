@@ -16,6 +16,7 @@ import tribixbite.cleverkeys.prefs.ConfigSnapshot
  * fixture at compile time and forces a decision about what tests should see.
  */
 internal fun testConfigSnapshot(
+    edit_behavior: EditBehaviorOptions = EditBehaviorOptions(),
     circle_sensitivity: Int = 3,
     tap_duration_threshold: Long = 150L,
     double_tap_lock_shift: Boolean = false,
@@ -54,6 +55,7 @@ internal fun testConfigSnapshot(
     swipe_trail_glow_radius: Float = 6f,
     version: Int = 1
 ): ConfigSnapshot = ConfigSnapshot(
+    edit_behavior = edit_behavior,
     circle_sensitivity = circle_sensitivity,
     tap_duration_threshold = tap_duration_threshold,
     double_tap_lock_shift = double_tap_lock_shift,
@@ -92,3 +94,4 @@ internal fun testConfigSnapshot(
     swipe_trail_glow_radius = swipe_trail_glow_radius,
     version = version
 )
+

@@ -12,7 +12,6 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import io.mockk.verify
-import io.mockk.verifyOrder
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -30,16 +29,12 @@ import java.io.File
  *
  * ## Tap-to-add (#42)
  *
- * `SuggestionModelTest` and `PipelineOracleJvmTest` already pin the pure ROUTING decision
- * (`routeSuggestionSelection("exact_add:x")` → `SelectionRoute.ExactAdd("x")`). What no test
- * covered is the EFFECT the note promised: one tap, and the word is both committed to the field
- * and added to the personal dictionary. Those are two different things and either could regress
- * alone, so both are asserted, along with the partial-word deletion that makes the commit a
- * replacement rather than a duplication ("kotl" + tap "+kotlin" must not yield "kotlkotlin ").
- *
- * The entry point driven here is the real public `onSuggestionSelected` — the method the bar's
- * click listener calls — not the private handler, so the routing and the effect are pinned as
- * one path.
+ * ExactAdd identifies the word already typed in the editor. The 2026-10-03
+ * regression report supersedes the inherited delete-and-recommit behavior:
+ * adding to the dictionary must leave text and selection unchanged, even when
+ * the tracker contains a longer stale word from before cut/paste. A stale chip
+ * with no matching live token is rejected. The real public selection route is
+ * exercised here, including the Termux branch and case-preserving storage.
  *
  * ## I-word capitalization (#72)
  *
@@ -99,6 +94,9 @@ class SuggestionTapAddAndIWordTest {
         every { bar.getMetaForSuggestion(any()) } returns null
 
         ic = mockk(relaxed = true)
+        every { ic.getTextBeforeCursor(any(), any()) } returns "kotlin"
+        every { ic.getTextAfterCursor(any(), any()) } returns ""
+        every { ic.getSelectedText(any()) } returns null
         resources = mockk(relaxed = true)
     }
 
@@ -132,8 +130,9 @@ class SuggestionTapAddAndIWordTest {
     // ------------------------------------------------- #42: "+word" adds AND commits
 
     @Test
-    fun tappingTheExactWordChipCommitsItAndAddsItToTheDictionary() {
-        every { contextTracker.getCurrentWord() } returns "kotl"
+    fun tappingTheExactWordChipKeepsItInTheEditorAndAddsItToTheDictionary() {
+        // A stale tracker must have no authority to erase the actual editor text.
+        every { contextTracker.getCurrentWord() } returns "long_stale_word"
 
         val returned = handler().onSuggestionSelected(
             "exact_add:kotlin", ic, editorInfo("com.example.notes"), resources
@@ -142,12 +141,8 @@ class SuggestionTapAddAndIWordTest {
         assertWithMessage("the special-suggestion route commits itself and returns no word")
             .that(returned).isNull()
 
-        // Both halves of the promise, in the order the field requires: the partial word the
-        // user typed is deleted first, then the full word lands with its trailing space.
-        verifyOrder {
-            ic.deleteSurroundingText(4, 0)
-            ic.commitText("kotlin ", 1)
-        }
+        verify(exactly = 0) { ic.deleteSurroundingText(any(), any()) }
+        verify(exactly = 0) { ic.commitText(any(), any()) }
         verify(exactly = 1) { dictionary.addUserWord("kotlin") }
         // Without the refresh the word is stored but invisible to predictions until restart.
         verify(exactly = 1) { coordinator.refreshCustomWords() }
@@ -156,6 +151,7 @@ class SuggestionTapAddAndIWordTest {
     @Test
     fun theWordIsAddedExactlyAsTypedNotLowercased() {
         every { contextTracker.getCurrentWord() } returns "McKenna"
+        every { ic.getTextBeforeCursor(any(), any()) } returns "McKenna"
 
         handler().onSuggestionSelected(
             "exact_add:McKenna", ic, editorInfo("com.example.notes"), resources
@@ -164,25 +160,27 @@ class SuggestionTapAddAndIWordTest {
         // #42 exists so a user can keep a spelling the dictionary rejects — folding its case
         // would defeat the feature for exactly the proper nouns it is used for.
         verify(exactly = 1) { dictionary.addUserWord("McKenna") }
-        verify(exactly = 1) { ic.commitText("McKenna ", 1) }
+        verify(exactly = 0) { ic.commitText(any(), any()) }
     }
 
     @Test
-    fun withNothingTypedYetNoDeletionIsIssued() {
+    fun withNoLiveTokenTheStaleChipCannotInsertOrAddAWord() {
+        every { ic.getTextBeforeCursor(any(), any()) } returns ""
         // getCurrentWord() is "" by default — nothing typed.
         handler().onSuggestionSelected(
             "exact_add:kotlin", ic, editorInfo("com.example.notes"), resources
         )
 
         verify(exactly = 0) { ic.deleteSurroundingText(any(), any()) }
-        verify(exactly = 1) { ic.commitText("kotlin ", 1) }
-        verify(exactly = 1) { dictionary.addUserWord("kotlin") }
+        verify(exactly = 0) { ic.commitText(any(), any()) }
+        verify(exactly = 0) { dictionary.addUserWord(any()) }
     }
 
     @Test
-    fun inTermuxTheDeletionUsesKeyEventsInsteadOfDeleteSurroundingText() {
+    fun inTermuxDictionaryAddDoesNotSendDeletionKeyEvents() {
         val keyEvents = mockk<KeyEventHandler>(relaxed = true)
         every { contextTracker.getCurrentWord() } returns "abc"
+        every { ic.getTextBeforeCursor(any(), any()) } returns "abcd"
 
         val handler = handler()
         handler.setField("keyeventhandler", keyEvents)
@@ -191,8 +189,8 @@ class SuggestionTapAddAndIWordTest {
         // Termux's terminal ignores deleteSurroundingText; the app-specific path is one
         // KEYCODE_DEL per typed character.
         verify(exactly = 0) { ic.deleteSurroundingText(any(), any()) }
-        verify(exactly = 3) { keyEvents.send_key_down_up(android.view.KeyEvent.KEYCODE_DEL, 0) }
-        verify(exactly = 1) { ic.commitText("abcd ", 1) }
+        verify(exactly = 0) { keyEvents.send_key_down_up(android.view.KeyEvent.KEYCODE_DEL, 0) }
+        verify(exactly = 0) { ic.commitText(any(), any()) }
         verify(exactly = 1) { dictionary.addUserWord("abcd") }
     }
 

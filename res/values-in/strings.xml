@@ -484,9 +484,9 @@
     <string name="input_suggestion_bar_opacity_title">Opasitas Bilah Saran</string>
     <string name="input_suggestion_bar_opacity_desc">Transparansi bilah saran</string>
     <string name="input_auto_space_after_title">Spasi Otomatis Setelah Saran</string>
-    <string name="input_auto_space_after_desc">Tambahkan spasi di belakang saat memilih saran</string>
+    <string name="input_auto_space_after_desc">Tambahkan spasi di belakang saat memilih saran Untuk kata geser dan saran yang diketuk.</string>
     <string name="input_auto_space_before_title">Spasi Otomatis Sebelum Saran</string>
-    <string name="input_auto_space_before_desc">Sisipkan spasi di depan sebelum saran yang diketuk (geser selalu menambah spasi)</string>
+    <string name="input_auto_space_before_desc">Sisipkan spasi di depan sebelum saran yang diketuk (geser selalu menambah spasi) Untuk kata geser dan saran yang diketuk.</string>
     <string name="input_backspace_undo_swipe_title">Batalkan Geser dengan Backspace</string>
     <string name="input_backspace_undo_swipe_desc">Mengetuk backspace segera setelah kata geser menghapus seluruh kata</string>
     <string name="input_show_exact_typed_title">Tampilkan kata persis yang diketik</string>
@@ -2188,4 +2188,36 @@
     <string name="cmd_timestamp_iso_desc">Sisipkan stempel waktu ISO 8601 (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">di %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Backspace singkat</string>
+    <string name="edit_backspace_hold_select_title">Pilih kata saat ditahan</string>
+    <string name="edit_backspace_release_delete_title">Hapus pilihan saat dilepas</string>
+    <string name="edit_backspace_pause_enabled_title">Jeda saat arah berubah</string>
+    <string name="edit_backspace_pause_dp_title">Jarak berhenti</string>
+    <string name="edit_backspace_resume_dp_title">Jarak melanjutkan</string>
+    <string name="edit_backspace_speed_percent_title">Kecepatan pemilihan</string>
+    <string name="edit_backspace_fast_percent_title">Pemilihan cepat</string>
+    <string name="edit_backspace_accel_percent_title">Ambang percepatan</string>
+    <string name="edit_punctuation_remove_space_title">Hapus spasi sebelum tanda baca</string>
+    <string name="edit_punctuation_add_space_title">Tambah spasi setelah tanda baca</string>
+    <string name="edit_format_search_fields_title">Format otomatis dalam pencarian</string>
+    <string name="edit_numeric_period_caps_title">Huruf besar setelah angka dan titik</string>
+    <string name="edit_shift_word_case_title">Shift mengubah huruf awal kata</string>
+    <string name="edit_shift_word_end_title">Shift juga di akhir kata</string>
+    <string name="edit_show_case_variants_title">Tampilkan variasi kapitalisasi</string>
+    <string name="edit_exact_add_first_title">Tambah kata pada saran pertama</string>
+    <string name="edit_reset_suggestions_on_delete_title">Kembali ke awal saran dengan Backspace</string>
+    <string name="edit_tap_character">Hapus karakter atau spasi</string>
+    <string name="edit_tap_autocorrect">Batalkan koreksi, lalu karakter</string>
+    <string name="edit_tap_swipe">Hapus kata geser terakhir, lalu karakter</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Format teks</string>
+    <string name="edit_backspace_help">Pemilihan dengan menahan bekerja di seluruh papan ketik. Jika dimatikan, penghapusan biasa memerlukan pengulangan tombol. Aksi ketuk lain berlaku tepat setelah saran.</string>
+    <string name="edit_pause_help">Gerakan balik singkat menjeda. Gerakan lebih jauh dari posisi jeda melanjutkan.</string>
+    <string name="edit_speed_help" formatted="false">Relatif terhadap kecepatan gestur sebelumnya: 80% lebih lambat, 100% tetap.</string>
+    <string name="edit_fast_help">Mode cepat dimulai setelah melewati bagian lebar layar ini. Perubahan arah mereset jarak.</string>
+    <string name="edit_format_help">Sandi dan kolom teknis tidak pernah diformat otomatis. Opsi tanda baca memerlukan tanda baca pintar; huruf besar setelah angka memerlukan kapitalisasi otomatis.</string>
+    <string name="edit_fallback_header">Pemilihan lama dua sumbu</string>
 </resources>
+

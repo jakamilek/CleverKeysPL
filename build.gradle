@@ -95,8 +95,9 @@ dependencies {
   implementation "com.microsoft.onnxruntime:onnxruntime-android:1.21.1"
   implementation "com.google.code.gson:gson:2.10.1"
 
-  // Coil: Kotlin-native image loader with animated WebP support
+  // Coil plus matching animated WebP decoder (platform API 28+).
   implementation "io.coil-kt:coil:2.6.0"
+  implementation "io.coil-kt:coil-gif:2.6.0"
 
 
   testImplementation "junit:junit:4.13.2"
@@ -211,6 +212,12 @@ android {
 
   defaultConfig {
     applicationId "tribixbite.cleverkeys"
+    // Diagnostic provenance only; never expose arbitrary environment contents.
+    def benchmarkCommit = System.getenv("GITHUB_SHA")
+    if (benchmarkCommit == null || !(benchmarkCommit ==~ /[a-f0-9]{40}/)) {
+      benchmarkCommit = "local-unidentified"
+    }
+    buildConfigField "String", "HERBERT_TRIAL_COMMIT", '"' + benchmarkCommit + '"'
     // ARC-113 (2026-09-03): maintainer approved 21 → 24 to unblock the 16 KB-page-
     // aligned onnxruntime upgrade (see the dependency-line note above). README /
     // fastlane "Android 5.0+" claims become "Android 7.0+" — tracked as follow-up.
@@ -586,7 +593,25 @@ tasks.register('runPureTests', JavaExec) {
   description = 'Run pure JVM tests via JUnitCore (works on ARM64)'
 
   def pureTestClasses = [
+    'tribixbite.cleverkeys.StartupWordPolicyTest',
+    'tribixbite.cleverkeys.PersonalDictionaryTokenTest',
+    'tribixbite.cleverkeys.PersonalDictionaryCompletionTest',
+    'tribixbite.cleverkeys.ai.HerbertSwipeDecisionTest',
+    'tribixbite.cleverkeys.ai.HerbertCasePolicyTest',
+    'tribixbite.cleverkeys.ai.HerbertPreparedBatchTest',
+    'tribixbite.cleverkeys.ai.HerbertTokenizerTest',
+    'tribixbite.cleverkeys.ai.HerbertBundleImportTest',
+    'tribixbite.cleverkeys.ai.HerbertRealConformanceTest',
+    'tribixbite.cleverkeys.ai.HerbertBenchmarkMetricsTest',
+    'tribixbite.cleverkeys.BackspaceGestureTest',
+    'tribixbite.cleverkeys.EditingSettingsPolicyTest',
+    'tribixbite.cleverkeys.PunctuationSpacingTest',
+    'tribixbite.cleverkeys.CursorWordCapitalizationTest',
+    'tribixbite.cleverkeys.langpack.LanguageIntelligenceTest',
+    'tribixbite.cleverkeys.langpack.SharedLanguageIntelligenceTest',
+    'tribixbite.cleverkeys.langpack.CompactSourceMetadataTest',
     'tribixbite.cleverkeys.DictionaryLoadRequestsTest',
+    'tribixbite.cleverkeys.DictionaryDisplayLoadCacheTest',
     'tribixbite.cleverkeys.AccentNormalizerTest',
     'tribixbite.cleverkeys.DictionaryWordTest',
     'tribixbite.cleverkeys.BeamSearchModelsTest',
@@ -1091,6 +1116,9 @@ tasks.register('runPureTests', JavaExec) {
   systemProperty 'geoFull', (project.findProperty('geoFull') ?: 'false')
   // Wave-G OQ sweep instrument (GeoOqSweepTest) — same bridge pattern; double-heavy
   // measurement runs stay opt-in and skip in milliseconds otherwise.
+  if (project.hasProperty('herbertFixtureDir')) {
+    systemProperty 'herbertFixtureDir', project.property('herbertFixtureDir')
+  }
   systemProperty 'geoSweep', (project.findProperty('geoSweep') ?: 'false')
   systemProperty 'oqOnly', (project.findProperty('oqOnly') ?: '')
   // Sampling knobs for ContextRescoringReplayTest, same -P-to-system-property bridge. Only set
@@ -1121,18 +1149,38 @@ tasks.register('runPureTests', JavaExec) {
   }
 }
 
+// A separate process makes the heap ceiling meaningful; the broad pure suite has
+// a much larger heap and must not mask an importer allocation regression.
+tasks.register('runLanguageIntelligenceMemoryCheck', JavaExec) {
+  dependsOn 'compileDebugUnitTestKotlin', 'processDebugUnitTestJavaRes'
+  group = 'verification'
+  description = 'Replace full v6-sized metadata with v7-sized metadata using a 192 MiB heap'
+  mainClass = 'tribixbite.cleverkeys.langpack.LanguageIntelligenceMemoryCheck'
+  maxHeapSize = '192m'
+  classpath = tasks.named('runPureTests', JavaExec).get().classpath
+}
+
 // MockK test runner — like runPureTests but with android.jar on classpath.
 // Allows MockK to mock Android framework classes (Log, PointF, Context, etc.)
 // without Robolectric. The android.jar stubs provide class definitions; MockK
 // intercepts all calls before the stubs' "Stub!" exceptions are hit.
 // Usage: ./gradlew runMockTests [-PtestClass=AutocapitalisationTest]
 tasks.register('runMockTests', JavaExec) {
-  dependsOn 'compileDebugUnitTestKotlin'
+  dependsOn 'compileDebugUnitTestKotlin', 'processDebugUnitTestJavaRes'
   group = 'verification'
   description = 'Run MockK-based tests with android.jar stubs (works on ARM64)'
   jvmArgs '-XX:+EnableDynamicAgentLoading'
 
   def mockTestClasses = [
+    'tribixbite.cleverkeys.ClipboardPasteSuggestionsTest',
+    'tribixbite.cleverkeys.BackspaceHapticRoutingTest',
+    'tribixbite.cleverkeys.BackspaceHoldTest',
+    'tribixbite.cleverkeys.EditingSettingsReadTest',
+    'tribixbite.cleverkeys.PointersBackspaceHoldTest',
+    'tribixbite.cleverkeys.EditorPredictionRegressionTest',
+    'tribixbite.cleverkeys.EditorSpacingIntegrationTest',
+    'tribixbite.cleverkeys.ShiftWordCapitalizationTest',
+    'tribixbite.cleverkeys.PointersWordCapitalizationTest',
     // B-1 (2026-09-06 audit, P1): the recognizer/detector letter gate was hard-coded a-z,
     // so swipe typing could never trigger on any non-Latin board. Drives the REAL
     // ImprovedSwipeGestureRecognizer touch-stream path (startSwipe/addPoint/endSwipe) with
@@ -1237,6 +1285,7 @@ tasks.register('runMockTests', JavaExec) {
     'tribixbite.cleverkeys.DirectBootManagerTest',
     'tribixbite.cleverkeys.DirectBootAwarePreferencesTest',
     'tribixbite.cleverkeys.DictionaryManagerTest',
+    'tribixbite.cleverkeys.MainDictionarySourceRowsTest',
     'tribixbite.cleverkeys.VibratorCompatTest',
     'tribixbite.cleverkeys.TerminalUtilsTest',
     'tribixbite.cleverkeys.KeyRepeatLogicTest',
@@ -1292,6 +1341,7 @@ tasks.register('runMockTests', JavaExec) {
     // never replace the input view (the setInputView fallbacks are gone); the GIF tap path
     // commits the case-preserved URL / local media, never the legacy dead link.
     'tribixbite.cleverkeys.KeyboardReceiverPaneHostTest',
+    'tribixbite.cleverkeys.SuggestionStripScrollTest',
     // Audit W2 (2026-09-07): A-2 — the keyboard view is late-bound behind a provider on
     // every wiring/coordinator seam (structural + provider-consultation pins); A-1 — the
     // bridge overrides EVERY IReceiver method (delegation-gap ratchet, 3rd instance);
@@ -1303,6 +1353,7 @@ tasks.register('runMockTests', JavaExec) {
     'tribixbite.cleverkeys.DoubleSpacePeriodTest',
     'tribixbite.cleverkeys.gif.GifFtsSanitizerTest',
     'tribixbite.cleverkeys.gif.GifAssetManagerPartialImportTest',
+    'tribixbite.cleverkeys.gif.GifPreviewLoaderTest',
     // ARC-079 (2026-08-29): with DictionaryManager's duplicate predictor cache deleted, the
     // coordinator's flush/shutdown are the ONLY learned-data checkpoints left in the process.
     'tribixbite.cleverkeys.PredictionCoordinatorLifecycleTest',
@@ -1363,6 +1414,7 @@ tasks.register('runMockTests', JavaExec) {
     "${buildDir}/tmp/kotlin-classes/debugUnitTest",
     "${buildDir}/intermediates/javac/debug/classes",
     "${buildDir}/tmp/kotlin-classes/debug",
+    "${buildDir}/intermediates/java_res/debugUnitTest/processDebugUnitTestJavaRes/out",
   ) + configurations.debugUnitTestRuntimeClasspath + androidDependencyClasses + files(androidJar)
 
   if (project.hasProperty('testClass')) {
@@ -1588,3 +1640,6 @@ tasks.configureEach { task ->
         task.finalizedBy("normalizeApkPaths")
     }
 }
+
+
+

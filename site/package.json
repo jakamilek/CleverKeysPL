@@ -29,6 +29,7 @@
     "unist-util-visit": "5.1.0"
   },
   "overrides": {
+    "devalue": "5.9.3",
     "js-yaml": "^4.3.2",
     "smol-toml": "^1.7.1"
   },

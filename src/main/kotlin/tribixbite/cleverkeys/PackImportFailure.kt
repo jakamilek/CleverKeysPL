@@ -68,6 +68,12 @@ sealed class PackImportFailure {
         override fun render(text: ResultText) = text.string(R.string.pack_error_install_failed)
     }
 
+    /** RAM allocation failed before replacing the installed language pack. */
+    data object IntelligenceMemory : PackImportFailure() {
+        override val logMessage get() = "Not enough heap to import language intelligence"
+        override fun render(text: ResultText) = text.string(R.string.pack_error_intelligence_memory)
+    }
+
     /** A legacy GIF pack with no thumbnails: its GIFs could never be shown. */
     data class GifNoThumbnails(override val logMessage: String) : PackImportFailure() {
         override fun render(text: ResultText) = text.string(R.string.gif_pack_error_no_thumbnails)

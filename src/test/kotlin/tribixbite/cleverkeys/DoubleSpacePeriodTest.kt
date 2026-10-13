@@ -1,6 +1,8 @@
 package tribixbite.cleverkeys
 
 import android.os.Handler
+import android.text.InputType
+import android.view.inputmethod.EditorInfo
 import android.util.Log
 import android.view.inputmethod.InputConnection
 import com.google.common.truth.Truth.assertWithMessage
@@ -72,6 +74,8 @@ class DoubleSpacePeriodTest {
         recv = mockk(relaxed = true)
         every { recv.getHandler() } returns mockk<Handler>(relaxed = true)
         every { recv.getCurrentInputConnection() } returns conn
+        val info = mockk<EditorInfo>(relaxed = true).apply { inputType = InputType.TYPE_CLASS_TEXT }
+        every { recv.getCurrentEditorInfo() } returns info
         every { recv.takeOwedTrailingSpace() } returns null
 
         handler = KeyEventHandler(recv)
@@ -124,3 +128,4 @@ class DoubleSpacePeriodTest {
             .that(text.toString()).isEqualTo("hi,  ")
     }
 }
+

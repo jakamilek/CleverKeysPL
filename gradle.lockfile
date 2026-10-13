@@ -136,6 +136,7 @@ com.squareup.okio:okio-jvm:3.8.0=debugAndroidTestCompileClasspath,debugCompileCl
 com.squareup.okio:okio:3.8.0=debugAndroidTestCompileClasspath,debugCompileClasspath,debugRuntimeClasspath,releaseCompileClasspath,releaseRuntimeClasspath
 com.squareup:javawriter:2.1.1=debugAndroidTestCompileClasspath,debugAndroidTestRuntimeClasspath
 io.coil-kt:coil-base:2.6.0=debugAndroidTestCompileClasspath,debugCompileClasspath,debugRuntimeClasspath,releaseCompileClasspath,releaseRuntimeClasspath
+io.coil-kt:coil-gif:2.6.0=debugAndroidTestCompileClasspath,debugCompileClasspath,debugRuntimeClasspath,releaseCompileClasspath,releaseRuntimeClasspath
 io.coil-kt:coil:2.6.0=debugAndroidTestCompileClasspath,debugCompileClasspath,debugRuntimeClasspath,releaseCompileClasspath,releaseRuntimeClasspath
 javax.inject:javax.inject:1=debugAndroidTestCompileClasspath,debugAndroidTestRuntimeClasspath
 junit:junit:4.13.2=debugAndroidTestCompileClasspath,debugAndroidTestRuntimeClasspath

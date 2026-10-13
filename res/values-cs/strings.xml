@@ -473,9 +473,9 @@
     <string name="input_suggestion_bar_opacity_title">Průhlednost panelu návrhů</string>
     <string name="input_suggestion_bar_opacity_desc">Průhlednost panelu návrhů</string>
     <string name="input_auto_space_after_title">Automatická mezera za návrhem</string>
-    <string name="input_auto_space_after_desc">Přidat mezeru za výběrem návrhu</string>
+    <string name="input_auto_space_after_desc">Přidat mezeru za výběrem návrhu Platí pro slova zadávaná tahem i klepnutím na návrh.</string>
     <string name="input_auto_space_before_title">Automatická mezera před návrhem</string>
-    <string name="input_auto_space_before_desc">Vložit mezeru před klepnutý návrh (tah vždy přidá mezeru)</string>
+    <string name="input_auto_space_before_desc">Vložit mezeru před klepnutý návrh (tah vždy přidá mezeru) Platí pro slova zadávaná tahem i klepnutím na návrh.</string>
     <string name="input_backspace_undo_swipe_title">Backspace vrátí tažené slovo</string>
     <string name="input_backspace_undo_swipe_desc">Stisk Backspace ihned po taženém slově smaže celé slovo</string>
     <string name="input_show_exact_typed_title">Zobrazit přesně napsané slovo</string>
@@ -2299,4 +2299,36 @@
     <string name="cmd_timestamp_iso_desc">Vložit časové razítko ISO 8601 (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">v sekci %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Krátký Backspace</string>
+    <string name="edit_backspace_hold_select_title">Výběr slova podržením</string>
+    <string name="edit_backspace_release_delete_title">Smazat výběr po uvolnění</string>
+    <string name="edit_backspace_pause_enabled_title">Pauza při změně směru</string>
+    <string name="edit_backspace_pause_dp_title">Vzdálenost zastavení</string>
+    <string name="edit_backspace_resume_dp_title">Vzdálenost obnovení</string>
+    <string name="edit_backspace_speed_percent_title">Rychlost výběru</string>
+    <string name="edit_backspace_fast_percent_title">Rychlý výběr</string>
+    <string name="edit_backspace_accel_percent_title">Práh zrychlení</string>
+    <string name="edit_punctuation_remove_space_title">Odstranit mezeru před interpunkcí</string>
+    <string name="edit_punctuation_add_space_title">Přidat mezeru za interpunkcí</string>
+    <string name="edit_format_search_fields_title">Automatické formátování ve vyhledávání</string>
+    <string name="edit_numeric_period_caps_title">Velké písmeno po čísle a tečce</string>
+    <string name="edit_shift_word_case_title">Shift mění první písmeno slova</string>
+    <string name="edit_shift_word_end_title">Shift i na konci slova</string>
+    <string name="edit_show_case_variants_title">Zobrazit varianty velikosti písmen</string>
+    <string name="edit_exact_add_first_title">Přidání slova jako první návrh</string>
+    <string name="edit_reset_suggestions_on_delete_title">Návrhy od začátku po Backspace</string>
+    <string name="edit_tap_character">Smazat znak nebo mezeru</string>
+    <string name="edit_tap_autocorrect">Vrátit automatickou opravu, pak znaky</string>
+    <string name="edit_tap_swipe">Smazat poslední slovo z tahu, pak znaky</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Formátování textu</string>
+    <string name="edit_backspace_help">Výběr podržením funguje na celé klávesnici. Po vypnutí běžné mazání vyžaduje opakování kláves. Alternativní klepnutí platí hned po návrhu.</string>
+    <string name="edit_pause_help">Krátká změna směru pozastaví výběr. Delší pohyb z místa pauzy jej obnoví.</string>
+    <string name="edit_speed_help" formatted="false">Vzhledem k předchozí rychlosti gesta: 80% je pomalejší, 100% beze změny.</string>
+    <string name="edit_fast_help">Zrychlení začne po překročení této části šířky obrazovky. Změna směru vynuluje vzdálenost.</string>
+    <string name="edit_format_help">Hesla a technická pole se nikdy automaticky neformátují. Interpunkce vyžaduje chytrou interpunkci; velká písmena po číslech automatickou kapitalizaci.</string>
+    <string name="edit_fallback_header">Starší dvouosý výběr</string>
 </resources>
+

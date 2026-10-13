@@ -157,6 +157,7 @@ class DictionaryManagerActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        searchHandler.removeCallbacksAndMessages(null)
         super.onDestroy()
         // Release the 50k-word dictionary caches (~7MB per language) held in
         // MainDictionarySource.sharedCache. These are only needed while the

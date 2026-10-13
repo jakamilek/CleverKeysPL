@@ -58,6 +58,36 @@ class TranslationCoverageDriftTest {
     ) + convertedCountPlurals
 
     private val required = setOf(
+        // Configurable editing controls, trial v9.
+        "edit_fallback_header",
+        "edit_backspace_tap_mode_title",
+        "edit_backspace_hold_select_title",
+        "edit_backspace_release_delete_title",
+        "edit_backspace_pause_enabled_title",
+        "edit_backspace_pause_dp_title",
+        "edit_backspace_resume_dp_title",
+        "edit_backspace_speed_percent_title",
+        "edit_backspace_fast_percent_title",
+        "edit_backspace_accel_percent_title",
+        "edit_punctuation_remove_space_title",
+        "edit_punctuation_add_space_title",
+        "edit_format_search_fields_title",
+        "edit_numeric_period_caps_title",
+        "edit_shift_word_case_title",
+        "edit_shift_word_end_title",
+        "edit_show_case_variants_title",
+        "edit_exact_add_first_title",
+        "edit_reset_suggestions_on_delete_title",
+        "edit_tap_character",
+        "edit_tap_autocorrect",
+        "edit_tap_swipe",
+        "edit_format_header",
+        "edit_backspace_help",
+        "edit_pause_help",
+        "edit_speed_help",
+        "edit_fast_help",
+        "edit_format_help",
+
         "collision_warning_title", "collision_warning_body", "collision_warning_examples",
         "dict_word_too_long_for_swipe_title", "dict_word_too_long_for_swipe_msg",
         "gesture_finger_occlusion_title", "gesture_finger_occlusion_desc",
@@ -267,3 +297,4 @@ class TranslationCoverageDriftTest {
         }
     }
 }
+

@@ -23,23 +23,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-/**
- * SAS-1 (v1.5.0, user-requested): smart auto-space around punctuation.
- *
- * Feature A — no leading auto-space after opening punctuation:
- *   `(` + swipe "word" → `(word ` (was `( word `).
- *
- * Feature B — closing punctuation swallows the AUTOMATIC trailing space:
- *   swipe "word" (commits `word `) then type `.` → `word.` (was `word .`).
- *   Only the automatic space may be swallowed: manually typed spaces,
- *   cursor movement, backspace, and field switches all preserve the space.
- *
- * Harness mirrors Issue151UrlBarSuggestionTapTest (real SuggestionHandler,
- * BaseInputConnection over its internal editable) and additionally wires a
- * real KeyEventHandler whose IReceiver delegates the auto-space pending
- * state to the shared PredictionContextTracker — exactly as
- * KeyEventReceiverBridge does in production. Punctuation is typed through
- * the production key path: KeyEventHandler.key_up → sendText.
+/** Current field-aware spacing regression tests. See docs/specs/editor-spacing.md.
+ * Prose closers normalize manual and automatic spaces using actual surrounding text;
+ * legacy stamp state is still exercised separately for invalidation and apostrophes.
  */
 @RunWith(AndroidJUnit4::class)
 class SmartAutoSpaceTest {
@@ -137,6 +123,7 @@ class SmartAutoSpaceTest {
             override fun set_compose_pending(pending: Boolean) {}
             override fun selection_state_changed(selectionIsOngoing: Boolean) {}
             override fun getCurrentInputConnection(): InputConnection? = inputConnection
+            override fun getCurrentEditorInfo(): EditorInfo = plainEditorInfo
             override fun getHandler(): Handler = Handler(Looper.getMainLooper())
             override fun handle_text_typed(text: String) {}
             override fun wasLastSpaceAutoInserted(): Boolean =
@@ -283,28 +270,28 @@ class SmartAutoSpaceTest {
     fun closeParen_afterSwipe_swallowsAutoSpace() {
         swipe("word")
         press(')')
-        assertEquals("word)", editorText())
+        assertEquals("word) ", editorText())
     }
 
     @Test
     fun comma_afterSwipe_swallowsAutoSpace() {
         swipe("word")
         press(',')
-        assertEquals("word,", editorText())
+        assertEquals("word, ", editorText())
     }
 
     @Test
     fun curlyClosingQuote_afterSwipe_swallowsAutoSpace() {
         swipe("word")
         press('”')
-        assertEquals("word”", editorText())
+        assertEquals("word” ", editorText())
     }
 
     @Test
     fun ellipsis_afterSwipe_swallowsAutoSpace() {
         swipe("word")
         press('…')
-        assertEquals("word…", editorText())
+        assertEquals("word… ", editorText())
     }
 
     @Test
@@ -322,7 +309,7 @@ class SmartAutoSpaceTest {
         swipe("word")
         assertEquals("\"word ", editorText())
         press('"')
-        assertEquals("\"word\"", editorText())
+        assertEquals("\"word\" ", editorText())
     }
 
     @Test
@@ -344,40 +331,40 @@ class SmartAutoSpaceTest {
         assertEquals("hello. ", editorText())
     }
 
-    // ── Manual space must NEVER be eaten ─────────────────────────────────────
+    // ── Manual plain spaces are normalized when formatting is enabled ─────────────────────────────────────
 
     @Test
-    fun manuallyTypedSpace_period_keepsSpace() {
+    fun manuallyTypedSpace_period_normalizesSpace() {
         for (c in "word") press(c)
         press(' ')
         press('.')
-        assertEquals("word .", editorText())
+        assertEquals("word. ", editorText())
     }
 
     @Test
-    fun manualSpaceAfterSwipe_period_keepsManualSpace() {
+    fun manualSpaceAfterSwipe_period_normalizesSpaces() {
         // swipe → `word `, user types their own space, then `.`:
-        // the typed space invalidated the pending state, nothing is swallowed
+        // the typed space invalidates the stamp, but actual prose spacing is normalized
         swipe("word")
         press(' ')
         press('.')
-        assertEquals("word  .", editorText())
+        assertEquals("word. ", editorText())
     }
 
     // ── Invalidation ─────────────────────────────────────────────────────────
 
     @Test
-    fun cursorMovedAwayFromStamp_period_keepsSpace() {
+    fun cursorMovedAwayFromStamp_period_usesActualContext() {
         // "one " typed manually, "two " auto-committed at the end, then the
         // cursor jumps back to just after the manual space at position 4.
         // Prev char IS a space but the position stamp no longer matches —
-        // that manual space must not be swallowed.
+        // formatting uses the actual caret context rather than the old swipe stamp.
         inputConnection.commitText("one ", 1)
         swipe("two")
         assertEquals("one two ", editorText())
         inputConnection.setCursor(4)
         press('.')
-        assertEquals("one .two ", editorText())
+        assertEquals("one. two ", editorText())
     }
 
     @Test
@@ -394,7 +381,7 @@ class SmartAutoSpaceTest {
         contextTracker.onCursorPositionChanged(2)     // user moved the cursor
         assertFalse(contextTracker.lastSpaceWasAutoInserted)
         press('.')
-        assertEquals("word .", editorText())
+        assertEquals("word. ", editorText())
     }
 
     @Test
@@ -414,7 +401,7 @@ class SmartAutoSpaceTest {
         assertFalse(contextTracker.lastSpaceWasAutoInserted)
         assertEquals(-1, contextTracker.autoSpaceStampedPosition)
         press('.')
-        assertEquals("word .", editorText())
+        assertEquals("word. ", editorText())
     }
 
     @Test
@@ -425,17 +412,17 @@ class SmartAutoSpaceTest {
         press('.')
         assertEquals("word. ", editorText())
         press(')')
-        assertEquals("word.)", editorText())
+        assertEquals("word.) ", editorText())
     }
 
     @Test
-    fun otherCharInput_invalidates_soLaterPunctuationKeepsManualSpace() {
+    fun otherCharInput_invalidates_butActualManualSpaceIsNormalized() {
         // swipe → letter typed (invalidates) → manual space → period keeps it
         swipe("word")
         press('s')
         press(' ')
         press('.')
-        assertEquals("word s .", editorText())
+        assertEquals("word s. ", editorText())
     }
 
     // ── Plain regression: normal word-space-word flow unchanged ─────────────
@@ -456,3 +443,4 @@ class SmartAutoSpaceTest {
         assertEquals("hello ", editorText())
     }
 }
+

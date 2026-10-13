@@ -120,3 +120,15 @@ The Settings UI exposes the master toggle, the five per-event switches, and the 
 
 - [Settings System Architecture](./settings-system-architecture-spec.md) - Preference storage and refresh
 - [Input Behavior](./input-behavior-spec.md) - Key event routing that triggers haptics
+
+## Polish live trial — Backspace word feedback (2026-10-06)
+
+BACKSPACE_WORD_SELECT confirms an accepted nonempty word preview with CLOCK_TICK;
+BACKSPACE_WORD_DELETE confirms accepted deletion with GESTURE_END (API30+, older
+VIRTUAL_KEY). Both use haptic_long_press and the master/custom-duration path, not
+new preferences. Default fallback durations are 10/20ms. KeyEventHandler emits
+success after accepted setSelection/commitText, for initial/repeated words and release.
+No success tick for refusal, empty selection or cancellation; feedback failure cannot
+abort the accepted edit. Modern word entry no longer adds a second TrackPoint pulse;
+direct character drag retains its existing TrackPoint activation. Registered real
+editor and dispatch regressions await CI/phone checks; existing motion/timers unchanged.

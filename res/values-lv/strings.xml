@@ -484,9 +484,9 @@
     <string name="input_suggestion_bar_opacity_title">Ieteikumu joslas necaurredzamība</string>
     <string name="input_suggestion_bar_opacity_desc">Ieteikumu joslas caurspīdīgums</string>
     <string name="input_auto_space_after_title">Automātiskā atstarpe pēc ieteikuma</string>
-    <string name="input_auto_space_after_desc">Pievienot sekojošu atstarpi, izvēloties ieteikumu</string>
+    <string name="input_auto_space_after_desc">Pievienot sekojošu atstarpi, izvēloties ieteikumu Vilkšanas vārdiem un pieskartiem ieteikumiem.</string>
     <string name="input_auto_space_before_title">Automātiskā atstarpe pirms ieteikuma</string>
-    <string name="input_auto_space_before_desc">Ievietot priekšējo atstarpi pirms piesista ieteikuma (vilkums vienmēr pievieno atstarpi)</string>
+    <string name="input_auto_space_before_desc">Ievietot priekšējo atstarpi pirms piesista ieteikuma (vilkums vienmēr pievieno atstarpi) Vilkšanas vārdiem un pieskartiem ieteikumiem.</string>
     <string name="input_backspace_undo_swipe_title">Backspace atsauc vilkumu</string>
     <string name="input_backspace_undo_swipe_desc">Nospiežot Backspace uzreiz pēc vilkuma vārda, tiek dzēsts viss vārds</string>
     <string name="input_show_exact_typed_title">Rādīt tieši ievadīto vārdu</string>
@@ -2269,4 +2269,36 @@
     <string name="cmd_timestamp_iso_desc">Ievietot ISO 8601 laikspiedolu (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">sadaļā %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Īss Backspace</string>
+    <string name="edit_backspace_hold_select_title">Atlasīt vārdu, turot</string>
+    <string name="edit_backspace_release_delete_title">Dzēst atlasi, atlaižot</string>
+    <string name="edit_backspace_pause_enabled_title">Pauze, mainot virzienu</string>
+    <string name="edit_backspace_pause_dp_title">Apstāšanās attālums</string>
+    <string name="edit_backspace_resume_dp_title">Atsākšanas attālums</string>
+    <string name="edit_backspace_speed_percent_title">Atlases ātrums</string>
+    <string name="edit_backspace_fast_percent_title">Ātra atlase</string>
+    <string name="edit_backspace_accel_percent_title">Paātrinājuma slieksnis</string>
+    <string name="edit_punctuation_remove_space_title">Noņemt atstarpi pirms pieturzīmes</string>
+    <string name="edit_punctuation_add_space_title">Pievienot atstarpi pēc pieturzīmes</string>
+    <string name="edit_format_search_fields_title">Automātisks formāts meklēšanā</string>
+    <string name="edit_numeric_period_caps_title">Lielais burts pēc skaitļa un punkta</string>
+    <string name="edit_shift_word_case_title">Shift maina vārda sākumburtu</string>
+    <string name="edit_shift_word_end_title">Shift arī vārda beigās</string>
+    <string name="edit_show_case_variants_title">Rādīt burtu reģistra variantus</string>
+    <string name="edit_exact_add_first_title">Vārda pievienošana pirmajā ieteikumā</string>
+    <string name="edit_reset_suggestions_on_delete_title">Ieteikumu sākums pēc Backspace</string>
+    <string name="edit_tap_character">Dzēst rakstzīmi vai atstarpi</string>
+    <string name="edit_tap_autocorrect">Atcelt labojumu, tad rakstzīmes</string>
+    <string name="edit_tap_swipe">Dzēst pēdējo vilkto vārdu, tad rakstzīmes</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Teksta formatēšana</string>
+    <string name="edit_backspace_help">Atlase, turot taustiņu, darbojas visā tastatūrā. Izslēdzot parastai dzēšanai vajadzīga taustiņu atkārtošana. Citi īsā pieskāriena veidi darbojas uzreiz pēc ieteikuma.</string>
+    <string name="edit_pause_help">Īsa pretēja kustība aptur. Garāka kustība no pauzes vietas atsāk.</string>
+    <string name="edit_speed_help" formatted="false">Attiecībā pret iepriekšējo žesta ātrumu: 80% ir lēnāk, 100% bez izmaiņām.</string>
+    <string name="edit_fast_help">Ātrais režīms sākas pēc šīs ekrāna platuma daļas pārvarēšanas. Virziena maiņa atiestata attālumu.</string>
+    <string name="edit_format_help">Paroles un tehniskie lauki netiek automātiski formatēti. Pieturzīmju opcijām vajag viedās pieturzīmes; lielajiem burtiem pēc skaitļiem automātisku lielo burtu lietošanu.</string>
+    <string name="edit_fallback_header">Iepriekšējā divasu atlase</string>
 </resources>
+

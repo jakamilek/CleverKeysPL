@@ -484,9 +484,9 @@
     <string name="input_suggestion_bar_opacity_title">Прозорість панелі підказок</string>
     <string name="input_suggestion_bar_opacity_desc">Прозорість панелі підказок</string>
     <string name="input_auto_space_after_title">Авто-пробіл після підказки</string>
-    <string name="input_auto_space_after_desc">Додавати пробіл після вибору підказки</string>
+    <string name="input_auto_space_after_desc">Додавати пробіл після вибору підказки Для слів жестом і вибраних підказок.</string>
     <string name="input_auto_space_before_title">Авто-пробіл перед підказкою</string>
-    <string name="input_auto_space_before_desc">Вставляти пробіл перед натиснутою підказкою (свайп завжди додає пробіл)</string>
+    <string name="input_auto_space_before_desc">Вставляти пробіл перед натиснутою підказкою (свайп завжди додає пробіл) Для слів жестом і вибраних підказок.</string>
     <string name="input_backspace_undo_swipe_title">Backspace скасовує свайп</string>
     <string name="input_backspace_undo_swipe_desc">Натискання Backspace одразу після свайп-слова видаляє все слово</string>
     <string name="input_show_exact_typed_title">Показувати точно введене слово</string>
@@ -2310,4 +2310,36 @@
     <string name="cmd_timestamp_iso_desc">Вставити мітку часу ISO 8601 (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">у розділі «%1$s»</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Коротке натискання Backspace</string>
+    <string name="edit_backspace_hold_select_title">Виділити слово утриманням</string>
+    <string name="edit_backspace_release_delete_title">Видалити виділення при відпусканні</string>
+    <string name="edit_backspace_pause_enabled_title">Пауза при зміні напрямку</string>
+    <string name="edit_backspace_pause_dp_title">Відстань зупинки</string>
+    <string name="edit_backspace_resume_dp_title">Відстань відновлення</string>
+    <string name="edit_backspace_speed_percent_title">Швидкість виділення</string>
+    <string name="edit_backspace_fast_percent_title">Швидке виділення</string>
+    <string name="edit_backspace_accel_percent_title">Поріг прискорення</string>
+    <string name="edit_punctuation_remove_space_title">Прибрати пробіл перед пунктуацією</string>
+    <string name="edit_punctuation_add_space_title">Додати пробіл після пунктуації</string>
+    <string name="edit_format_search_fields_title">Автоформатування в пошуку</string>
+    <string name="edit_numeric_period_caps_title">Велика літера після числа й крапки</string>
+    <string name="edit_shift_word_case_title">Shift змінює першу літеру</string>
+    <string name="edit_shift_word_end_title">Shift також наприкінці слова</string>
+    <string name="edit_show_case_variants_title">Показувати варіанти регістру</string>
+    <string name="edit_exact_add_first_title">Додавання слова в першій підказці</string>
+    <string name="edit_reset_suggestions_on_delete_title">Початок підказок після Backspace</string>
+    <string name="edit_tap_character">Видалити символ або пробіл</string>
+    <string name="edit_tap_autocorrect">Скасувати виправлення, потім символи</string>
+    <string name="edit_tap_swipe">Видалити останнє слово жестом, потім символи</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Форматування тексту</string>
+    <string name="edit_backspace_help">Виділення утриманням працює по всій клавіатурі. Якщо вимкнути, звичайне видалення потребує повторення клавіш. Інші короткі дії застосовуються одразу після підказки.</string>
+    <string name="edit_pause_help">Короткий рух у зворотний бік призупиняє. Довший рух від місця паузи відновлює.</string>
+    <string name="edit_speed_help" formatted="false">Відносно попередньої швидкості жесту: 80% повільніше, 100% без змін.</string>
+    <string name="edit_fast_help">Прискорення починається після переміщення далі цієї частини ширини екрана. Зміна напрямку скидає відстань.</string>
+    <string name="edit_format_help">Паролі й технічні поля ніколи не форматуються автоматично. Пунктуація потребує розумної пунктуації; великі літери після чисел — автоматичних великих літер.</string>
+    <string name="edit_fallback_header">Попереднє виділення за двома осями</string>
 </resources>
+

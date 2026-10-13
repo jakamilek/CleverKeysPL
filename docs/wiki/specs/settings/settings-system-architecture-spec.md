@@ -326,3 +326,23 @@ This architectural spec covers the shared scaffolding. For exact values, ranges,
 - [CTC Swipe Engine](../../../specs/ctc-swipe-engine.md) — beam width and the ONNX-threads knob
 
 For backup/restore and the import-preview pipeline (which exercises `SETTINGS_DEFAULTS`, `PrefValue`, and the diff engine), see the backup/restore specs.
+
+
+## Immutable editing options (Polish fork trial v9)
+
+`EditBehaviorOptions` groups the new editing preferences; all product defaults remain
+constants in `Defaults`. Config refresh and settings reload share
+`readEditBehaviorPreferences`, including safe type recovery and bounds. Config publishes
+the options in `ConfigSnapshot`; Pointers captures them once at pointer-down. No
+mid-gesture reread changes the pause thresholds, rates or release policy.
+
+`BackspaceEditingSection.kt` renders inside Gesture Tuning and
+`EditingBehaviorSection.kt` inside Input Behavior. Their file-to-parent mappings in the
+search generator prevent results expanding the wrong section. New controls have typed
+backup defaults/validation and localized resource titles in all 22 resource sets.
+Group reset removes only owned keys. Two obsolete Backspace checkbox keys are
+deprecated, omitted from export and ignored on import without enabling destructive taps.
+
+See [Input Behavior](./input-behavior-spec.md#configurable-editing-behavior-polish-fork-trial-v9)
+for the per-key table and pending v9 validation. Existing editor-consistency fixes remain
+mandatory behavior and are not exposed as settings.

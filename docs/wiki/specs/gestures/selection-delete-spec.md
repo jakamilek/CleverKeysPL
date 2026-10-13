@@ -1,12 +1,215 @@
 ---
 title: Selection Delete - Technical Specification
-description: Backspace swipe-and-hold joystick that selects text and deletes it on release.
+description: Immediate Backspace character selection, stationary word deletion and the legacy joystick fallback.
 user_guide: ../../gestures/selection-delete.md
 status: implemented
 version: v1.4.0
 ---
 
 # Selection Delete Technical Specification
+
+## Polish trial v14 — ordered editor selection ranges
+
+The maintainer accepts v13 movement in ordinary editors but reports SimpleX stopping
+when a drag reaches a space before a word. The inspected SimpleX Android text field
+normalizes onSelectionChanged endpoints before writing ComposeState; its AndroidView
+update compares that normalized state to the live EditText endpoints and can run
+setText/setSelection when they differ. Source inspected at SimpleX stable commit
+479548ee53ffb73db73841e77acbeee5a78dbbd5:
+[PlatformTextField.android.kt](https://github.com/simplex-chat/simplex-chat/blob/479548ee53ffb73db73841e77acbeee5a78dbbd5/apps/multiplatform/common/src/androidMain/kotlin/chat/simplex/common/platform/PlatformTextField.android.kt).
+
+The keyboard previously passed anchor before the left endpoint, i.e. reversed ranges.
+V14 passes ascending start/end for initial word preview, each drag update and repeated
+word re-arm. The fixed anchor remains in BackspaceHold; gesture direction, finger-speed
+response, boundaries and word-cycle timing are unchanged. Identity, live selection/text
+validation, cancellation and commit guards remain mandatory. No app-specific bypass or
+unchecked deletion is added.
+
+Three BackspaceHoldTest regressions model a state bridge that recreates the input
+connection when reversed endpoints diverge from its normalized state. They cover word
+preview/extension/reversal, direct drag across trailing and preceding spaces, and repeated
+word re-arm. This is a compatibility model derived from the source, not evidence that the
+device failure has that exact cause. V14 requires CI and a SimpleX phone retest.
+
+## Polish trial v13 — shared space-slider motion
+
+`SliderMotion.move` is shared by `Pointers.Sliding` and the modern Backspace DRAG.
+Both capture slide_step_px, slider_speed_smoothing and slider_speed_max at pointer-down.
+Distance accumulates a signed fractional character remainder; finger velocity updates
+an exponential speed blend after each event, matching the space-slider calculation.
+Elapsed time is at least 1 ms. Invalid coordinates are ignored; parameters are bounded
+and each event emits at most 256 characters. A stationary event emits zero.
+
+Backspace activation uses the space slider step in physical pixels (already scaled),
+with the existing leftward horizontal-to-vertical ratio >2:1 before hold. After hold,
+a deliberate left movement of one step switches permanently to DRAG. Vertical motion
+is ignored by modern Backspace and does not accelerate its horizontal movement.
+Each movement applies one signed Unicode code-point count through stepBackspaceHold:
+one live editor validation and one setSelection per event. The buffer and initial
+caret bound both directions. The same editor identity, text and acknowledgement guards
+used in v12 remain mandatory; refusal never sends an unchecked DEL.
+
+DRAG has no repeat timer. Stopping the finger stops selection without a special brake;
+right movement shrinks it immediately once the accumulated character distance is met.
+The WORD_PREVIEW / WORD_GAP timer cycle retains 350 / 200 ms and release/cancel behavior.
+Transitioning to DRAG invalidates any queued word-cycle message permanently for that
+pointer. Crossing other keys does not activate them.
+
+The six old backspace_pause_enabled / pause_dp / resume_dp / speed_percent /
+fast_percent / accel_percent keys are no longer read or shown and are classified as
+DEPRECATED_KEYS: omitted from export and ignored by import. Reset clears the old keys
+only within the Backspace group; it does not change shared Space settings. Shared
+slider keys retain their existing backup types and ranges. Polish/base English copy
+is updated; other locales are recorded for later translation in memory/todo.md.
+
+V12 CI passed 3044 tests and both lint checks (run 37189695279); the maintainer accepted
+its phone behavior. V13 has separate pure motion, real space/BS pointer comparisons,
+stationary/word-cycle cancellation, batched Unicode/editor and backup regressions.
+V13 CI run 37192552115 passed 3049 tests and both lint checks; the maintainer accepts
+its general phone behavior. The reported SimpleX exception is tracked above.
+
+## Historical Polish trial v12 — direct drag and repeated words
+
+The ordinary-text path now starts horizontal selection in `Pointers.onTouchMove`,
+before the long-press timeout. It requires the captured holdSelect option, a deferred
+pointer starting on Backspace, finite coordinates and left travel of at least the
+captured resumeDp scaled by density. Horizontal travel must exceed twice the
+vertical travel, reserving diagonal flicks for subkeys. `beginBackspaceDrag` starts
+with an empty selection at the caret; the first step selects one Unicode code point.
+The pointer owns all keyboard motion and cancels its original long-press timer.
+
+A stationary hold instead enters WORD_PREVIEW with the previous word selected.
+The timer commits that verified selection after WORD_PREVIEW_MS (350 ms), enters
+WORD_GAP, waits WORD_GAP_MS (200 ms) and previews the next word. It repeats until
+release, cancellation, no complete preceding word or failed editor validation.
+No unchecked DEL fallback runs when the modern word cycle stops. The cycle does
+not depend on ordinary key repeat. The first preview still uses longpress_timeout.
+The two cycle intervals are constants, not new settings.
+
+| State | Timer | Deliberate left movement | Release |
+|---|---|---|---|
+| WORD_PREVIEW | Delete verified word, then WORD_GAP | DRAG with current word preview retained | Apply releaseDelete to pending preview |
+| WORD_GAP | Preview next word, then WORD_PREVIEW | DRAG from the post-deletion caret | End without deleting another word |
+| DRAG | Existing character-selection repeat | Extend, brake or resume using captured options | Apply releaseDelete to current selection |
+
+DRAG never falls back to the stationary cycle when paused. A timer identifier is
+invalidated when cancelled, so queued word-cycle messages cannot delete after
+switching to a drag. Ownership remains until pointer-up/clear; release dispatches
+neither the original Backspace nor any crossed key. Stale long-press messages do
+not replace an active modern gesture.
+
+`deleteBackspaceHoldWord` shares the verified empty-text replacement and prediction/
+learning cleanup with release deletion. It installs a collapsed continuation session
+before commitText so synchronous selection acknowledgements are captured. Before
+`previewPreviousBackspaceWord` re-arms a preview, connection/editor identity, caret,
+selected text and the remaining preceding snapshot must still match. A fresh bounded
+read replenishes the preceding context without using an old extracted-text caret.
+The separator before each deleted word remains; trailing spaces are selected with it.
+Cancellation collapses a pending verified preview; prior deletions remain committed.
+
+No preference key, backup format or default changes. holdSelect gates direct drag
+and word cycling. releaseDelete governs release only, not timed deletion. resumeDp
+is also the initial activation distance; its slider is available even with pause off.
+Other drag rates/thresholds retain v9 behavior and the pointer-down ConfigSnapshot.
+Polish and baseline English descriptions are current. The equivalent four keys in
+20 other locales are recorded in memory/todo.md for later translation.
+
+New regression cases are in the already registered BackspaceHoldTest (editor and
+real pointer/timer integration) and PointersBackspaceHoldTest (routing, cycle,
+cancelled-message suppression and release). Test execution and device acceptance
+remain pending CI; local source/resource/search checks do not establish a phone fix.
+
+## Polish trial v8 — brake and resume
+
+The maintainer accepts v7 hold preview, keyboard-wide extension/reversal and
+release deletion. The uploaded v7 runtime trace includes an acknowledged six-unit
+word preview followed by successful empty-text replacement, accepted left/right
+steps and zero-length release without deletion. This confirms those tested phone
+paths, but does not establish why earlier v5/v6 phone trials failed.
+
+The new requested contract inserts a pause between opposite directions. During
+active selection, motion of at least 3 physical pixels against the most recent
+directional extreme sets direction to zero. That event stops the timer and cannot
+shrink/extend selection. Further motion of at least 15 physical pixels from the
+pause position resumes left extension or right shrinking. Subthreshold touch
+jitter leaves the pause position fixed. The first activation still requires a
+leftward drag of 15 pixels. Edge speed after resuming is unchanged. Releasing while
+paused commits exactly the current verified selection; cancellation and empty
+selection retain their existing behavior.
+
+BackspaceGesture.kt:38 defines Drag. Pointers.handleSelectionDeleteRepeat returns
+without scheduling another modern timer while direction is zero; onTouchMove
+cancels a pending timer at each pause/resume transition. Editor mutation, safe live
+selection checks, tap deletion, Shift, spacing and unsupported-editor fallback are
+unchanged. Five new pure cases and two pointer/timer cases cover braking, jitter,
+both resume directions, stopped timer delivery and release. Existing lagging-editor
+integration now checks that the brake leaves its selected text unchanged before
+resumption. V8 debug assembly and 2795 pure + 211 focused mocks passed (3006) in run 37154899155; BackspaceHoldTest 23 and PointersBackspaceHoldTest 11 passed. APK artifact 11285860899 is available; phone acceptance is pending.
+
+## Polish trial v7 — phone diagnostics, issue unresolved
+
+Historical report before v7: the maintainer tested v6 and reported the same failure: hold previews a word, but
+motion does not change the selection and lifting the finger does not delete it.
+V6's 2992 passing host checks therefore do not establish a phone fix. The cause is
+not confirmed; neither editor lag nor missing pointer events is assumed.
+
+V7 adds playground-only `BACKSPACE` traces for the actual runtime/package marker,
+input lifecycle, view reset/cancel, pointer hold ownership, first move, direction
+changes, release/cancel, editor acknowledgements, rejected validation and the
+boolean result of empty-text replacement. Offsets, counts, enum/integer key kind
+and exception class are logged, never editor text or exception messages. Repeated
+pointer and editor progress is capped at 24 entries per session; terminal outcomes
+remain visible. Sink exceptions cannot alter editing. No deletion/casing/spacing
+policy changes are introduced. V7 debug assembly and 2790 pure + 209 focused mocks passed (2999) in run 37153176431; BackspaceHoldTest 23 and PointersBackspaceHoldTest 9 passed. APK artifact 11284274382 is available; phone trace remains pending.
+
+Device procedure: use `backspace-diagnostic-v7`, enable playground debug, clear
+the log, type `olej mleko`, hold Backspace and release; then repeat with left motion,
+right reversal and release. Copy the complete log including the `BACKSPACE RUNTIME`
+line. The subsequent v7 phone log and maintainer report accept the tested hold/drag/release paths; no earlier cause is proven.
+
+## Polish trial v6 — editor acknowledgement follow-up
+
+Phone feedback accepts v5 tap deletion, sentence capitalization and Shift at word
+end. Hold produces the word preview but dragging and release deletion fail; those
+checks are not accepted. V5's 2985 passing CI checks did not model editor read lag.
+
+KeyEventHandler.kt:99 installs its hold session before setSelection so a synchronous
+acknowledgement is captured. Full selection_updated callbacks confirm absolute
+ranges. A temporarily stale extraction no longer discards the physical hold. The
+pointer timer can retry when the editor catches up. A callback supplements only a
+missing extraction, the original caret or one of the last eight requested ranges;
+unrelated live positions still block editing. The live selected text and editor
+identity must still match before deletion. No release sends an unchecked DEL.
+
+Seven BackspaceHoldTest regressions cover lag/recovery, release with an acknowledged
+preview, extension/reversal, unexpected positions or changed text, synchronous
+callbacks and real Pointers routing into the editor handler. V6 debug assembly and
+2790 pure + 202 focused mock checks passed (2992) in run 37150909557; all 19
+BackspaceHoldTest checks passed. Phone retest failed: drag and release deletion still do not work. The release contract and speed policy are unchanged.
+
+## Polish trial v5 — CI checks passed; device validation pending
+
+The modern path precedes navigation subkeys in Pointers.handleLongPress. A deferred
+Backspace asks the view/Config.IKeyEventHandler for a word preview. The pointer owns
+all subsequent motion until release or cancellation, independent of key repeat.
+Its timer uses the full keyboard width, bounded 30–200 ms intervals, leftward
+extension and rightward shrinking determined by movement direction. Selection is
+bounded by the initial caret. Releasing after shrinking to zero sends no DEL.
+
+KeyEventHandler captures the current connection, editor info, absolute caret and at
+most 4096 UTF-16 units before it. It checks both live selection and selected text
+before movement or deletion, and commits an empty replacement only for a verified
+nonempty selection. Cancellation collapses the verified selection without deletion.
+Truncated whole-word previews are skipped. Unicode steps preserve surrogate pairs.
+A held word is deleted only on release, preserving its preceding separator.
+
+Components: KeyEventHandler.kt:99 (beginBackspaceHold), BackspaceGesture.kt:7
+(previousWord) and Pointers.kt (handleLongPress/handleSelectionDeleteRepeat).
+BackspaceHoldTest and PointersBackspaceHoldTest drive the real handlers with mocked
+editors/pointers; BackspaceGestureTest covers pure word boundaries and speed policy.
+Guarded CI run 37148132597 passed debug assembly, 2790 pure and 195 focused mock checks; BackspaceHoldTest passed 12 and PointersBackspaceHoldTest passed 6. Real-device acceptance remains pending.
+
+The historical implementation below remains the unsupported-editor fallback.
 
 ## Overview
 

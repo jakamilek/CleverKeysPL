@@ -495,9 +495,9 @@
     <string name="input_suggestion_bar_opacity_title">Opacitate bară sugestii</string>
     <string name="input_suggestion_bar_opacity_desc">Transparența barei de sugestii</string>
     <string name="input_auto_space_after_title">Spațiu automat după sugestie</string>
-    <string name="input_auto_space_after_desc">Adaugă spațiu final la selectarea unei sugestii</string>
+    <string name="input_auto_space_after_desc">Adaugă spațiu final la selectarea unei sugestii Pentru cuvinte glisate și sugestii atinse.</string>
     <string name="input_auto_space_before_title">Spațiu automat înainte de sugestie</string>
-    <string name="input_auto_space_before_desc">Inserează spațiu înaintea unei sugestii atinse (glisarea adaugă întotdeauna spațiu)</string>
+    <string name="input_auto_space_before_desc">Inserează spațiu înaintea unei sugestii atinse (glisarea adaugă întotdeauna spațiu) Pentru cuvinte glisate și sugestii atinse.</string>
     <string name="input_backspace_undo_swipe_title">Backspace anulează glisarea</string>
     <string name="input_backspace_undo_swipe_desc">Apăsarea Backspace imediat după un cuvânt scris prin glisare șterge întregul cuvânt</string>
     <string name="input_show_exact_typed_title">Afișează cuvântul tastat exact</string>
@@ -2285,4 +2285,36 @@
     <string name="cmd_timestamp_iso_desc">Inserează marcaj temporal ISO 8601 (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">în %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Backspace scurt</string>
+    <string name="edit_backspace_hold_select_title">Selectează cuvântul la apăsare lungă</string>
+    <string name="edit_backspace_release_delete_title">Șterge selecția la eliberare</string>
+    <string name="edit_backspace_pause_enabled_title">Pauză la schimbarea direcției</string>
+    <string name="edit_backspace_pause_dp_title">Distanță de oprire</string>
+    <string name="edit_backspace_resume_dp_title">Distanță de reluare</string>
+    <string name="edit_backspace_speed_percent_title">Viteză de selecție</string>
+    <string name="edit_backspace_fast_percent_title">Selecție rapidă</string>
+    <string name="edit_backspace_accel_percent_title">Prag de accelerare</string>
+    <string name="edit_punctuation_remove_space_title">Elimină spațiul înainte de punctuație</string>
+    <string name="edit_punctuation_add_space_title">Adaugă spațiu după punctuație</string>
+    <string name="edit_format_search_fields_title">Formatare automată în căutare</string>
+    <string name="edit_numeric_period_caps_title">Majusculă după număr și punct</string>
+    <string name="edit_shift_word_case_title">Shift schimbă inițiala</string>
+    <string name="edit_shift_word_end_title">Shift și la sfârșitul cuvântului</string>
+    <string name="edit_show_case_variants_title">Arată variantele de majuscule</string>
+    <string name="edit_exact_add_first_title">Adăugare cuvânt ca prima sugestie</string>
+    <string name="edit_reset_suggestions_on_delete_title">Sugestii de la început cu Backspace</string>
+    <string name="edit_tap_character">Șterge caracter sau spațiu</string>
+    <string name="edit_tap_autocorrect">Anulează corectarea, apoi caractere</string>
+    <string name="edit_tap_swipe">Șterge ultimul cuvânt glisat, apoi caractere</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Formatarea textului</string>
+    <string name="edit_backspace_help">Selecția la apăsare lungă funcționează pe întreaga tastatură. Dezactivată, ștergerea normală necesită repetarea tastelor. Alte acțiuni scurte se aplică imediat după o sugestie.</string>
+    <string name="edit_pause_help">O mișcare inversă scurtă pune pauză. O mișcare mai lungă din locul pauzei reia.</string>
+    <string name="edit_speed_help" formatted="false">Față de viteza anterioară a gestului: 80% este mai lent, 100% neschimbat.</string>
+    <string name="edit_fast_help">Modul rapid începe după depășirea acestei părți din lățimea ecranului. Schimbarea direcției resetează distanța.</string>
+    <string name="edit_format_help">Parolele și câmpurile tehnice nu folosesc niciodată formatarea automată. Opțiunile de punctuație necesită punctuație inteligentă; majusculele după numere, majuscule automate.</string>
+    <string name="edit_fallback_header">Selecție anterioară pe două axe</string>
 </resources>
+

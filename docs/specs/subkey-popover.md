@@ -38,6 +38,12 @@ subkey popover found in mainstream keyboards".
 
 ## Assign / edit screens
 
+- The assign screen keeps the pending/loaded mapping in a remembered state holder and
+  loads it in `LaunchedEffect`, both keyed by the manager, key code and direction.
+  Loading remains asynchronous and is cancelled when the screen leaves composition;
+  details and the palette wait for the mapping, including a loaded empty slot.
+  This replaces the `produceState` form rejected by the current Compose lint detector
+  without suppressing `ProduceStateDoesNotAssignValue` or changing mapping storage.
 - `SubkeyAssignActivity` is a translucent dialog activity started from the IME with a new task and excluded from recents. Finishing it returns to the app that was being typed in.
 - It **reuses** the per-key customisation pieces:
   - `CommandPaletteDialog` picks the action;

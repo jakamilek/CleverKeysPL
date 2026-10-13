@@ -116,20 +116,7 @@ internal fun SettingsActivity.InputBehaviorSection() {
                         }
                     )
 
-                    // #110: Backspace undo swipe — delete entire swiped word on immediate backspace
-                    if (swipeTypingEnabled) {
-                        SettingsSwitch(
-                            title = stringResource(R.string.input_backspace_undo_swipe_title),
-                            description = stringResource(R.string.input_backspace_undo_swipe_desc),
-                            checked = backspaceUndoSwipe,
-                            highlightId = "backspace_undo_swipe",
-                            onCheckedChange = {
-                                backspaceUndoSwipe = it
-                                saveSetting("backspace_undo_swipe", it)
-                                Config.globalConfig()?.backspace_undo_swipe = it
-                            }
-                        )
-                    }
+                    EditingSuggestionControls()
 
                     // Word Prediction Advanced section (expandable)
                     Row(
@@ -331,6 +318,8 @@ internal fun SettingsActivity.InputBehaviorSection() {
                         Config.globalConfig().smart_punctuation = it
                     }
                 )
+
+                EditingFormatControls()
 
                 // v1.2.8: Vibration settings moved to Accessibility section
 
@@ -540,3 +529,4 @@ internal fun SettingsActivity.InputBehaviorSection() {
                 )
             }
 }
+

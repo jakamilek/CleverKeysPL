@@ -646,20 +646,30 @@ class PredictionContextTracker {
     ) {
         ic ?: return
 
-        // Skip sync during programmatic text changes
-        if (expectingSelectionUpdate) {
-            expectingSelectionUpdate = false
-            return
-        }
+        // This read runs after the cursor debounce. A pending own-edit acknowledgement
+        // must not swallow the user's first cut/paste or cursor move instead.
+        expectingSelectionUpdate = false
+        refreshCurrentWordFromEditor(ic, language, editorInfo)
+    }
+
+    /** Read the actual token after a committed key, retaining tap tracking if reads fail. */
+    fun refreshCurrentWordFromEditor(
+        ic: InputConnection?, language: String = "en", editorInfo: EditorInfo? = null
+    ): Boolean {
+        ic ?: return false
 
         // Skip for input types where prediction is inappropriate
-        if (!shouldSyncForInputType(editorInfo)) return
+        if (!shouldSyncForInputType(editorInfo)) return false
 
         // Skip for CJK text (no space-based word boundaries)
-        if (isCJKLanguage(language)) return
+        if (isCJKLanguage(language)) return false
 
-        val beforeText = ic.getTextBeforeCursor(MAX_TEXT_READ, 0)?.toString() ?: ""
-        val afterText = ic.getTextAfterCursor(MAX_TEXT_READ, 0)?.toString() ?: ""
+        val beforeText: String
+        val afterText: String
+        try {
+            beforeText = ic.getTextBeforeCursor(MAX_TEXT_READ, 0)?.toString() ?: return false
+            afterText = ic.getTextAfterCursor(MAX_TEXT_READ, 0)?.toString() ?: return false
+        } catch (_: Exception) { return false }
 
         // Check if we're in CJK text based on surrounding chars
         if (containsCJKCharacters(beforeText) || containsCJKCharacters(afterText)) {
@@ -668,7 +678,7 @@ class PredictionContextTracker {
             rawPrefixForDeletion = ""
             rawSuffixForDeletion = ""
             wasSyncedFromCursor = false
-            return
+            return true
         }
 
         // Extract word prefix (before cursor) and suffix (after cursor)
@@ -697,6 +707,7 @@ class PredictionContextTracker {
             android.util.Log.d(TAG, "synchronizeWithCursor: prefix='$normalizedPrefix', suffix='$normalizedSuffix', " +
                 "rawPrefix='$rawPrefix', rawSuffix='$rawSuffix'")
         }
+        return true
     }
 
     /**

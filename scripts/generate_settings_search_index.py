@@ -68,6 +68,8 @@ SYNONYMS = {
 # (they contain no section marker themselves, so position-based inference can't see it).
 # Without an entry here such files fall back to "advanced".
 FILE_DEFAULT_SECTION = {
+    "BackspaceEditingSection.kt": "gestureTuning",
+    "EditingBehaviorSection.kt": "input",
     # LearningDataManagerBlock renders inside InputBehaviorSection's input section
     "LearningDataSection.kt": "input",
 }
@@ -229,3 +231,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

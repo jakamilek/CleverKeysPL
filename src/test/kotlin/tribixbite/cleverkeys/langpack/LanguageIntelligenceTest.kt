@@ -1,0 +1,313 @@
+package tribixbite.cleverkeys.langpack
+
+import org.junit.Assert.*
+import org.junit.Test
+import tribixbite.cleverkeys.SwipeSurfaceVariants
+
+class LanguageIntelligenceTest {
+    @Test fun replacementSharesOnlyIdenticalImmutableEntriesAndUsesNewHeader() {
+        val json = javaClass.getResource("/polish-surface-family-v5.json")!!.readText(Charsets.UTF_8)
+        val old = IntelligenceJson.parse(json.reader(), "pl", 5, setOf("metadata", "capitalization"))
+        val next = IntelligenceJson.parse(json.reader(), "pl", 7, setOf("metadata"), old)
+        assertNotSame(old, next)
+        assertSame(old.lookup("praca"), next.lookup("praca"))
+        assertSame(old.lookup("pracy"), next.lookup("pracy"))
+        assertEquals(7, next.packageInfo().version)
+        assertFalse(next.sharesSourceLemma("praca", "malina"))
+        val changed = IntelligenceJson.document(json.reader())
+        val entries = changed.getAsJsonArray("entries")
+        val removed = entries.remove(entries.size() - 1).asJsonObject.get("surfaceKey").asString
+        entries.first { it.asJsonObject.get("surfaceKey").asString == "praca" }
+            .asJsonObject.addProperty("canonicalForm", "Praca")
+        val replacement = IntelligenceJson.parse(changed.toString().reader(), "pl", 8, setOf("metadata"), old)
+        assertNotSame(old.lookup("praca"), replacement.lookup("praca"))
+        assertEquals("Praca", replacement.lookup("praca")!!.canonicalForm)
+        assertNull(replacement.lookup(removed))
+        assertNotNull(old.lookup(removed))
+        assertSame(old.lookup("pracy"), replacement.lookup("pracy"))
+    }
+
+    @Test fun reuseCannotBypassLateHeadersDuplicatesOrLanguageIsolation() {
+        val entry = """{"surfaceKey":"test","metadata":{"note":"unchanged"}}"""
+        val json = """{"entries":[$entry],"languageCode":"pl","schemaVersion":1}"""
+        val old = IntelligenceJson.parse(json.reader(), "pl", 6, setOf("metadata"))
+        for (bad in listOf(json.replace("\"schemaVersion\":1", "\"schemaVersion\":2"),
+            json.replace("[$entry]", "[$entry,$entry]"), json + " {}")) {
+            try {
+                IntelligenceJson.parse(bad.reader(), "pl", 7, setOf("metadata"), old)
+                fail("reusing entries must still validate the entire document")
+            } catch (_: Exception) { }
+        }
+        assertEquals("{\"note\":\"unchanged\"}", old.lookup("test")!!.metadataJson)
+        val en = IntelligenceJson.parse(json.replace("\"pl\"", "\"en\"").reader(),
+            "en", 7, setOf("metadata"), old)
+        assertEquals(old.lookup("test"), en.lookup("test"))
+        assertNotSame(old.lookup("test"), en.lookup("test"))
+    }
+
+    @Test fun streamedBudgetsCoverTheWholeDocumentRatherThanResettingAtEachEntry() {
+        val values = "[" + "null,".repeat(14_999) + "null]"
+        val entries = (0 until 134).joinToString(",") {
+            """{"surfaceKey":"word$it","metadata":$values}"""
+        }
+        // Each chunk is small enough, but their aggregate exceeds the 2M-node ceiling.
+        refused("""{"entries":[$entries],"languageCode":"pl","schemaVersion":1}""")
+        val tooManyEntries = (0 until 120_001).joinToString(",") { """{"surfaceKey":"word$it"}""" }
+        refused("""{"entries":[$tooManyEntries],"languageCode":"pl","schemaVersion":1}""")
+        val extraFields = (0 until 62).joinToString(",") { "\"future$it\":null" }
+        refused("""{"entries":[],"languageCode":"pl","schemaVersion":1,$extraFields}""")
+    }
+
+    @Test fun streamedSidecarValidatesHeadersAfterEntriesAndRejectsAllDuplicateFields() {
+        val valid = """{"entries":[],"provenance":{"source":"test"},"languageCode":"pl","schemaVersion":1}"""
+        val data = provider(valid)
+        assertTrue(data.packageInfo().provenanceJson!!.contains("test"))
+        for (json in listOf(
+            valid.replace("\"schemaVersion\":1", "\"schemaVersion\":2"),
+            valid.replace("\"languageCode\":\"pl\"", "\"languageCode\":\"en\""),
+            valid.replace("\"entries\":[]", "\"entries\":[],\"entries\":[]"),
+            valid.replace("\"source\":\"test\"", "\"source\":\"test\",\"source\":\"other\""),
+            valid.replace("\"entries\":[]", "\"entries\":null"),
+            valid + " {}",
+            valid.replace("\"entries\":[],", ""),
+        )) refused(json)
+    }
+
+    @Test fun streamedUnknownFieldsKeepStrictDepthStringAndChunkBounds() {
+        val base = """{"entries":[],"languageCode":"pl","schemaVersion":1,"future":%s}"""
+        provider(base.format("{\"valid\":[null,1,\"text\"]}"))
+        refused(base.format("{\"duplicate\":1,\"duplicate\":2}"))
+        refused(base.format("[".repeat(34) + "null" + "]".repeat(34)))
+        refused(base.format("\"" + "x".repeat(16_385) + "\""))
+        refused(base.format("[" + "null,".repeat(16_384) + "null]"))
+        // The same bound applies before any one entry builds a giant metadata tree.
+        refused("""{"entries":[{"surfaceKey":"test","metadata":%s}],"languageCode":"pl","schemaVersion":1}"""
+            .format("[" + "null,".repeat(16_384) + "null]"))
+    }
+
+    @Test fun expandedSourceMetadataHasABoundedTwoMillionNodeBudget() {
+        // Root + array + null values: test the exact boundary without huge objects.
+        fun document(nodes: Int) = "{\"values\":[" + "null,".repeat(nodes - 3) + "null]}"
+        assertEquals(1_999_998, IntelligenceJson.document(document(2_000_000).reader())
+            .getAsJsonArray("values").size())
+        try {
+            IntelligenceJson.document(document(2_000_001).reader())
+            fail("node budget must stay bounded")
+        } catch (_: IllegalArgumentException) { }
+        assertEquals(32L * 1024 * 1024, IntelligenceJson.MAX_BYTES)
+    }
+
+    @Test fun compactOrdinaryReadingsKeepSourceRelationsWithoutInventingCaseVariants() {
+        val json = """{"schemaVersion":1,"languageCode":"pl","entries":[
+          {"surfaceKey":"kasa","metadata":{"sourceEvidence":{"lexicalReadings":[
+            {"lemma":"kasa","partOfSpeech":"subst","surfaces":["kasa"]}]}}},
+          {"surfaceKey":"kasami","metadata":{"sourceEvidence":{"lexicalReadings":[
+            {"lemma":"kasa","partOfSpeech":"subst","surfaces":["kasami"]}]}}}
+        ]}"""
+        val data = IntelligenceJson.parse(json.reader(), "pl", 6, setOf("metadata", "capitalization"))
+        assertTrue(data.sharesSourceLemma("kasa", "kasami"))
+        assertNull(data.lookup("kasami")!!.capitalization)
+        assertNull(data.lookup("kasami")!!.canonicalForm)
+        assertEquals(listOf("kasami"), SwipeSurfaceVariants.expand(listOf("kasami"),
+            listOf(100), null, data, false, false).words)
+    }
+
+    private fun familyProvider(): LanguageIntelligenceProvider = IntelligenceJson.parse(
+        javaClass.getResource("/polish-surface-family-v5.json")!!.readText(Charsets.UTF_8).reader(),
+        "pl", 5, setOf("capitalization", "metadata"))
+
+    @Test fun ordinaryDecodedFormsDoNotNeedCapitalizationMetadataAndNeverInventCaseVariants() {
+        val data = familyProvider()
+        assertNull(data.lookup("kapitalizacja"))
+        val result = SwipeSurfaceVariants.expand(listOf("kapitalizacją", "kapitalizacja", "kapitalizm"),
+            listOf(220, 190, 90), listOf("pl", "pl", "pl"), data, false, false)
+        assertEquals(listOf("kapitalizacją", "kapitalizacja", "kapitalizm"), result.words)
+        assertEquals(listOf(220, 190, 90), result.scores)
+        assertEquals(listOf(false, false, false), result.exactCase)
+        assertEquals(2, result.formGroupSize)
+        assertEquals(1, SwipeSurfaceVariants.expand(listOf("kapitalizacją", "kapitalizm"),
+            listOf(220, 190), null, data, false, false).formGroupSize)
+    }
+
+    @Test fun sourceLemmaLinksActualInflectionsWithoutRemovingLettersOrGuessingStems() {
+        val data = familyProvider()
+        assertTrue(data.sharesSourceLemma("praca", "pracy"))
+        assertFalse(data.sharesSourceLemma("praca", "malina"))
+        assertFalse(data.sharesSourceLemma("kapitalizacja", "kapitalizacji"))
+        assertTrue(data.lookup("pracy")!!.sourceLemmas.contains(SourceLemma("praca", "subst")))
+        val result = SwipeSurfaceVariants.expand(listOf("pracy", "malina", "praca"),
+            listOf(220, 190, 160), null, data, false, false)
+        assertEquals(listOf("pracy", "Pracy", "praca", "Praca", "malina"), result.words)
+        assertEquals(listOf(220, 220, 160, 160, 190), result.scores)
+        assertEquals(4, result.formGroupSize)
+    }
+
+    @Test fun lemmaRelationRequiresDeclaredMetadataAndImmutableSurfaceMatchedEvidence() {
+        val json = javaClass.getResource("/polish-surface-family-v5.json")!!.readText(Charsets.UTF_8)
+        val capsOnly = IntelligenceJson.parse(json.reader(), "pl", 5, setOf("capitalization"))
+        assertFalse(capsOnly.sharesSourceLemma("praca", "pracy"))
+        val provider = familyProvider()
+        try {
+            (provider.lookup("praca")!!.sourceLemmas as MutableSet<SourceLemma>).clear()
+            fail("source identities must be immutable")
+        } catch (_: UnsupportedOperationException) { }
+        assertTrue(provider.sharesSourceLemma("praca", "pracy"))
+        val root = IntelligenceJson.document(json.reader())
+        for (entry in root.getAsJsonArray("entries")) {
+            val obj = entry.asJsonObject
+            if (obj.get("surfaceKey").asString != "pracy") continue
+            for (reading in obj.getAsJsonObject("metadata").getAsJsonObject("sourceEvidence")
+                .getAsJsonArray("lexicalReadings")) {
+                reading.asJsonObject.addProperty("partOfSpeech", "other-pos")
+            }
+        }
+        val changedPos = IntelligenceJson.parse(root.toString().reader(), "pl", 5, setOf("metadata"))
+        assertFalse(changedPos.sharesSourceLemma("praca", "pracy"))
+    }
+
+    @Test fun capitalizationDisplayToggleDoesNotTurnOffInflectionGroupsOrDeleteDecodedCaseChoices() {
+        val data = familyProvider()
+        val result = SwipeSurfaceVariants.expand(listOf("pracy", "Pracy", "praca"),
+            listOf(220, 200, 160), null, data, false, false, showCaseVariants = false)
+        assertEquals(listOf("pracy", "praca", "Pracy"), result.words)
+        assertEquals(listOf(220, 160, 200), result.scores)
+        assertEquals(listOf(false, false, false), result.exactCase)
+        assertEquals(2, result.formGroupSize)
+        assertEquals(listOf("malina", "Malina", "maliną"), SwipeSurfaceVariants.expand(
+            listOf("malina", "Malina", "maliną"), listOf(220, 200, 160), null, data,
+            false, true, showCaseVariants = false).words)
+    }
+
+    @Test fun anotherLanguageAndAbsentDecodedInflectionNeverEnterOrdinaryGroups() {
+        val data = familyProvider()
+        val result = SwipeSurfaceVariants.expand(listOf("kapitalizacją", "kapitalizacja"),
+            listOf(220, 190), listOf("pl", "en"), data, false, false)
+        assertEquals(1, result.formGroupSize)
+        assertEquals(listOf("kapitalizacją", "kapitalizacja"), result.words)
+        assertEquals(listOf("praca", "Praca"), SwipeSurfaceVariants.expand(listOf("praca"),
+            listOf(220), null, data, false, false).words)
+    }
+
+    @Test fun decodedDiacriticAlternativeExpandsUsingActualV5SourceAndKeepsBothWeights() {
+        val data = familyProvider()
+        assertTrue(data.lookup("maliną")!!.metadataJson!!.contains("Malina:Sf"))
+        val slate = SwipeSurfaceVariants.expand(listOf("Malina", "mamoną", "maliną", "Maliną"),
+            listOf(220, 190, 160, 150), listOf("pl", "pl", "pl", "pl"), data, false, false)
+        assertEquals(listOf("Malina", "malina", "maliną", "Maliną", "mamoną"), slate.words)
+        assertEquals(listOf(220, 220, 160, 160, 190), slate.scores)
+        assertEquals(listOf(true, true, true, true, false), slate.exactCase)
+        assertEquals(List(5) { "pl" }, slate.languages)
+    }
+
+    @Test fun groupNeverInventsMissingDecodedOrSourceFormsAndIgnoresAnotherLanguage() {
+        val data = familyProvider()
+        assertEquals(listOf("malina", "Malina", "mamoną"), SwipeSurfaceVariants.expand(
+            listOf("malina", "mamoną"), listOf(100, 90), null, data, false, false).words)
+        assertEquals(listOf("malina", "Malina", "maliną"), SwipeSurfaceVariants.expand(
+            listOf("malina", "maliną"), listOf(100, 90), listOf("pl", "en"), data, false, false).words)
+        assertEquals(listOf(true, true, false), SwipeSurfaceVariants.expand(
+            listOf("malina", "maliną"), listOf(100, 90), null, provider(), false, false).exactCase)
+        assertEquals(listOf("malina", "maliną"), SwipeSurfaceVariants.expand(
+            listOf("malina", "maliną"), listOf(100, 90), null, null, false, false).words)
+    }
+
+    @Test fun searchAndSurfaceBoundsKeepOtherDecodedKeysInTheirExistingOrder() {
+        val data = familyProvider()
+        val bounded = SwipeSurfaceVariants.expand(listOf("laska", "łaska", "laską", "łaską"),
+            listOf(100, 90, 80, 70), null, data, false, false)
+        assertEquals(listOf("laska", "Laska", "łaska", "Łaska", "laską", "łaską"), bounded.words)
+        assertEquals(listOf(true, true, true, true, false, false), bounded.exactCase)
+        assertEquals(listOf(100, 100, 90, 90, 80, 70), bounded.scores)
+        val far = listOf("malina", "kot", "dom", "pies", "mamoną", "maliną")
+        assertEquals(listOf("malina", "Malina") + far.drop(1), SwipeSurfaceVariants.expand(
+            far, listOf(100, 90, 80, 70, 60, 50), null, data, false, false).words)
+    }
+
+    private fun provider(json: String = fixture()): LanguageIntelligenceProvider =
+        IntelligenceJson.parse(json.reader(), "pl", 3, setOf("capitalization", "metadata"))
+
+    private fun fixture(): String = javaClass.getResource("/language-intelligence-trial.json")!!
+        .readText(Charsets.UTF_8)
+
+    @Test fun realProducerFixtureRetainsNineKeysAndSourceEvidence() {
+        val data = provider()
+        assertEquals("łódź", data.lookup("ŁÓDŹ")!!.surfaceKey)
+        assertNull(data.lookup("lodz"))
+        assertEquals(listOf("łódź", "Łódź"), data.lookup("łódź")!!.capitalization!!.variants.map { it.surface })
+        assertEquals(1, data.lookup("łódzki")!!.capitalization!!.variants.size)
+        for (key in listOf("jagoda", "malina", "polska", "róża", "warszawska", "warszawski", "łodzi", "łódzki", "łódź")) {
+            assertNotNull(data.lookup(key))
+            assertTrue(data.lookup(key)!!.metadataJson!!.contains("generatedFormProofs"))
+        }
+        assertTrue(data.packageInfo().provenanceJson!!.contains("sgjp-2026.06.01"))
+        assertTrue(data.capabilities().contains("capitalization"))
+    }
+
+    @Test fun twoFormsShareOneScoreAndNextDistinctCandidateIsThird() {
+        for (key in listOf("łódź", "malina", "warszawska", "łodzi")) {
+            val slate = SwipeSurfaceVariants.expand(listOf(key, key.replaceFirstChar { it.titlecase() }, "lód"),
+                listOf(100, 95, 80), listOf("pl", "pl", "pl"), provider(), false, false)
+            assertEquals(listOf(key, key.replaceFirstChar { it.titlecase() }, "lód"), slate.words)
+            assertEquals(listOf(100, 100, 80), slate.scores)
+            assertEquals(listOf("pl", "pl", "pl"), slate.languages)
+            assertEquals(listOf(true, true, false), slate.exactCase)
+        }
+    }
+
+    @Test fun sentenceStartKeepsLowercaseAvailableAndUserCaseIsRespected() {
+        val slate = SwipeSurfaceVariants.expand(listOf("Łódź", "Lód"), listOf(100, 80), null, provider(), true, false)
+        assertEquals(listOf("Łódź", "łódź", "Lód"), slate.words)
+        assertEquals(listOf("Malina", "malina", "lód"), SwipeSurfaceVariants.expand(
+            listOf("Malina", "lód"), listOf(100, 80), null, provider(), false, false).words)
+    }
+
+    @Test fun absentMetadataAndCapsLockKeepExistingSlate() {
+        for (word in listOf("nieznane", "ŁÓDŹ")) {
+            val slate = SwipeSurfaceVariants.expand(listOf(word, "lód"), listOf(100, 80), null,
+                provider(), false, word == "ŁÓDŹ")
+            assertEquals(listOf(word, "lód"), slate.words)
+            assertEquals(listOf(false, false), slate.exactCase)
+        }
+        assertEquals(listOf("łódź"), SwipeSurfaceVariants.expand(listOf("łódź"), emptyList(), null,
+            null, false, false).words)
+    }
+
+    @Test fun adjectiveStaysSingleAndAnotherLanguageIsNotRemoved() {
+        assertEquals(listOf("łódzki", "lód"), SwipeSurfaceVariants.expand(listOf("łódzki", "lód"),
+            listOf(100, 80), null, provider(), false, false).words)
+        assertEquals(listOf("Łódzki", "Lód"), SwipeSurfaceVariants.expand(listOf("Łódzki", "Lód"),
+            listOf(100, 80), null, provider(), true, false).words)
+        val slate = SwipeSurfaceVariants.expand(listOf("malina", "Malina", "lód"), listOf(100, 90, 80),
+            listOf("pl", "en", "pl"), provider(), false, false)
+        assertEquals(listOf("pl", "pl", "en", "pl"), slate.languages)
+    }
+
+    private fun refused(json: String) {
+        try { provider(json); fail("invalid sidecar accepted") } catch (_: Exception) { }
+    }
+
+    @Test fun invalidSchemaLanguageDuplicateKeysAndCasePolicyAreRejected() {
+        refused(fixture().replace("\"schemaVersion\":1", "\"schemaVersion\":2"))
+        refused(fixture().replace("\"languageCode\":\"pl\"", "\"languageCode\":\"en\""))
+        refused(fixture().replace("\"surfaceKey\":\"malina\"", "\"surfaceKey\":\"jagoda\""))
+        refused(fixture().replace("\"casePolicy\":\"capitalized\"", "\"casePolicy\":\"invented\""))
+        refused(fixture().replace("\"surfaceKey\":\"łódź\"", "\"surfaceKey\":\"Łódź\""))
+        refused(fixture().replace("\"defaultSurface\":\"łódź\"", "\"defaultSurface\":\"lód\""))
+    }
+
+    @Test fun duplicateJsonMembersAndTrailingContentAreRejected() {
+        for (json in listOf("{\"a\":1,\"a\":2}", "{} {}", "{/*comment*/}")) {
+            try { IntelligenceJson.document(json.reader()); fail("invalid JSON accepted") } catch (_: Exception) { }
+        }
+    }
+
+    @Test fun legacyManifestAndFutureCapabilitiesAreCompatibleButUnsupportedApiIsNot() {
+        assertNull(IntelligenceJson.declaration(IntelligenceJson.document("{}".reader())))
+        assertEquals(setOf("future"), IntelligenceJson.capabilities(
+            IntelligenceJson.document("{\"capabilities\":[\"future\"]}".reader())))
+        try {
+            IntelligenceJson.declaration(IntelligenceJson.document("{\"apiVersion\":2}".reader()))
+            fail("unsupported API accepted")
+        } catch (_: IllegalArgumentException) { }
+    }
+}

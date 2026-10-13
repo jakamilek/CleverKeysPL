@@ -780,7 +780,11 @@ object BinaryDictionaryLoader {
      *     - Canonical count: uint8
      *     - Canonical indices: uint32[]
      */
-    private fun loadV2IntoNormalizedIndex(buffer: ByteBuffer, outIndex: NormalizedPrefixIndex) {
+    private fun loadV2IntoNormalizedIndex(buffer: ByteBuffer, outIndex: NormalizedPrefixIndex) =
+        readV2CanonicalMappings(buffer) { canonical, rank -> outIndex.addWord(canonical, rank) }
+
+    /** Shared V2 traversal; display consumers need no normalized prediction/prefix index. */
+    private fun readV2CanonicalMappings(buffer: ByteBuffer, add: (String, Int) -> Unit) {
         // Read V2 header (version already read by caller)
         val langBytes = ByteArray(4)
         buffer.get(langBytes)
@@ -809,14 +813,14 @@ object BinaryDictionaryLoader {
         // Load normalized words
         buffer.seekSection(normalizedOffset, "normalized")
         val normalizedCount = buffer.int
-        val normalizeds = Array(normalizedCount) { "" }
-
+        if (normalizedCount < 0) throw IOException("Negative normalized word count")
+        // The old loader decoded these strings but never used them. Keep validating
+        // section lengths without retaining an unused array of all normalized words.
         for (i in 0 until normalizedCount) {
             checkDictionaryLoadInterrupted()
             val wordLen = buffer.short.toInt() and 0xFFFF
-            val wordBytes = ByteArray(wordLen)
-            buffer.get(wordBytes)
-            normalizeds[i] = String(wordBytes, Charsets.UTF_8)
+            if (wordLen > buffer.remaining()) throw IOException("Truncated normalized section")
+            buffer.position(buffer.position() + wordLen)
         }
 
         // Load accent map and populate index
@@ -828,13 +832,45 @@ object BinaryDictionaryLoader {
                 checkDictionaryLoadInterrupted()
                 val canonicalIdx = buffer.int
                 if (canonicalIdx < wordCount) {
-                    outIndex.addWord(canonicals[canonicalIdx], ranks[canonicalIdx])
+                    add(canonicals[canonicalIdx], ranks[canonicalIdx])
                 }
             }
         }
 
         Log.d(TAG, "Loaded V2 dictionary: language=$language, " +
                 "$wordCount canonical words, $normalizedCount normalized forms")
+    }
+
+    /** Manager-only rows, retaining its existing canonical choice and frequency scale. */
+    fun loadDisplayWordsFromFile(file: java.io.File, disabled: Set<String>): List<DictionaryWord>? =
+        java.io.FileInputStream(file).use {
+            readDisplayWords(readBinaryAssetFully(it, file.name, MIN_BINARY_DICT_BYTES), disabled)
+        }
+
+    fun loadDisplayWords(context: Context, filename: String, disabled: Set<String>): List<DictionaryWord>? =
+        context.assets.open(filename).use {
+            readDisplayWords(readBinaryAssetFully(it, filename, MIN_BINARY_DICT_BYTES), disabled)
+        }
+
+    private fun readDisplayWords(buffer: ByteBuffer, disabled: Set<String>): List<DictionaryWord>? {
+        val magic = buffer.int
+        val version = buffer.int
+        val rows = DictionaryDisplayRows(disabled)
+        when {
+            magic == MAGIC_V2 && version == EXPECTED_VERSION_V2 ->
+                readV2CanonicalMappings(buffer, rows::add)
+            magic == MAGIC_V1 && version == EXPECTED_VERSION -> {
+                // Preserve legacy rank conversion/order for V1 bundled files.
+                val index = NormalizedPrefixIndex()
+                loadV1IntoNormalizedIndex(buffer, index)
+                for (key in index.getAllNormalizedWords()) {
+                    val match = index.lookup(key) ?: continue
+                    rows.add(match.bestCanonical, match.bestFrequencyRank)
+                }
+            }
+            else -> return null
+        }
+        return rows.words()
     }
 
     /**

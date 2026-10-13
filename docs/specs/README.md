@@ -30,7 +30,7 @@ Technical documentation for CleverKeys, an Android keyboard with on-device swipe
 
 | Spec | Description |
 |------|-------------|
-| [Dictionary System](./dictionary-and-language-system.md) | Word lookup, frequency ranking, user dictionary |
+| [Dictionary System](./dictionary-and-language-system.md) | Word lookup, frequency ranking, user dictionary; schema-v2 shared source metadata |
 | [Secondary Language](./secondary-language-integration.md) | Multi-language typing, language detection |
 | [Language-Specific Dictionary](./language-specific-dictionary-manager.md) | Per-language dictionary management |
 

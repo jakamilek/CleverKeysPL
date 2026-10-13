@@ -34,6 +34,35 @@ class KeyEventHandler(
      * from [mods] to ensure that the meta state is correct while up and down
      * events are sent for the modifier keys. */
     private var metaState = 0
+    private val cursorWordCapitalization = CursorWordCapitalization()
+    private data class BackspaceHold(
+        val connection: InputConnection, val info: EditorInfo,
+        val before: String, val anchor: Int, val base: Int, var cursor: Int,
+        var traceBudget: Int = 24,
+        var lastTrace: String? = null,
+        var acknowledgedSelection: Pair<Int, Int>? = null,
+        val requestedSelections: LinkedHashSet<Pair<Int, Int>> = linkedSetOf()
+    ) {
+        fun expectedSelection(): Pair<Int, Int> = base + cursor to anchor
+        fun rememberSelection() {
+            requestedSelections.add(expectedSelection())
+            if (requestedSelections.size > 8) requestedSelections.remove(requestedSelections.first())
+        }
+    }
+    private var backspaceHold: BackspaceHold? = null
+
+    /** Playground-only sink. Its messages contain state/offsets, never editor text. */
+    var backspaceTrace: ((String) -> Unit)? = null
+    private fun traceBackspace(message: String) {
+        try { backspaceTrace?.invoke("handler=${System.identityHashCode(this)} $message") }
+        catch (_: Exception) { /* Diagnostics must never alter editing. */ }
+    }
+    private fun traceHold(s: BackspaceHold, message: String) {
+        if (backspaceTrace == null || s.traceBudget <= 0 || s.lastTrace == message) return
+        s.traceBudget--
+        s.lastTrace = message
+        traceBackspace(message)
+    }
 
     /** Whether to force sending arrow keys to move the cursor when
      * [setSelection] could be used instead. */
@@ -55,6 +84,9 @@ class KeyEventHandler(
 
     /** Editing just started. */
     fun started(info: EditorInfo) {
+        if (backspaceHold != null) traceBackspace("session reset: input started")
+        backspaceHold = null
+        cursorWordCapitalization.reset()
         val conn = recv.getCurrentInputConnection()
         if (conn != null) {
             autocap.started(info, conn)
@@ -63,14 +95,299 @@ class KeyEventHandler(
     }
 
     /** Selection has been updated. */
-    fun selection_updated(oldSelStart: Int, newSelStart: Int) {
+    fun selection_updated(
+        oldSelStart: Int, newSelStart: Int,
+        oldSelEnd: Int = oldSelStart, newSelEnd: Int = newSelStart
+    ) {
+        // Android can acknowledge setSelection before getExtractedText catches up.
+        // The callback carries absolute editor offsets, unlike a bounded extraction.
+        backspaceHold?.acknowledgedSelection = if (newSelStart >= 0 && newSelEnd >= 0)
+            minOf(newSelStart, newSelEnd) to maxOf(newSelStart, newSelEnd) else null
+        cursorWordCapitalization.selection(oldSelStart, oldSelEnd, newSelStart, newSelEnd)
+        backspaceHold?.let { traceHold(it, "ack=$newSelStart,$newSelEnd expected=${it.expectedSelection()}") }
         autocap.selection_updated(oldSelStart, newSelStart)
+    }
+
+    fun invalidateWordCaseEdit() {
+        cursorWordCapitalization.reset()
+        if (backspaceHold != null) traceBackspace("session reset: input finished")
+        backspaceHold = null
+    }
+
+    internal var backspaceHaptic: ((HapticEvent) -> Unit)? = null
+    private fun confirmBackspace(event: HapticEvent) {
+        try { backspaceHaptic?.invoke(event) } catch (_: Exception) { /* Feedback cannot abort editing. */ }
+    }
+
+    override fun beginBackspaceHold(): Boolean = beginBackspaceSelection(previewWord = true)
+
+    override fun beginBackspaceDrag(): Boolean = beginBackspaceSelection(previewWord = false)
+
+    private fun beginBackspaceSelection(previewWord: Boolean): Boolean {
+        traceBackspace("begin requested")
+        if (recv.isClipboardTagMode() || recv.isClipboardEditMode() || recv.isClipboardSearchMode() ||
+            recv.isEmojiPaneOpen() || recv.isGifPaneOpen()) {
+            traceBackspace("begin blocked: inline mode"); return false
+        }
+        val info = recv.getCurrentEditorInfo() ?: run { traceBackspace("begin blocked: no editor info"); return false }
+        if ((info.inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT ||
+            SuggestionBar.isPasswordField(info) || TerminalUtils.isTerminalApp(info)) {
+            traceBackspace("begin blocked: unsupported field"); return false
+        }
+        val conn = recv.getCurrentInputConnection() ?: run { traceBackspace("begin blocked: no connection"); return false }
+        try {
+            if (!conn.finishComposingText()) { traceBackspace("begin blocked: composing"); return false }
+            val et = getCursorPos(conn) ?: run { traceBackspace("begin blocked: no extraction"); return false }
+            if (et.selectionStart < 0 || et.selectionStart != et.selectionEnd) {
+                traceBackspace("begin blocked: selection=${et.selectionStart},${et.selectionEnd}"); return false
+            }
+            val anchor = et.startOffset + et.selectionStart
+            val before = conn.getTextBeforeCursor(4096, 0)?.toString() ?: run { traceBackspace("begin blocked: no preceding text"); return false }
+            val base = anchor - before.length
+            if (base < 0) { traceBackspace("begin blocked: invalid base=$base"); return false }
+            val start = if (previewWord) {
+                BackspaceGesture.previousWord(before, base > 0)?.start ?: before.length
+            } else before.length
+            val session = BackspaceHold(conn, info, before, anchor, base, start)
+            session.rememberSelection()
+            // Install before issuing the request: a synchronous callback must not be lost.
+            backspaceHold = session
+            // Some state-driven editors normalize selection ranges and rebuild the input
+            // connection for reversed endpoints. Keep our fixed anchor in the session;
+            // send an ordered range to the editor for every preview and drag update.
+            if (!conn.setSelection(base + start, anchor)) {
+                traceBackspace("begin blocked: setSelection refused"); backspaceHold = null; return false
+            }
+            traceBackspace("begin accepted: anchor=$anchor start=${base + start} length=${before.length - start}")
+            if (previewWord && start < before.length) confirmBackspace(HapticEvent.BACKSPACE_WORD_SELECT)
+            cursorWordCapitalization.disarm()
+            lastTypedChar = '\u0000'
+            try { autocap.stop() } catch (_: Exception) { /* Keep the preview owned. */ }
+            return true
+        } catch (e: Exception) {
+            traceBackspace("begin exception=${e.javaClass.simpleName}")
+            backspaceHold = null; return false
+        }
+    }
+
+    private fun backspaceHoldStillCurrent(s: BackspaceHold): Boolean {
+        if (recv.getCurrentInputConnection() !== s.connection) {
+            traceHold(s, "validation blocked: connection changed"); return false
+        }
+        if (recv.getCurrentEditorInfo() !== s.info) {
+            traceHold(s, "validation blocked: editor info changed"); return false
+        }
+        val expected = s.expectedSelection()
+        val et = getCursorPos(s.connection)
+        val extracted = if (et != null && et.selectionStart >= 0 && et.selectionEnd >= 0) {
+            val a = et.startOffset + et.selectionStart
+            val b = et.startOffset + et.selectionEnd
+            minOf(a, b) to maxOf(a, b)
+        } else null
+        val confirmed = extracted == expected ||
+            (s.acknowledgedSelection == expected && (extracted == null ||
+                extracted == (s.anchor to s.anchor) || extracted in s.requestedSelections))
+        // A callback supplements a lagging extraction; it never replaces the live text check.
+        if (!confirmed) {
+            traceHold(s, "validation blocked: extracted=$extracted ack=${s.acknowledgedSelection} expected=$expected")
+            return false
+        }
+        val selected = s.connection.getSelectedText(0)?.toString()
+        val matches = selected.orEmpty() == s.before.substring(s.cursor)
+        if (!matches) traceHold(s, "validation blocked: selected length=${selected?.length} expected length=${s.before.length - s.cursor}")
+        return matches
+    }
+
+    override fun stepBackspaceHold(direction: Int): Boolean {
+        val s = backspaceHold ?: return false
+        return try {
+            // A pending/lagging editor read is not a cancelled physical gesture. The
+            // next movement can retry; release still requires a verified live selection.
+            if (!backspaceHoldStillCurrent(s)) return false
+            val previous = s.cursor
+            val next = BackspaceGesture.step(s.before, previous, direction)
+            if (next == previous) { traceHold(s, "step boundary: direction=$direction"); return false }
+            s.cursor = next
+            if (!s.connection.setSelection(s.base + next, s.anchor)) {
+                s.cursor = previous
+                traceHold(s, "step blocked: setSelection refused")
+                return false
+            }
+            s.rememberSelection()
+            traceHold(s, "step accepted: direction=$direction expected=${s.expectedSelection()}")
+            true
+        } catch (e: Exception) {
+            traceHold(s, "step exception=${e.javaClass.simpleName}"); false
+        }
+    }
+
+    override fun keepBackspaceHoldSelection() {
+        // Leave only a verified live selection; cancellation still collapses it.
+        val s = backspaceHold ?: return
+        backspaceHold = null
+        if (!backspaceHoldStillCurrent(s)) return
+        recv.clearSwipeUndoState()
+        recv.clearAutocorrectUndoState()
+    }
+
+    override fun finishBackspaceHold(commit: Boolean) {
+        finishBackspaceSelection(commit, continueWords = false)
+    }
+
+    override fun deleteBackspaceHoldWord(): Boolean =
+        finishBackspaceSelection(commit = true, continueWords = true)
+
+    /** Re-arm only the editor/caret left by our verified deletion, never a new field. */
+    override fun previewPreviousBackspaceWord(): Boolean {
+        val s = backspaceHold ?: return false
+        return try {
+            if (s.cursor != s.before.length || !backspaceHoldStillCurrent(s)) return false
+            if (s.before.isNotEmpty() &&
+                s.connection.getTextBeforeCursor(s.before.length, 0)?.toString() != s.before) return false
+            val before = s.connection.getTextBeforeCursor(4096, 0)?.toString() ?: return false
+            val base = s.anchor - before.length
+            if (base < 0) return false
+            val start = BackspaceGesture.previousWord(before, base > 0)?.start ?: return false
+            val next = BackspaceHold(s.connection, s.info, before, s.anchor, base, start,
+                traceBudget = s.traceBudget)
+            next.rememberSelection()
+            backspaceHold = next // Capture synchronous selection acknowledgements.
+            if (!s.connection.setSelection(base + start, next.anchor)) {
+                backspaceHold = s
+                return false
+            }
+            confirmBackspace(HapticEvent.BACKSPACE_WORD_SELECT)
+            traceHold(next, "repeat word preview: length=${before.length - start}")
+            true
+        } catch (e: Exception) {
+            traceHold(s, "repeat preview exception=${e.javaClass.simpleName}")
+            false
+        }
+    }
+
+    private fun finishBackspaceSelection(commit: Boolean, continueWords: Boolean): Boolean {
+        val s = backspaceHold ?: run { traceBackspace("release blocked: no session commit=$commit"); return false }
+        traceBackspace("release requested: commit=$commit expected=${s.expectedSelection()}")
+        backspaceHold = null
+        try {
+            if (!backspaceHoldStillCurrent(s)) { traceBackspace("release blocked: validation"); return false }
+            if (!commit || s.cursor == s.before.length) {
+                val restored = s.connection.setSelection(s.anchor, s.anchor)
+                traceBackspace("release collapsed: cancel=${!commit} accepted=$restored")
+                return false
+            }
+            val rejected = recv.getLastAutoInsertedWord()
+            val deleted = s.before.substring(s.cursor)
+            if (continueWords) {
+                val prefix = s.before.take(s.cursor)
+                val nextAnchor = s.base + s.cursor
+                val next = BackspaceHold(s.connection, s.info, prefix, nextAnchor, s.base, prefix.length,
+                    traceBudget = s.traceBudget)
+                next.rememberSelection()
+                backspaceHold = next // Install before commit's synchronous callback.
+            }
+            val accepted = s.connection.commitText("", 1)
+            traceBackspace("release commitText accepted=$accepted length=${deleted.length}")
+            if (!accepted) { backspaceHold = null; return false }
+            confirmBackspace(HapticEvent.BACKSPACE_WORD_DELETE)
+            noteEditorTextMutation(s.connection)
+            recv.setLastSpaceAutoInserted(false)
+            recv.clearSwipeUndoState()
+            recv.clearAutocorrectUndoState()
+            if (!rejected.isNullOrEmpty() && deleted.trimEnd() == rejected) {
+                learningHooks?.onSwipeWordUndone(rejected, s.connection)
+            }
+            recv.handle_backspace()
+            autocap.event_sent(KeyEvent.KEYCODE_DEL, 0)
+            return true
+        } catch (e: Exception) {
+            traceBackspace("release exception=${e.javaClass.simpleName}")
+            backspaceHold = null
+            /* Uncooperative editors must not trigger a fallback deletion. */
+        }
+        return false
+    }
+
+    /** Dismiss a session's idle clipboard action on the first actual editor edit. */
+    var onEditorTextMutation: (() -> Unit)? = null
+
+    /** A commit's cursor callback is not a user returning to an existing word. */
+    fun noteEditorTextMutation(conn: InputConnection?) {
+        onEditorTextMutation?.invoke()
+        val pos = try {
+            val et = conn?.let { getCursorPos(it) }
+            if (et != null && et.selectionStart >= 0 && et.selectionStart == et.selectionEnd) {
+                et.startOffset + et.selectionStart
+            } else -1
+        } catch (_: Exception) { -1 }
+        cursorWordCapitalization.mutation(pos)
+    }
+
+    override fun tryWordCapitalization(): Boolean {
+        val options = Config.globalConfigOrNull()?.edit_behavior ?: EditBehaviorOptions()
+        if (!options.shiftWordCase) return false
+        val parkedPosition = cursorWordCapitalization.eligiblePosition ?: return false
+        val info = recv.getCurrentEditorInfo() ?: return false
+        if ((info.inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT ||
+            (info.inputType and InputType.TYPE_MASK_VARIATION) !in setOf(
+                InputType.TYPE_TEXT_VARIATION_NORMAL,
+                InputType.TYPE_TEXT_VARIATION_PERSON_NAME,
+                InputType.TYPE_TEXT_VARIATION_SHORT_MESSAGE,
+                InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE,
+                InputType.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT,
+                InputType.TYPE_TEXT_VARIATION_POSTAL_ADDRESS
+            ) || TerminalUtils.isTerminalApp(info) ||
+            recv.isClipboardTagMode() || recv.isClipboardEditMode() ||
+            recv.isClipboardSearchMode() || recv.isEmojiPaneOpen() || recv.isGifPaneOpen()
+        ) return false
+        val conn = recv.getCurrentInputConnection() ?: return false
+        var committed = false
+        var positioned = false
+        var batching = false
+        try {
+            val et = getCursorPos(conn) ?: return false
+            if (et.selectionStart < 0 || et.selectionStart != et.selectionEnd ||
+                et.startOffset + et.selectionStart != parkedPosition) return false
+            val before = conn.getTextBeforeCursor(CursorWordCapitalization.CONTEXT_LIMIT, 0)
+                ?.toString() ?: return false
+            val after = conn.getTextAfterCursor(CursorWordCapitalization.CONTEXT_LIMIT, 0)
+                ?.toString() ?: return false
+            if (!options.shiftWordEnd && (after.isEmpty() ||
+                    !Character.isLetter(after.codePointAt(0)) &&
+                    Character.getType(after.codePointAt(0)) !in setOf(
+                        Character.NON_SPACING_MARK.toInt(), Character.COMBINING_SPACING_MARK.toInt()))) return false
+            val edit = CursorWordCapitalization.plan(before, after, parkedPosition) ?: return false
+            batching = conn.beginBatchEdit()
+            // Replace only the first code point, preserving suffix spelling and its spans.
+            positioned = true
+            if (!conn.setSelection(edit.start, edit.start + edit.original.length)) return false
+            if (conn.getSelectedText(0)?.toString() != edit.original) return false
+            if (!conn.commitText(edit.replacement, 1)) return false
+            committed = true
+            cursorWordCapitalization.mutation(parkedPosition, retainEdit = true)
+        } catch (_: Exception) {
+            // Uncooperative editors retain normal Shift behavior if no text was committed.
+        } finally {
+            if (positioned) {
+                try { conn.setSelection(parkedPosition, parkedPosition) } catch (_: Exception) {}
+            }
+            if (batching) {
+                try { conn.endBatchEdit() } catch (_: Exception) {}
+            }
+        }
+        if (committed) {
+            lastTypedChar = '\u0000'
+            autocap.stop()
+            recv.onWordCapitalizationChanged(parkedPosition)
+        }
+        return committed
     }
 
     /** A key is being pressed. There will not necessarily be a corresponding
      * [keyUp] event. */
     override fun key_down(key: KeyValue?, isSwipe: Boolean) {
         if (key == null) return
+        if (key.getKind() != KeyValue.Kind.Modifier) cursorWordCapitalization.disarm()
 
         // Stop auto capitalisation when pressing some keys
         when (key.getKind()) {
@@ -134,10 +451,6 @@ class KeyEventHandler(
                 // Arrow keys and Enter in clipboard edit mode — dispatch to inline EditText
                 } else if (recv.isClipboardEditMode() && key.getKeyevent() in EDIT_MODE_DISPATCH_KEYS) {
                     recv.dispatchKeyToClipboardEdit(key.getKeyevent())
-                } else if (key.getKeyevent() == KeyEvent.KEYCODE_DEL && handleBackspaceUndoSwipe()) {
-                    // #110: Backspace after swipe deletes entire swiped word
-                } else if (key.getKeyevent() == KeyEvent.KEYCODE_DEL && handleBackspaceUndoAutocorrect()) {
-                    // #110: Backspace after autocorrect reverts to original word
                 } else {
                     // W5: Enter is a key event, not typed text, so the word it ends never reached
                     // the learn funnel. Report the boundary BEFORE the newline/send goes out, while
@@ -145,9 +458,21 @@ class KeyEventHandler(
                     if (key.getKeyevent() == KeyEvent.KEYCODE_ENTER) {
                         learningHooks?.onEditorWordBoundary(recv.getCurrentInputConnection())
                     }
-                    send_key_down_up(key.getKeyevent())
+                    val undo = key.getKeyevent() == KeyEvent.KEYCODE_DEL && !isKeyRepeat &&
+                        (if (learningHooks?.canUndoTypedAutocorrect(
+                            recv.getCurrentInputConnection(), recv.getCurrentEditorInfo()
+                        ) == true) handleBackspaceUndoAutocorrect(requireExplicitMode = false)
+                        else if (EditorSpacingPolicy.allowsAutomaticSpacing(recv.getCurrentEditorInfo(), allowSearch = true))
+                        when ((Config.globalConfigOrNull()?.edit_behavior ?: EditBehaviorOptions()).tapMode) {
+                            1 -> handleBackspaceUndoAutocorrect()
+                            2 -> handleBackspaceUndoSwipe()
+                            else -> false
+                        } else false)
+                    if (!undo) send_key_down_up(key.getKeyevent())
                     // Handle backspace for word prediction
-                    if (key.getKeyevent() == KeyEvent.KEYCODE_DEL) {
+                    if (key.getKeyevent() == KeyEvent.KEYCODE_DEL && !undo) {
+                        recv.clearSwipeUndoState()
+                        recv.clearAutocorrectUndoState()
                         // SAS-1: backspace invalidates the pending auto-space swallow
                         recv.setLastSpaceAutoInserted(false)
                         recv.handle_backspace()
@@ -337,6 +662,8 @@ class KeyEventHandler(
         )
         if (eventAction == KeyEvent.ACTION_UP) {
             autocap.event_sent(eventCode, metaState)
+            if (eventCode == KeyEvent.KEYCODE_DEL || eventCode == KeyEvent.KEYCODE_FORWARD_DEL ||
+                eventCode == KeyEvent.KEYCODE_ENTER) noteEditorTextMutation(conn)
         }
     }
 
@@ -386,11 +713,12 @@ class KeyEventHandler(
         // Skip if: feature disabled, key repeat (long press), or previous char wasn't alphanumeric
         val currentTime = System.currentTimeMillis()
         var textToCommit = text
-        // SAS-1: set when sentence-ending punctuation swallows the auto-space and
-        // re-adds one — the fresh space is re-marked pending AFTER the commit below.
+        // A formatter-added space is re-marked pending AFTER the commit below.
         var reMarkAutoSpaceAfterCommit = false
         val config = Config.globalConfig()
-        if (config.double_space_to_period && !isKeyRepeat &&
+        val automaticSpacing = EditorSpacingPolicy.allowsAutomaticSpacing(recv.getCurrentEditorInfo(),
+            (config.edit_behavior ?: EditBehaviorOptions()).formatSearchFields)
+        if (automaticSpacing && config.double_space_to_period && !isKeyRepeat &&
             text.length == 1 && text[0] == ' ' && lastTypedChar == ' ' &&
             (currentTime - lastTypedTimestamp) < doubleSpaceThresholdMs) {
             // Only trigger if the character before the first space was alphanumeric
@@ -413,52 +741,30 @@ class KeyEventHandler(
         } else if (text.length == 1) {
             val char = text[0]
 
-            // Smart punctuation: If typing punctuation and previous char is space, delete the space
-            // This attaches punctuation to the end of the previous word (e.g., "word ." -> "word.")
-            // v1.2.7: Only attach if space was auto-inserted (respects manual space+punctuation)
-            // SAS-1: eligibility is verified at use — the actual editor text must show
-            // a plain space before the cursor AND the cursor must sit exactly at the
-            // position stamped when the auto-space was committed. A manually typed
-            // space or a cursor move can therefore never be swallowed.
-            val smartPuncEnabled = Config.globalConfig().smart_punctuation
-            val isPunctChar = isSmartPunctuationChar(char)
-            val isQuote = isQuoteChar(char)
-
-            if (smartPuncEnabled && (isPunctChar || isQuote)) {
-                val textBefore = conn.getTextBeforeCursor(500, 0)  // Get enough context for quote counting
-                val eligible = SmartAutoSpace.isSwallowEligible(
-                    autoSpacePending = recv.wasLastSpaceAutoInserted(),
-                    stampedPosition = recv.getAutoSpaceStampedPosition(),
-                    actualPrevChar = textBefore?.lastOrNull(),
-                    actualPosition = PredictionContextTracker.currentCursorPosition(conn)
-                )
-
-                if (isPunctChar && eligible) {
-                    // Closing punctuation: swallow the automatic space to attach to the word
-                    conn.deleteSurroundingText(1, 0)
-                    // v1.2.8: For sentence-ending punctuation, add space after so autocap triggers
-                    // "hello " + "." → "hello. " (enables getCursorCapsMode to detect sentence end)
-                    if (isSentenceEndingPunctuation(char)) {
-                        textToCommit = "$char "
-                        // SAS-1: re-mark the re-added space as auto-inserted (with a
-                        // fresh position stamp) AFTER the commit below — chaining.
-                        reMarkAutoSpaceAfterCommit = true
-                    }
-                } else if (isQuote && eligible) {
-                    // Straight double quote: parity disambiguation — an odd count of
-                    // prior " means an unmatched opener, so this one is CLOSING.
-                    // (Apostrophes are handled by isSmartPunctuationChar above.)
-                    if (isClosingQuote(char, textBefore)) {
-                        // Closing quote: delete space to attach to word
-                        conn.deleteSurroundingText(1, 0)
-                    }
-                    // Opening quote: keep the space (do nothing)
+            if (automaticSpacing && config.smart_punctuation && SmartAutoSpace.isFormattingPunctuation(char)) {
+                val before = conn.getTextBeforeCursor(500, 0)?.toString()
+                val edit = SmartAutoSpace.punctuationEdit(
+                    char, before, conn.getTextAfterCursor(1, 0)?.toString(),
+                    (config.edit_behavior ?: EditBehaviorOptions()).punctuationRemoveSpace,
+                    (config.edit_behavior ?: EditBehaviorOptions()).punctuationAddSpace
+                ) ?: if (char == '\'' && (config.edit_behavior ?: EditBehaviorOptions()).punctuationRemoveSpace && SmartAutoSpace.isSwallowEligible(
+                        recv.wasLastSpaceAutoInserted(), recv.getAutoSpaceStampedPosition(),
+                        before?.lastOrNull(), PredictionContextTracker.currentCursorPosition(conn))) {
+                    // Retain lexical apostrophe attachment after an automatic swipe space,
+                    // without introducing a space inside kids'/O'Connor.
+                    SmartAutoSpace.PunctuationEdit(1, char.toString(), false)
+                } else null
+                // If deletion is refused, commit the literal key instead of claiming success.
+                if (edit != null && (edit.deleteBefore == 0 ||
+                        conn.deleteSurroundingText(edit.deleteBefore, 0))) {
+                    textToCommit = edit.text
+                    reMarkAutoSpaceAfterCommit = edit.addedSpace
                 }
             }
 
             // v1.2.7/SAS-1: Any other single-char input invalidates the pending
             // auto-space (flag + position stamp), cleared AFTER the swallow check.
-            // This ensures: swipe→":"→attaches, but swipe→" "→":"→doesn't attach
+            // The new punctuation plan uses actual context even after a manual space.
             recv.setLastSpaceAutoInserted(false)
 
             lastTypedChar = char
@@ -483,7 +789,7 @@ class KeyEventHandler(
         // below (autocap/handle_text_typed) still sees the bare char — the space is an
         // editor-text repair, not a typed character (the word context was already
         // committed at suggestion time).
-        val repairOwedSpace = owedTrailingSpaceWord != null &&
+        val repairOwedSpace = automaticSpacing && owedTrailingSpaceWord != null &&
             text.length == 1 && text[0].isLetterOrDigit() &&
             conn.getTextBeforeCursor(owedTrailingSpaceWord.length, 0)?.toString() ==
             owedTrailingSpaceWord
@@ -500,6 +806,7 @@ class KeyEventHandler(
         }
 
         conn.commitText(if (repairOwedSpace) " $textToCommit" else textToCommit, 1)
+        noteEditorTextMutation(conn)
         if (reMarkAutoSpaceAfterCommit) {
             // SAS-1: fixes the v1.2.7 clobber where the chain flag was set BEFORE the
             // unconditional clear above and thus never survived — mark AFTER commit.
@@ -511,52 +818,6 @@ class KeyEventHandler(
         recv.handle_text_typed(textToCommit.toString())
     }
 
-    /** Characters that should attach to the previous word (smart punctuation).
-     * SAS-1: full closer set — . , ; : ! ? ) ] } ” ’ … ' — via SmartAutoSpace.
-     * Straight double quote `"` is excluded here and parity-resolved through
-     * isClosingQuote(). Straight apostrophe `'` IS a closer: mid-word
-     * contractions (don't) never reach the swallow path because the char
-     * before the cursor there is a letter, not the pending auto-space, so an
-     * apostrophe typed right after an auto-space reads as possessive/closing
-     * (`kids ` + `'` → `kids'`). */
-    private fun isSmartPunctuationChar(c: Char): Boolean = SmartAutoSpace.isClosingPunctuation(c)
-
-    /** v1.2.8: Sentence-ending punctuation that should trigger autocap for next word. */
-    private fun isSentenceEndingPunctuation(c: Char): Boolean {
-        return when (c) {
-            '.', '!', '?' -> true
-            else -> false
-        }
-    }
-
-    /**
-     * Determines if a quote should attach to the previous word (closing quote).
-     * Opening quotes should have space before them; closing quotes should not.
-     *
-     * Heuristic: Count quotes of the same type in textBefore. If odd count,
-     * there's an unmatched opening quote, so this is a closing quote.
-     * If even count (or zero), this is an opening quote.
-     *
-     * Example: 'He said "hello ' + '"' → one " found (odd) → closing
-     * Example: 'He said ' + '"' → zero " found (even) → opening
-     */
-    private fun isClosingQuote(quote: Char, textBefore: CharSequence?): Boolean {
-        if (quote != '"') return false
-        if (textBefore.isNullOrEmpty()) return false
-
-        // Count occurrences of this quote type in the text before cursor
-        val quoteCount = textBefore.count { it == quote }
-
-        // Odd count means there's an unmatched opening quote → this is closing
-        // Even count (including 0) means no unmatched quote → this is opening
-        return quoteCount % 2 == 1
-    }
-
-    /** Check if quote character needs parity-based smart punctuation handling.
-     * SAS-1: only the straight double quote — `'` moved to the closer set
-     * (isSmartPunctuationChar) and curly quotes are unambiguous. */
-    private fun isQuoteChar(c: Char): Boolean = c == '"'
-
     /**
      * Send text directly to the app's InputConnection, bypassing all mode routing
      * (edit, search, emoji, GIF). Used for clipboard pane paste which always targets
@@ -567,12 +828,14 @@ class KeyEventHandler(
         conn.beginBatchEdit()
         conn.commitText(text, 1)
         conn.endBatchEdit()
+        noteEditorTextMutation(conn)
     }
 
     /** See {!InputConnection.performContextMenuAction}. */
     private fun sendContextMenuAction(id: Int) {
         val conn = recv.getCurrentInputConnection() ?: return
         conn.performContextMenuAction(id)
+        if (id != android.R.id.copy && id != android.R.id.selectAll) noteEditorTextMutation(conn)
     }
 
     /**
@@ -588,7 +851,7 @@ class KeyEventHandler(
      */
     private fun handleBackspaceUndoSwipe(): Boolean {
         val config = Config.globalConfig() ?: return false
-        if (!config.backspace_undo_swipe) return false
+        if ((config.edit_behavior ?: EditBehaviorOptions()).tapMode != 2) return false
         // #110 fix: Don't check wasLastInputSwipe() — it's cleared by onSuggestionSelected().
         // Instead, defer to autocorrect handler when autocorrect state is present.
         if (recv.getLastAutocorrectOriginalWord() != null) return false
@@ -598,6 +861,12 @@ class KeyEventHandler(
 
         val conn = recv.getCurrentInputConnection() ?: return false
 
+        val selection = getCursorPos(conn) ?: return false
+        if (selection.selectionStart < 0 || selection.selectionStart != selection.selectionEnd) return false
+        val verified = conn.getTextBeforeCursor(swipedWord.length + 2, 0)?.toString() ?: return false
+        val withoutSpace = verified.removeSuffix(" ")
+        if (!withoutSpace.endsWith(swipedWord) ||
+            withoutSpace.length > swipedWord.length && !withoutSpace[withoutSpace.length - swipedWord.length - 1].isWhitespace()) return false
         // Read text before cursor to verify the swiped word is still there
         // and check for trailing auto-space (inserted by auto_space_after_suggestion)
         val beforeCursor = conn.getTextBeforeCursor(swipedWord.length + 1, 0)?.toString() ?: ""
@@ -612,7 +881,8 @@ class KeyEventHandler(
             else -> return false
         }
 
-        conn.deleteSurroundingText(charsToDelete, 0)
+        if (!conn.deleteSurroundingText(charsToDelete, 0)) return false
+        noteEditorTextMutation(conn)
 
         // Clear swipe tracking and reset prediction state
         // SAS-1: the undone commit's auto-space is gone — invalidate the swallow
@@ -622,18 +892,18 @@ class KeyEventHandler(
         // the swipe-correction tracker can note where the replacement word must appear.
         learningHooks?.onSwipeWordUndone(swipedWord, conn)
         recv.handle_backspace()
+        autocap.event_sent(KeyEvent.KEYCODE_DEL, 0)
 
         return true
     }
 
     /**
-     * #110: If backspace_undo_autocorrect is enabled and an autocorrect just happened,
-     * revert to the original word on immediate backspace (GBoard-style).
-     * Does NOT add the original word to dictionary — that's the suggestion bar undo's role.
+     * Undo an immediate typed correction, or the explicitly selected autocorrect mode.
+     * Keep its existing separator; adding the restored word is a separate bar action.
      */
-    private fun handleBackspaceUndoAutocorrect(): Boolean {
+    private fun handleBackspaceUndoAutocorrect(requireExplicitMode: Boolean = true): Boolean {
         val config = Config.globalConfig() ?: return false
-        if (!config.backspace_undo_autocorrect) return false
+        if (requireExplicitMode && (config.edit_behavior ?: EditBehaviorOptions()).tapMode != 1) return false
 
         val originalWord = recv.getLastAutocorrectOriginalWord() ?: return false
         val correctedWord = recv.getLastAutoInsertedWord() ?: return false
@@ -641,6 +911,15 @@ class KeyEventHandler(
 
         val conn = recv.getCurrentInputConnection() ?: return false
 
+        val selection = getCursorPos(conn) ?: return false
+        if (selection.selectionStart < 0 || selection.selectionStart != selection.selectionEnd) return false
+        val verified = conn.getTextBeforeCursor(correctedWord.length + 2, 0)?.toString() ?: return false
+        val withoutSpace = verified.removeSuffix(" ")
+        if (!withoutSpace.endsWith(correctedWord) ||
+            withoutSpace.length > correctedWord.length &&
+            withoutSpace[withoutSpace.length - correctedWord.length - 1].let {
+                it.isLetterOrDigit() || SuggestionHandler.isIntraWordJoiner(it)
+            }) return false
         // Verify the corrected word is still at cursor position (handles cursor-move edge case)
         val beforeCursor = conn.getTextBeforeCursor(correctedWord.length + 1, 0)?.toString() ?: ""
         val charsToDelete = when {
@@ -654,10 +933,24 @@ class KeyEventHandler(
             else -> return false
         }
 
-        // Replace corrected word with original, preserving trailing space if present
-        conn.deleteSurroundingText(charsToDelete, 0)
+        // Replace a verified selection in one commit. A refused commit must not first
+        // delete the corrected word, unlike a deleteSurroundingText + commit pair.
         val replacement = if (charsToDelete > correctedWord.length) "$originalWord " else originalWord
-        conn.commitText(replacement, 1)
+        val anchor = selection.startOffset + selection.selectionStart
+        val start = anchor - charsToDelete
+        if (start < 0) return false
+        var accepted = false
+        try {
+            conn.beginBatchEdit()
+            if (!conn.setSelection(start, anchor)) return false
+            if (conn.getSelectedText(0)?.toString() != beforeCursor.takeLast(charsToDelete)) return false
+            accepted = conn.commitText(replacement, 1)
+            if (!accepted) return false
+        } finally {
+            if (!accepted) conn.setSelection(anchor, anchor)
+            conn.endBatchEdit()
+        }
+        noteEditorTextMutation(conn)
 
         // Clear all undo state to prevent double-undo
         // SAS-1: text was rewritten by the undo — invalidate the pending auto-space
@@ -668,7 +961,13 @@ class KeyEventHandler(
         learningHooks?.onAutocorrectUndone(
             correctedWord, originalWord, originalCompleted = charsToDelete > correctedWord.length
         )
-        recv.handle_backspace()
+        // This rewrote a word; it did not delete a character from the prediction tracker.
+        learningHooks?.onAutocorrectUndoRestored(
+            originalWord, conn, recv.getCurrentEditorInfo(),
+            originalCompleted = charsToDelete > correctedWord.length,
+            expectedCursor = start + replacement.length
+        )
+        autocap.event_sent(KeyEvent.KEYCODE_DEL, 0)
         return true
     }
 
@@ -1084,9 +1383,17 @@ class KeyEventHandler(
          * [originalCompleted] is true when the restored word kept its trailing space.
          */
         fun onAutocorrectUndone(correctedWord: String, originalWord: String, originalCompleted: Boolean)
+
+        /** Default character mode has one exception: the immediately preceding typed correction. */
+        fun canUndoTypedAutocorrect(ic: InputConnection?, info: EditorInfo?): Boolean = false
+
+        /** Publish the restored live token without going through ordinary character deletion. */
+        fun onAutocorrectUndoRestored(originalWord: String, ic: InputConnection,
+            info: EditorInfo?, originalCompleted: Boolean, expectedCursor: Int) {}
     }
 
     interface IReceiver {
+        fun onWordCapitalizationChanged(cursor: Int) {}
         fun handle_event_key(ev: KeyValue.Event)
         fun set_shift_state(state: Boolean, lock: Boolean)
         fun set_compose_pending(pending: Boolean)

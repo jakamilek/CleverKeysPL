@@ -4,10 +4,53 @@
 
 Offline GIF panel for CleverKeys keyboard, similar to the emoji panel but displaying animated GIFs from a pre-bundled database. No internet permissions required.
 
-## Status: Pipeline & Pack System Complete — UI Integration Pending
-- Created: 2025-01-27
-- Updated: 2026-02-08
-- Author: Claude Opus 4.5 / Opus 4.6
+## Current runtime: integrated offline panel; animated grid trial — 2026-10-10
+
+The panel is already integrated with search, categories, pagination, insertion and pack import.
+Runtime uses SQLite FTS4. The historical pipeline design/checklists below are archived planning
+information, not a description of the current shipped feature state or available pack contents.
+
+### Animated visible previews
+
+The Polish trial adds pinned coil-gif 2.6.0 beside existing Coil 2.6.0. On Android 28+,
+ImageDecoderDecoder reads imported local gifs/full/{partition}/{id}.webp files. Grid tiles
+start animation on successful decode while attached. They cancel requests, stop drawables
+and clear references on detach/recycle. There is no full-page animation prefetch/cache.
+Requests use a 200px FIT decode bound on both dimensions; static thumbnail caching stays
+bounded to 32MiB. This is not a measured process-memory/battery guarantee.
+
+GifPreviewLoader owns each tile's generation and cancels late success/error after rebind,
+hide or close. Missing/empty full files, older Android and full-decode errors use an existing
+local static thumbnail; missing thumbnails leave an empty tile. Thumbnail-only packs cannot
+animate. No INTERNET permission, remote request, pack/schema change or generated animation.
+
+KeyboardReceiver retains the current GifGridManager and destroys it through the shared
+pane-close path: back, selection, switching pane and onFinishInputView. Destruction is
+idempotent, cancels grid work and shuts down Coil. The finite selected-GIF usage write survives
+immediate pane close so the existing Recently Used behavior is preserved. Search/debounce,
+pagination, tap/insertion, long-press actions and keyboard pane geometry keep their interfaces.
+
+Dependency locking: coil-gif2.6.0 must appear in the same five locked configurations as
+coil-base2.6.0. The first GIF commit b61afaab omitted this entry; live38079913286 and
+CI38079916540 failed checkDebugAarMetadata before source compilation and emitted no APK.
+The repair adds the exact lock candidate and a live gate that regenerates only coil-gif
+with actual assembleDebug/assembleDebugAndroidTest/compileReleaseKotlin tasks, restores
+only the already documented stdlib-common instrumentation-runtime membership if needed,
+and requires the entire regenerated lock to equal committed state. Other pins and normal
+locking/security/test gates stay active. 04e683f3 compiled runtime/instrumentation and passed
+2906 pure/original conformance plus nine tile/fifteen receiver mock tests. Both runs then
+failed lint UseSdkSuppress because the new native test redundantly used RequiresApi(28).
+Remove only that import/annotation; keep SdkSuppress(minSdkVersion=28), fixture/assertions
+and all lint gates. Targeted lock regeneration and audited live APK remain pending because
+the earlier lint gate stopped delivery. Native playback test execution is still separate.
+
+Validation: nine real tile lifecycle tests plus two actual receiver close regressions are
+registered in mock/live CI. A test-only two-frame WebP exercises the actual pinned decoder,
+animation start/stop and cleared ImageView in GifAnimatedPreviewTest (API28+). Local static
+review does not execute Android/Coil; current compile/mock/lint/APK and native/phone results
+must be recorded separately after CI/device execution.
+
+### Historical pipeline status (2026-02-08)
 
 ### Completed
 - [x] Giphy API pipeline (118,944 unique GIFs downloaded)
@@ -318,3 +361,4 @@ tqdm>=4.0.0
 - [Android FTS5 Documentation](https://www.sqlite.org/fts5.html)
 - [Animated WebP Support](https://developers.google.com/speed/webp)
 - [libwebp Tools](https://developers.google.com/speed/webp/docs/using)
+

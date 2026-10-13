@@ -490,9 +490,9 @@
     <string name="input_suggestion_bar_opacity_title">Opacidad de la barra de sugerencias</string>
     <string name="input_suggestion_bar_opacity_desc">Transparencia de la barra de sugerencias</string>
     <string name="input_auto_space_after_title">Espacio automático después de sugerencia</string>
-    <string name="input_auto_space_after_desc">Añade un espacio al final al seleccionar una sugerencia</string>
+    <string name="input_auto_space_after_desc">Añade un espacio al final al seleccionar una sugerencia Para palabras deslizadas y sugerencias tocadas.</string>
     <string name="input_auto_space_before_title">Espacio automático antes de sugerencia</string>
-    <string name="input_auto_space_before_desc">Inserta un espacio inicial antes de una sugerencia tocada (el deslizamiento siempre añade espacio)</string>
+    <string name="input_auto_space_before_desc">Inserta un espacio inicial antes de una sugerencia tocada (el deslizamiento siempre añade espacio) Para palabras deslizadas y sugerencias tocadas.</string>
     <string name="input_backspace_undo_swipe_title">Retroceso deshace el deslizamiento</string>
     <string name="input_backspace_undo_swipe_desc">Tocar retroceso inmediatamente después de una palabra escrita por deslizamiento elimina la palabra completa</string>
     <string name="input_show_exact_typed_title">Mostrar palabra exacta escrita</string>
@@ -2276,4 +2276,36 @@
     <string name="cmd_timestamp_iso_desc">Insertar marca de tiempo ISO 8601 (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">en %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Backspace breve</string>
+    <string name="edit_backspace_hold_select_title">Seleccionar palabra al mantener</string>
+    <string name="edit_backspace_release_delete_title">Borrar selección al soltar</string>
+    <string name="edit_backspace_pause_enabled_title">Pausa al cambiar de dirección</string>
+    <string name="edit_backspace_pause_dp_title">Distancia para frenar</string>
+    <string name="edit_backspace_resume_dp_title">Distancia para reanudar</string>
+    <string name="edit_backspace_speed_percent_title">Velocidad de selección</string>
+    <string name="edit_backspace_fast_percent_title">Selección rápida</string>
+    <string name="edit_backspace_accel_percent_title">Umbral de aceleración</string>
+    <string name="edit_punctuation_remove_space_title">Quitar espacio antes de puntuación</string>
+    <string name="edit_punctuation_add_space_title">Añadir espacio después de puntuación</string>
+    <string name="edit_format_search_fields_title">Formato automático en búsquedas</string>
+    <string name="edit_numeric_period_caps_title">Mayúscula tras número y punto</string>
+    <string name="edit_shift_word_case_title">Shift cambia la inicial</string>
+    <string name="edit_shift_word_end_title">Shift también al final de palabra</string>
+    <string name="edit_show_case_variants_title">Mostrar variantes de mayúsculas</string>
+    <string name="edit_exact_add_first_title">Añadir palabra como primera sugerencia</string>
+    <string name="edit_reset_suggestions_on_delete_title">Reiniciar sugerencias con Backspace</string>
+    <string name="edit_tap_character">Borrar carácter o espacio</string>
+    <string name="edit_tap_autocorrect">Deshacer autocorrección, luego caracteres</string>
+    <string name="edit_tap_swipe">Borrar última palabra deslizada, luego caracteres</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Formato de texto</string>
+    <string name="edit_backspace_help">La selección al mantener funciona en todo el teclado. Al desactivarla, el borrado normal requiere repetición de teclas. Las acciones alternativas al tocar se aplican justo tras una sugerencia.</string>
+    <string name="edit_pause_help">Un movimiento inverso corto pausa. Un movimiento mayor desde la pausa reanuda.</string>
+    <string name="edit_speed_help" formatted="false">Respecto a la velocidad anterior del gesto: 80% es más lento, 100% no cambia.</string>
+    <string name="edit_fast_help">El modo rápido comienza al superar esta parte del ancho de pantalla. Cambiar de dirección reinicia la distancia.</string>
+    <string name="edit_format_help">Las contraseñas y los campos técnicos nunca usan formato automático. Las opciones de puntuación requieren puntuación inteligente; las mayúsculas numéricas, mayúsculas automáticas.</string>
+    <string name="edit_fallback_header">Selección anterior de dos ejes</string>
 </resources>
+

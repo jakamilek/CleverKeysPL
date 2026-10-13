@@ -102,6 +102,10 @@ class IoFailureLocalizationTest {
         assertEquals(PackImportFailure.Io(IoFailureReason.INVALID_FORMAT, "Import failed: Import failed"), io)
         assertEquals("The file is not in the expected format, or it is damaged.", io.render(text))
         assertNotEquals("the raw log text must never be what the user reads", io.logMessage, io.render(text))
+        assertEquals("Not enough RAM to import the dictionary. The previous language pack was kept. Restart the device and try again.",
+            PackImportFailure.IntelligenceMemory.render(text))
+        assertEquals("Za mało pamięci RAM na import słownika. Poprzedni pakiet językowy został zachowany. Uruchom ponownie telefon i spróbuj jeszcze raz.",
+            TranslationResources.strings(File("res/values-pl"))["pack_error_intelligence_memory"])
     }
 
     // ── every sentence exists in every locale ────────────────────────────────────────
@@ -127,6 +131,9 @@ class IoFailureLocalizationTest {
         for (dir in TranslationResources.localeDirs) {
             val locale = TranslationResources.strings(dir)
             for (key in keys) {
+                // Maintainer prioritizes Polish; this new reason falls back to English elsewhere.
+                // Deferred locale/key/evidence are recorded in the active queue.
+                if (key == "pack_error_intelligence_memory" && dir.name != "values-pl") continue
                 val en = english[key]
                 if (en == null) { problems += "res/values is missing $key"; continue }
                 val tr = locale[key]

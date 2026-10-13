@@ -472,9 +472,9 @@
     <string name="input_suggestion_bar_opacity_title">候補バーの不透明度</string>
     <string name="input_suggestion_bar_opacity_desc">候補バーの透明度</string>
     <string name="input_auto_space_after_title">候補選択後に自動スペース</string>
-    <string name="input_auto_space_after_desc">候補を選択したときに末尾にスペースを追加します</string>
+    <string name="input_auto_space_after_desc">候補を選択したときに末尾にスペースを追加します スワイプ入力と候補のタップの両方に適用します。</string>
     <string name="input_auto_space_before_title">候補の前に自動スペース</string>
-    <string name="input_auto_space_before_desc">タップした候補の前にスペースを挿入します（スワイプは常にスペースを追加）</string>
+    <string name="input_auto_space_before_desc">タップした候補の前にスペースを挿入します（スワイプは常にスペースを追加） スワイプ入力と候補のタップの両方に適用します。</string>
     <string name="input_backspace_undo_swipe_title">バックスペースでスワイプを元に戻す</string>
     <string name="input_backspace_undo_swipe_desc">スワイプ入力直後にバックスペースをタップすると、単語全体が削除されます</string>
     <string name="input_show_exact_typed_title">入力した文字列をそのまま表示</string>
@@ -2175,4 +2175,36 @@
     <string name="cmd_timestamp_iso_desc">ISO 8601 形式のタイムスタンプを挿入(YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">%1$s 内</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">短押しBackspace</string>
+    <string name="edit_backspace_hold_select_title">長押しで単語を選択</string>
+    <string name="edit_backspace_release_delete_title">指を離して選択を削除</string>
+    <string name="edit_backspace_pause_enabled_title">方向反転で一時停止</string>
+    <string name="edit_backspace_pause_dp_title">停止までの距離</string>
+    <string name="edit_backspace_resume_dp_title">再開までの距離</string>
+    <string name="edit_backspace_speed_percent_title">選択速度</string>
+    <string name="edit_backspace_fast_percent_title">高速選択の速度</string>
+    <string name="edit_backspace_accel_percent_title">加速のしきい値</string>
+    <string name="edit_punctuation_remove_space_title">句読点の前の空白を削除</string>
+    <string name="edit_punctuation_add_space_title">句読点の後に空白を追加</string>
+    <string name="edit_format_search_fields_title">検索欄で自動整形</string>
+    <string name="edit_numeric_period_caps_title">数字とピリオドの後を大文字に</string>
+    <string name="edit_shift_word_case_title">Shiftで単語の先頭を変更</string>
+    <string name="edit_shift_word_end_title">単語末でもShiftを適用</string>
+    <string name="edit_show_case_variants_title">辞書の大文字・小文字候補を表示</string>
+    <string name="edit_exact_add_first_title">単語追加を候補の先頭に</string>
+    <string name="edit_reset_suggestions_on_delete_title">Backspaceで候補の先頭へ</string>
+    <string name="edit_tap_character">文字または空白を削除</string>
+    <string name="edit_tap_autocorrect">自動修正を戻し、その後は文字を削除</string>
+    <string name="edit_tap_swipe">最後のスワイプ単語を削除し、その後は文字を削除</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">テキスト整形</string>
+    <string name="edit_backspace_help">長押し選択はキーボード全体で動作します。無効時の通常削除にはキーリピートが必要です。短押しの代替動作は候補を入力した直後に適用されます。</string>
+    <string name="edit_pause_help">短い逆方向の動きで停止します。停止位置からさらに動かすと再開します。</string>
+    <string name="edit_speed_help" formatted="false">以前のジェスチャー速度に対し、80%は遅く、100%は変更なしです。</string>
+    <string name="edit_fast_help">画面幅のこの割合を超えて移動すると高速になります。方向を変えると移動距離がリセットされます。</string>
+    <string name="edit_format_help">パスワードや技術的な入力欄は自動整形しません。句読点設定にはスマート句読点、数字後の大文字には自動大文字化が必要です。</string>
+    <string name="edit_fallback_header">従来の2軸選択</string>
 </resources>
+

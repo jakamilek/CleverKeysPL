@@ -28,7 +28,11 @@ enum class HapticEvent {
     /** Long press event (lock modifier, key repeat start) - LONG_PRESS (standard) */
     LONG_PRESS,
     /** Swipe gesture completion - GESTURE_END (confirming thud) */
-    SWIPE_COMPLETE
+    SWIPE_COMPLETE,
+    /** Backspace word preview; shares the existing long-press preference. */
+    BACKSPACE_WORD_SELECT,
+    /** Verified Backspace selection deletion; shares the same preference. */
+    BACKSPACE_WORD_DELETE
 }
 
 /**
@@ -103,7 +107,7 @@ object VibratorCompat {
             HapticEvent.KEY_PRESS -> config.haptic_key_press
             HapticEvent.PREDICTION_TAP -> config.haptic_prediction_tap
             HapticEvent.TRACKPOINT_ACTIVATE -> config.haptic_trackpoint_activate
-            HapticEvent.LONG_PRESS -> config.haptic_long_press
+            HapticEvent.LONG_PRESS, HapticEvent.BACKSPACE_WORD_SELECT, HapticEvent.BACKSPACE_WORD_DELETE -> config.haptic_long_press
             HapticEvent.SWIPE_COMPLETE -> config.haptic_swipe_complete
         }
     }
@@ -146,6 +150,10 @@ object VibratorCompat {
                 HapticFeedbackConstants.CLOCK_TICK
             }
 
+            HapticEvent.BACKSPACE_WORD_SELECT -> HapticFeedbackConstants.CLOCK_TICK
+            HapticEvent.BACKSPACE_WORD_DELETE -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                HapticFeedbackConstants.GESTURE_END else HapticFeedbackConstants.VIRTUAL_KEY
+
             HapticEvent.LONG_PRESS -> {
                 // Standard Android long press haptic
                 HapticFeedbackConstants.LONG_PRESS
@@ -170,6 +178,8 @@ object VibratorCompat {
             HapticEvent.KEY_PRESS -> 10L
             HapticEvent.PREDICTION_TAP -> 8L  // Slightly shorter
             HapticEvent.TRACKPOINT_ACTIVATE -> 15L
+            HapticEvent.BACKSPACE_WORD_SELECT -> 10L
+            HapticEvent.BACKSPACE_WORD_DELETE -> 20L
             HapticEvent.LONG_PRESS -> 40L
             HapticEvent.SWIPE_COMPLETE -> 20L
         }

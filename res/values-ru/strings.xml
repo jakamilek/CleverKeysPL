@@ -473,9 +473,9 @@
     <string name="input_suggestion_bar_opacity_title">Прозрачность панели подсказок</string>
     <string name="input_suggestion_bar_opacity_desc">Прозрачность панели подсказок</string>
     <string name="input_auto_space_after_title">Авто-пробел после подсказки</string>
-    <string name="input_auto_space_after_desc">Добавлять пробел после выбора подсказки</string>
+    <string name="input_auto_space_after_desc">Добавлять пробел после выбора подсказки Для слов жестом и выбранных подсказок.</string>
     <string name="input_auto_space_before_title">Авто-пробел перед подсказкой</string>
-    <string name="input_auto_space_before_desc">Вставлять пробел перед нажатой подсказкой (свайп всегда добавляет пробел)</string>
+    <string name="input_auto_space_before_desc">Вставлять пробел перед нажатой подсказкой (свайп всегда добавляет пробел) Для слов жестом и выбранных подсказок.</string>
     <string name="input_backspace_undo_swipe_title">Backspace отменяет свайп</string>
     <string name="input_backspace_undo_swipe_desc">Нажатие Backspace сразу после свайп-слова удаляет всё слово</string>
     <string name="input_show_exact_typed_title">Показывать точно введённое слово</string>
@@ -2304,4 +2304,36 @@
     <string name="cmd_timestamp_iso_desc">Вставить метку времени ISO 8601 (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">в разделе «%1$s»</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Короткое нажатие Backspace</string>
+    <string name="edit_backspace_hold_select_title">Выделить слово при удержании</string>
+    <string name="edit_backspace_release_delete_title">Удалить выделение при отпускании</string>
+    <string name="edit_backspace_pause_enabled_title">Пауза при смене направления</string>
+    <string name="edit_backspace_pause_dp_title">Расстояние остановки</string>
+    <string name="edit_backspace_resume_dp_title">Расстояние возобновления</string>
+    <string name="edit_backspace_speed_percent_title">Скорость выделения</string>
+    <string name="edit_backspace_fast_percent_title">Быстрое выделение</string>
+    <string name="edit_backspace_accel_percent_title">Порог ускорения</string>
+    <string name="edit_punctuation_remove_space_title">Убрать пробел перед пунктуацией</string>
+    <string name="edit_punctuation_add_space_title">Добавить пробел после пунктуации</string>
+    <string name="edit_format_search_fields_title">Автоформатирование в поиске</string>
+    <string name="edit_numeric_period_caps_title">Заглавная после числа и точки</string>
+    <string name="edit_shift_word_case_title">Shift меняет первую букву</string>
+    <string name="edit_shift_word_end_title">Shift также в конце слова</string>
+    <string name="edit_show_case_variants_title">Показывать варианты регистра</string>
+    <string name="edit_exact_add_first_title">Добавление слова в первой подсказке</string>
+    <string name="edit_reset_suggestions_on_delete_title">Начало подсказок после Backspace</string>
+    <string name="edit_tap_character">Удалить символ или пробел</string>
+    <string name="edit_tap_autocorrect">Отменить автокоррекцию, затем символы</string>
+    <string name="edit_tap_swipe">Удалить последнее слово жестом, затем символы</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Форматирование текста</string>
+    <string name="edit_backspace_help">Выделение удержанием работает по всей клавиатуре. Если отключить, обычное удаление требует повтора клавиш. Другие короткие действия применяются сразу после подсказки.</string>
+    <string name="edit_pause_help">Короткое обратное движение приостанавливает. Более длинное движение от места паузы возобновляет.</string>
+    <string name="edit_speed_help" formatted="false">Относительно прежней скорости жеста: 80% медленнее, 100% без изменений.</string>
+    <string name="edit_fast_help">Ускорение начинается после перемещения дальше этой доли ширины экрана. Смена направления обнуляет расстояние.</string>
+    <string name="edit_format_help">Пароли и технические поля никогда не форматируются автоматически. Настройки пунктуации требуют умной пунктуации; заглавные после чисел — автоматических заглавных.</string>
+    <string name="edit_fallback_header">Прежнее выделение по двум осям</string>
 </resources>
+

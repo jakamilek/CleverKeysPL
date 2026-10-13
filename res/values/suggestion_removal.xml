@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- Polish/base trial UI; remaining locales tracked in LOCALIZATION_BACKLOG_POLISH_AI.md. -->
+    <string name="suggestion_remove_from_dictionary">Remove “%1$s” from dictionary</string>
+</resources>

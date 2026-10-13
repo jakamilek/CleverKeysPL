@@ -7,6 +7,8 @@ import android.provider.UserDictionary
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -42,193 +44,97 @@ interface DictionaryDataSource {
  * @param languageCode ISO 639-1 language code (e.g., "en", "fr", "es"). Defaults to "en".
  */
 class MainDictionarySource(
-    private val context: Context,
+    context: Context,
     private val disabledSource: DisabledDictionarySource,
     private val languageCode: String = "en"
 ) : DictionaryDataSource {
 
-    // Instance-level cache references (point to shared static cache when language matches)
-    private var cachedWords: List<DictionaryWord>? = null
-    // Prefix index for fast search: prefix -> list of matching words
-    private var prefixIndex: Map<String, List<DictionaryWord>>? = null
+    private val context = context.applicationContext ?: context
+    @Volatile private var cachedWords: List<DictionaryWord>? = null
 
-    init {
-        // Reuse shared cache if it was built for this language.
-        // This avoids re-parsing the 98k binary dictionary every time
-        // the user opens Dictionary Manager or switches tabs.
-        synchronized(Companion) {
-            sharedCache[languageCode]?.let { cached ->
-                cachedWords = cached.words
-                prefixIndex = cached.prefixIndex
-            }
-        }
-    }
+    init { cachedWords = sharedCache.peek(languageCode)?.words }
 
     override suspend fun getAllWords(): List<DictionaryWord> = withContext(Dispatchers.IO) {
-        Log.d(TAG, "getAllWords() called for language: $languageCode")
-
-        // Return cached if available (instance-level fast path)
-        if (cachedWords != null) {
-            Log.d(TAG, "Returning ${cachedWords!!.size} cached words for $languageCode")
-            return@withContext cachedWords!!
-        }
-
-        // Double-check shared cache: another fragment for this language may have
-        // finished loading while we were waiting for the IO dispatcher
-        synchronized(Companion) {
-            sharedCache[languageCode]?.let { cached ->
-                cachedWords = cached.words
-                prefixIndex = cached.prefixIndex
-                Log.d(TAG, "Returning ${cached.words.size} words from shared cache for $languageCode")
-                return@withContext cached.words
-            }
-        }
-
-        try {
-            val disabled = disabledSource.getDisabledWords()
-            val words = mutableListOf<DictionaryWord>()
-
-            // v1.1.89: Try language-specific binary dictionary first
-            // v1.1.96: Also check installed language packs
-            // v1.1.97: Fixed - also load English from V2 binary (was skipping to JSON with 128-255 scale)
-            run {
-                Log.d(TAG, "Trying binary dictionary for language: $languageCode")
-
-                // First try installed language pack
-                try {
-                    val packManager = tribixbite.cleverkeys.langpack.LanguagePackManager.getInstance(context)
-                    val packPath = packManager.getDictionaryPath(languageCode)
-                    if (packPath != null) {
-                        Log.d(TAG, "Found language pack dictionary: ${packPath.absolutePath}")
-                        val loaded = loadBinaryDictionaryFromFile(packPath, words, disabled)
-                        if (loaded) {
-                            Log.d(TAG, "Loaded ${words.size} words from language pack: $languageCode")
-                            cachedWords = words.sorted()
-                            buildPrefixIndex(cachedWords!!)
-                            return@withContext cachedWords!!
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Language pack not found for $languageCode, trying bundled assets", e)
-                }
-
-                // Fall back to bundled assets
-                try {
-                    val binFilename = "dictionaries/${languageCode}_enhanced.bin"
-                    val loaded = loadBinaryDictionary(binFilename, words, disabled)
-                    if (loaded) {
-                        Log.d(TAG, "Loaded ${words.size} words from bundled binary dictionary: $binFilename")
-                        cachedWords = words.sorted()
-                        buildPrefixIndex(cachedWords!!)
-                        return@withContext cachedWords!!
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Binary dictionary not found for $languageCode, trying JSON/TXT fallback")
-                }
-            }
-
-            // Try JSON format first (98k words with frequencies)
-            try {
-                val jsonFilename = "dictionaries/${languageCode}_enhanced.json"
-                val jsonString = context.assets.open(jsonFilename).bufferedReader().use { it.readText() }
-                val jsonDict = org.json.JSONObject(jsonString)
-                val keys = jsonDict.keys()
-
-                while (keys.hasNext()) {
-                    val word = keys.next().lowercase()
-                    if (word.matches(Regex("^[\\p{L}'-]+$"))) {
-                        val frequency = jsonDict.getInt(word)
-                        // Use raw frequency from JSON (128-255 range)
-                        words.add(
-                            DictionaryWord(
-                                word = word,
-                                frequency = frequency,
-                                source = WordSource.MAIN,
-                                enabled = !disabled.contains(word)
-                            )
-                        )
-                    }
-                }
-                Log.d(TAG, "Loaded ${words.size} words from JSON dictionary")
-            } catch (e: Exception) {
-                // No JSON lexicon either — and there is no further fallback. The historical
-                // "${languageCode}_enhanced.txt" branch was dead code: no *_enhanced.txt asset
-                // ever shipped, so it always threw into the outer handler. Preserve that
-                // outcome (no cache, empty result) explicitly so a later retry can still load.
-                Log.w(TAG, "No bundled dictionary (bin/json) for $languageCode", e)
-                return@withContext emptyList()
-            }
-
-            cachedWords = words.sorted()
-
-            // Build prefix index for fast search
-            buildPrefixIndex(cachedWords!!)
-
-            cachedWords!!
-        } catch (e: Exception) {
-            Log.e(TAG, "Error loading main dictionary", e)
-            emptyList()
-        }
+        snapshot().words
     }
 
-    /**
-     * Build prefix index for fast word search.
-     * Creates mapping from prefixes (1-3 chars) to lists of matching words.
-     * Performance: Reduces 98k linear search to ~100-500 comparisons.
-     * Also updates shared static cache so subsequent MainDictionarySource
-     * instances for the same language skip the full load.
-     */
-    private fun buildPrefixIndex(words: List<DictionaryWord>) {
-        val index = mutableMapOf<String, MutableList<DictionaryWord>>()
+    private suspend fun snapshot(): LanguageCache = try {
+        sharedCache.get(languageCode) {
+            // View cancellation only stops its await; invalidation interrupts the one loader.
+            runInterruptible { loadSnapshot() }
+        }.also { cachedWords = it.words }
+    } catch (_: OutOfMemoryError) {
+        // Both a cold search and a blank load must surface a recoverable UI error.
+        // The failed shared task is retired by the cache, allowing a later retry.
+        Log.w(TAG, "Not enough heap to display dictionary words")
+        throw java.io.IOException()
+    }
 
+    private fun loadSnapshot(): LanguageCache {
+        val disabled = disabledSource.getDisabledWords()
+        var words: List<DictionaryWord>? = null
+        try {
+            val file = tribixbite.cleverkeys.langpack.LanguagePackManager.getInstance(context)
+                .getDictionaryPath(languageCode)
+            if (file != null) words = BinaryDictionaryLoader.loadDisplayWordsFromFile(file, disabled)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Cannot read installed dictionary; trying bundled assets", e)
+        }
+        if (words == null) {
+            try {
+                words = BinaryDictionaryLoader.loadDisplayWords(context,
+                    "dictionaries/${languageCode}_enhanced.bin", disabled)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Cannot read bundled binary dictionary; trying JSON", e)
+            }
+        }
+        if (words == null) {
+            val json = context.assets.open("dictionaries/${languageCode}_enhanced.json")
+                .bufferedReader().use { org.json.JSONObject(it.readText()) }
+            val fallback = mutableListOf<DictionaryWord>()
+            val keys = json.keys()
+            val accepted = Regex("^[\\p{L}'-]+$")
+            while (keys.hasNext()) {
+                checkDictionaryLoadInterrupted()
+                val word = keys.next().lowercase()
+                if (accepted.matches(word)) fallback.add(DictionaryWord(word, json.getInt(word),
+                    WordSource.MAIN, word !in disabled))
+            }
+            words = fallback
+        }
+        val ordered = words.sorted()
+        return LanguageCache(ordered, buildPrefixIndex(ordered))
+    }
+
+    /** Build the lightweight UI search index before publishing the complete snapshot. */
+    private fun buildPrefixIndex(words: List<DictionaryWord>): Map<String, List<DictionaryWord>> {
+        val index = mutableMapOf<String, MutableList<DictionaryWord>>()
         for (word in words) {
-            val maxLen = minOf(PREFIX_INDEX_MAX_LENGTH, word.word.length)
-            for (len in 1..maxLen) {
+            checkDictionaryLoadInterrupted()
+            for (len in 1..minOf(PREFIX_INDEX_MAX_LENGTH, word.word.length)) {
                 val prefix = word.word.substring(0, len).lowercase()
                 index.getOrPut(prefix) { mutableListOf() }.add(word)
             }
         }
-
-        prefixIndex = index
-        Log.d(TAG, "Built prefix index: ${index.size} prefixes for ${words.size} words")
-
-        // Persist to shared static cache for cross-instance reuse
-        synchronized(Companion) {
-            sharedCache[languageCode] = LanguageCache(words, index)
-        }
+        return index
     }
 
-    override suspend fun searchWords(query: String): List<DictionaryWord> {
-        if (query.isBlank()) return getAllWords()
-
+    override suspend fun searchWords(query: String): List<DictionaryWord> = withContext(Dispatchers.IO) {
+        if (query.isBlank()) return@withContext getAllWords()
+        // Cold/restored searches await the same complete snapshot as blank loads.
+        val cache = snapshot()
         val lowerQuery = query.lowercase()
-
-        // Use prefix index if query starts at beginning of word (most common case)
-        if (lowerQuery.length <= PREFIX_INDEX_MAX_LENGTH) {
-            // Exact prefix match - use index
-            val candidates = prefixIndex?.get(lowerQuery) ?: emptyList()
-            // Filter for substring match (in case user typed middle of word)
-            return candidates.filter { it.word.contains(lowerQuery, ignoreCase = true) }
-        } else if (lowerQuery.length > PREFIX_INDEX_MAX_LENGTH) {
-            // Use first 3 chars from index, then filter
-            val prefix = lowerQuery.substring(0, PREFIX_INDEX_MAX_LENGTH)
-            val candidates = prefixIndex?.get(prefix) ?: emptyList()
-            return candidates.filter { it.word.contains(lowerQuery, ignoreCase = true) }
+        val prefix = lowerQuery.take(PREFIX_INDEX_MAX_LENGTH)
+        (cache.prefixIndex[prefix] ?: emptyList()).filter {
+            it.word.contains(lowerQuery, ignoreCase = true)
         }
-
-        // Fallback to full search (should rarely happen)
-        return getAllWords().filter { it.word.contains(query, ignoreCase = true) }
     }
 
-    /**
-     * Re-sync all cached DictionaryWord.enabled flags from the current disabled set.
-     * Handles cross-source coherence: when DisabledDictionarySource toggles a word,
-     * this source's cache becomes stale. Called by WordListFragment.refresh() before
-     * re-filtering. O(n) scan of ~98k words against a HashSet — <10ms.
-     *
-     * The prefix index stores the SAME DictionaryWord object references as cachedWords,
-     * so mutating .enabled here also fixes prefix index search results.
-     */
+    /** Re-sync enabled flags; the UI index retains the same row references. */
     override fun onRefresh() {
         cachedWords?.let { words ->
             val disabled = disabledSource.getDisabledWords()
@@ -264,112 +170,18 @@ class MainDictionarySource(
         throw UnsupportedOperationException("Cannot update words in main dictionary")
     }
 
-    /**
-     * Load dictionary from binary file (File object, for language packs).
-     * v1.1.96: Added for language pack support.
-     */
-    private fun loadBinaryDictionaryFromFile(
-        file: java.io.File,
-        words: MutableList<DictionaryWord>,
-        disabled: Set<String>
-    ): Boolean {
-        return try {
-            val index = NormalizedPrefixIndex()
-            val loaded = BinaryDictionaryLoader.loadIntoNormalizedIndexFromFile(file, index)
-            if (loaded) {
-                extractWordsFromIndex(index, words, disabled)
-                true
-            } else {
-                false
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error loading binary dictionary from file: ${file.absolutePath}", e)
-            false
-        }
-    }
-
-    /**
-     * Load dictionary from binary format (.bin files for non-English languages).
-     * Uses NormalizedPrefixIndex to read the binary format.
-     */
-    private fun loadBinaryDictionary(
-        filename: String,
-        words: MutableList<DictionaryWord>,
-        disabled: Set<String>
-    ): Boolean {
-        return try {
-            val index = NormalizedPrefixIndex()
-            val loaded = BinaryDictionaryLoader.loadIntoNormalizedIndex(context, filename, index)
-            if (loaded) {
-                extractWordsFromIndex(index, words, disabled)
-                true
-            } else {
-                false
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error loading binary dictionary: $filename", e)
-            false
-        }
-    }
-
-    /**
-     * Extract words from NormalizedPrefixIndex into word list.
-     * Shared by both loadBinaryDictionary() and loadBinaryDictionaryFromFile().
-     */
-    private fun extractWordsFromIndex(
-        index: NormalizedPrefixIndex,
-        words: MutableList<DictionaryWord>,
-        disabled: Set<String>
-    ) {
-        val normalizedWords = index.getAllNormalizedWords()
-        for (word in normalizedWords) {
-            // Get canonical form (with accents) and frequency rank
-            val results = index.getWordsWithPrefix(word)
-            val match = results.find { it.normalized == word }
-            val canonical = match?.bestCanonical ?: word
-            // Convert rank (0-255, 0=most common) to display frequency (1-10000)
-            // rank 0 → 10000, rank 255 → 1
-            val rank = match?.bestFrequencyRank ?: 255
-            val frequency = 10000 - (rank * 39)  // ~10000 to ~50
-            words.add(
-                DictionaryWord(
-                    word = canonical,  // Show accented form
-                    frequency = frequency.coerceIn(1, 10000),
-                    source = WordSource.MAIN,
-                    enabled = !disabled.contains(word) && !disabled.contains(canonical)
-                )
-            )
-        }
-    }
-
     companion object {
         private const val TAG = "MainDictionarySource"
         private const val PREFIX_INDEX_MAX_LENGTH = 3
 
-        // Per-language shared cache across MainDictionarySource instances.
-        // Eliminates redundant 98k-word binary dict parsing when DictionaryManager
-        // is reopened or tabs are switched (each fragment creates a new instance).
-        // Keyed by language code so multilang tabs don't evict each other.
-        // Thread-safe: synchronized on Companion in init{} and buildPrefixIndex().
         private data class LanguageCache(
             val words: List<DictionaryWord>,
             val prefixIndex: Map<String, List<DictionaryWord>>
         )
-        private val sharedCache = mutableMapOf<String, LanguageCache>()
+        private val sharedCache = DictionaryDisplayLoadCache<LanguageCache>()
 
-        /** Invalidate shared cache for all languages. */
-        fun invalidateCache() {
-            synchronized(this) {
-                sharedCache.clear()
-            }
-        }
-
-        /** Invalidate shared cache for a specific language. */
-        fun invalidateCache(languageCode: String) {
-            synchronized(this) {
-                sharedCache.remove(languageCode)
-            }
-        }
+        fun invalidateCache() { sharedCache.clear() }
+        fun invalidateCache(languageCode: String) { sharedCache.clear(languageCode) }
     }
 }
 

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="edit_typed_autocorrect_restore_help">Bezpośrednio po autokorekcie słowa wpisanego literami pierwszy krótki Backspace przywraca oryginał i zachowuje spację. Nieznane słowo można wtedy dodać z paska podpowiedzi. Następny Backspace wykonuje wybraną akcję.</string>
+</resources>

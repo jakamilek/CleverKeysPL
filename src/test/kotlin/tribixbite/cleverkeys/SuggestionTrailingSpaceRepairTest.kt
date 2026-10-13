@@ -160,6 +160,7 @@ class SuggestionTrailingSpaceRepairTest {
     private fun keyEventHandler(): KeyEventHandler {
         val keh = objenesis.newInstance(KeyEventHandler::class.java)
         keh.setField("recv", receiver())
+        keh.setField("cursorWordCapitalization", CursorWordCapitalization())
         keh.setField("autocap", mockk<Autocapitalisation>(relaxed = true))
         return keh
     }
@@ -171,6 +172,7 @@ class SuggestionTrailingSpaceRepairTest {
         override fun set_compose_pending(pending: Boolean) {}
         override fun selection_state_changed(selectionIsOngoing: Boolean) {}
         override fun getCurrentInputConnection(): InputConnection = ic
+        override fun getCurrentEditorInfo(): EditorInfo = editorInfo()
         override fun getHandler(): Handler = mockk(relaxed = true)
         override fun handle_text_typed(text: String) {}
         override fun wasLastSpaceAutoInserted(): Boolean = contextTracker.lastSpaceWasAutoInserted
@@ -399,3 +401,4 @@ class SuggestionTrailingSpaceRepairTest {
         field.set(this, value)
     }
 }
+

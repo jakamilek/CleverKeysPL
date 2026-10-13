@@ -501,9 +501,9 @@
     <string name="input_suggestion_bar_opacity_title">Độ mờ thanh gợi ý</string>
     <string name="input_suggestion_bar_opacity_desc">Độ trong suốt của thanh gợi ý</string>
     <string name="input_auto_space_after_title">Tự động thêm dấu cách sau gợi ý</string>
-    <string name="input_auto_space_after_desc">Thêm khoảng trắng cuối khi chọn gợi ý</string>
+    <string name="input_auto_space_after_desc">Thêm khoảng trắng cuối khi chọn gợi ý Cho cả từ vuốt và gợi ý được chạm.</string>
     <string name="input_auto_space_before_title">Tự động thêm dấu cách trước gợi ý</string>
-    <string name="input_auto_space_before_desc">Chèn khoảng trắng đầu trước gợi ý được chạm (vuốt luôn thêm khoảng trắng)</string>
+    <string name="input_auto_space_before_desc">Chèn khoảng trắng đầu trước gợi ý được chạm (vuốt luôn thêm khoảng trắng) Cho cả từ vuốt và gợi ý được chạm.</string>
     <string name="input_backspace_undo_swipe_title">Xóa lùi hoàn tác vuốt</string>
     <string name="input_backspace_undo_swipe_desc">Nhấn xóa lùi ngay sau từ được vuốt sẽ xóa toàn bộ từ</string>
     <string name="input_show_exact_typed_title">Hiện từ đã gõ chính xác</string>
@@ -2204,4 +2204,36 @@
     <string name="cmd_timestamp_iso_desc">Chèn dấu thời gian ISO 8601 (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">trong %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Backspace ngắn</string>
+    <string name="edit_backspace_hold_select_title">Chọn từ khi giữ</string>
+    <string name="edit_backspace_release_delete_title">Xóa phần chọn khi thả</string>
+    <string name="edit_backspace_pause_enabled_title">Tạm dừng khi đổi hướng</string>
+    <string name="edit_backspace_pause_dp_title">Khoảng cách dừng</string>
+    <string name="edit_backspace_resume_dp_title">Khoảng cách tiếp tục</string>
+    <string name="edit_backspace_speed_percent_title">Tốc độ chọn</string>
+    <string name="edit_backspace_fast_percent_title">Chọn nhanh</string>
+    <string name="edit_backspace_accel_percent_title">Ngưỡng tăng tốc</string>
+    <string name="edit_punctuation_remove_space_title">Xóa khoảng trắng trước dấu câu</string>
+    <string name="edit_punctuation_add_space_title">Thêm khoảng trắng sau dấu câu</string>
+    <string name="edit_format_search_fields_title">Định dạng tự động trong tìm kiếm</string>
+    <string name="edit_numeric_period_caps_title">Viết hoa sau số và dấu chấm</string>
+    <string name="edit_shift_word_case_title">Shift đổi chữ đầu từ</string>
+    <string name="edit_shift_word_end_title">Shift cả ở cuối từ</string>
+    <string name="edit_show_case_variants_title">Hiện dạng viết hoa từ từ điển</string>
+    <string name="edit_exact_add_first_title">Thêm từ ở gợi ý đầu tiên</string>
+    <string name="edit_reset_suggestions_on_delete_title">Về đầu gợi ý sau Backspace</string>
+    <string name="edit_tap_character">Xóa ký tự hoặc khoảng trắng</string>
+    <string name="edit_tap_autocorrect">Hoàn tác sửa tự động, rồi ký tự</string>
+    <string name="edit_tap_swipe">Xóa từ vuốt cuối cùng, rồi ký tự</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Định dạng văn bản</string>
+    <string name="edit_backspace_help">Chọn khi giữ hoạt động trên toàn bàn phím. Khi tắt, xóa thông thường cần lặp phím. Thao tác chạm thay thế áp dụng ngay sau một gợi ý.</string>
+    <string name="edit_pause_help">Chuyển động ngược ngắn tạm dừng. Di chuyển xa hơn từ điểm dừng sẽ tiếp tục.</string>
+    <string name="edit_speed_help" formatted="false">So với tốc độ cử chỉ trước đây: 80% chậm hơn, 100% không đổi.</string>
+    <string name="edit_fast_help">Chế độ nhanh bắt đầu khi đi xa hơn phần chiều rộng màn hình này. Đổi hướng đặt lại khoảng cách.</string>
+    <string name="edit_format_help">Mật khẩu và trường kỹ thuật không bao giờ định dạng tự động. Tùy chọn dấu câu cần dấu câu thông minh; viết hoa sau số cần viết hoa tự động.</string>
+    <string name="edit_fallback_header">Chọn hai trục kiểu cũ</string>
 </resources>
+

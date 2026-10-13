@@ -482,9 +482,9 @@
     <string name="input_suggestion_bar_opacity_title">Opacity ng Bar ng Suhestiyon</string>
     <string name="input_suggestion_bar_opacity_desc">Transparency ng bar ng suhestiyon</string>
     <string name="input_auto_space_after_title">Auto-Space Pagkatapos ng Suhestiyon</string>
-    <string name="input_auto_space_after_desc">Magdagdag ng trailing space kapag pumili ng suhestiyon</string>
+    <string name="input_auto_space_after_desc">Magdagdag ng trailing space kapag pumili ng suhestiyon Para sa mga salitang swipe at tinap na mungkahi.</string>
     <string name="input_auto_space_before_title">Auto-Space Bago ang Suhestiyon</string>
-    <string name="input_auto_space_before_desc">Mag-insert ng leading space bago ang isang na-tap na suhestiyon (ang swipe ay palaging nagdadagdag ng space)</string>
+    <string name="input_auto_space_before_desc">Mag-insert ng leading space bago ang isang na-tap na suhestiyon (ang swipe ay palaging nagdadagdag ng space) Para sa mga salitang swipe at tinap na mungkahi.</string>
     <string name="input_backspace_undo_swipe_title">Backspace Undo ng Swipe</string>
     <string name="input_backspace_undo_swipe_desc">Ang pagpindot ng backspace kaagad pagkatapos ng isang swiped na salita ay nagtatanggal ng buong salita</string>
     <string name="input_show_exact_typed_title">Ipakita ang eksaktong na-type na salita</string>
@@ -2229,4 +2229,36 @@
     <string name="cmd_timestamp_iso_desc">Ilagay ang ISO 8601 timestamp (YYYY-MM-DDTHH:mm:ss)</string>
     <!-- 2026-09-30 i18n: settings search result section line (reviewer=model) -->
     <string name="settings_search_in_section">sa %1$s</string>
+
+    <!-- Configurable editing behavior (trial v9). -->
+    <string name="edit_backspace_tap_mode_title">Maikling Backspace</string>
+    <string name="edit_backspace_hold_select_title">Piliin ang salita sa matagal na pindot</string>
+    <string name="edit_backspace_release_delete_title">Burahin ang pinili sa pagbitaw</string>
+    <string name="edit_backspace_pause_enabled_title">I-pause kapag nagbago ang direksiyon</string>
+    <string name="edit_backspace_pause_dp_title">Layo para huminto</string>
+    <string name="edit_backspace_resume_dp_title">Layo para magpatuloy</string>
+    <string name="edit_backspace_speed_percent_title">Bilis ng pagpili</string>
+    <string name="edit_backspace_fast_percent_title">Mabilis na pagpili</string>
+    <string name="edit_backspace_accel_percent_title">Hangganan ng pagbilis</string>
+    <string name="edit_punctuation_remove_space_title">Alisin ang puwang bago ang bantas</string>
+    <string name="edit_punctuation_add_space_title">Magdagdag ng puwang pagkatapos ng bantas</string>
+    <string name="edit_format_search_fields_title">Awtomatikong format sa paghahanap</string>
+    <string name="edit_numeric_period_caps_title">Malaking titik pagkatapos ng numero at tuldok</string>
+    <string name="edit_shift_word_case_title">Binabago ng Shift ang unang titik</string>
+    <string name="edit_shift_word_end_title">Shift pati sa dulo ng salita</string>
+    <string name="edit_show_case_variants_title">Ipakita ang mga anyo ng malaking titik</string>
+    <string name="edit_exact_add_first_title">Pagdagdag ng salita sa unang mungkahi</string>
+    <string name="edit_reset_suggestions_on_delete_title">Ibalik sa simula ang mungkahi sa Backspace</string>
+    <string name="edit_tap_character">Burahin ang titik o puwang</string>
+    <string name="edit_tap_autocorrect">I-undo ang autocorrect, saka mga titik</string>
+    <string name="edit_tap_swipe">Burahin ang huling salitang swipe, saka mga titik</string>
+    <string name="edit_backspace_header">Backspace</string>
+    <string name="edit_format_header">Pag-format ng teksto</string>
+    <string name="edit_backspace_help">Gumagana ang pagpili sa buong keyboard habang nakapindot. Kapag naka-off, kailangan ng pag-uulit ng key para sa karaniwang pagbura. Ang ibang tap action ay para kaagad pagkatapos ng mungkahi.</string>
+    <string name="edit_pause_help">Humihinto ang maikling galaw sa kabilang direksiyon. Nagpapatuloy ang mas mahabang galaw mula sa hintuan.</string>
+    <string name="edit_speed_help" formatted="false">Batay sa dating bilis ng gesture: mas mabagal ang 80%, walang pagbabago ang 100%.</string>
+    <string name="edit_fast_help">Bibilis matapos lumampas sa bahaging ito ng lapad ng screen. Ibinabalik sa zero ang layo kapag nagbago ang direksiyon.</string>
+    <string name="edit_format_help">Walang awtomatikong format sa password at teknikal na field. Kailangan ng matalinong bantas para sa mga opsiyon ng bantas at awtomatikong malaking titik para sa mga numero.</string>
+    <string name="edit_fallback_header">Lumang pagpili sa dalawang axis</string>
 </resources>
+
